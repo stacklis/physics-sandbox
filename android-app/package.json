@@ -1,0 +1,20 @@
+{
+  "name": "physics-sandbox-android",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor wrapper for the physics sandbox web app.",
+  "scripts": {
+    "sync-web": "node sync.mjs",
+    "init-android": "cap add android",
+    "sync": "node sync.mjs && cap sync android",
+    "open": "cap open android",
+    "run": "cap run android"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  }
+}

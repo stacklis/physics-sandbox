@@ -1,0 +1,13 @@
+{
+  "appId": "com.stacklis.physicssandbox",
+  "appName": "Physics Sandbox",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

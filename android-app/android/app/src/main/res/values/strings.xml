@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Physics Sandbox</string>
+    <string name="title_activity_main">Physics Sandbox</string>
+    <string name="package_name">com.stacklis.physicssandbox</string>
+    <string name="custom_url_scheme">com.stacklis.physicssandbox</string>
+</resources>
