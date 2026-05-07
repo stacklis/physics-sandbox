@@ -1340,7 +1340,9 @@ body.interacting * {
   
   .stage { 
     min-height: 50vh; 
-    touch-action: manipulation;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   
   /* Tools horizontal scrolling strip */
@@ -1448,14 +1450,30 @@ body.interacting * {
     height: 16px;
   }
   
+  /* Destruction toggle on mobile */
+  .destruction-toggle {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  
   /* Slider rows in mobile */
   .slider-row {
     padding: 6px 10px;
-    min-width: 120px;
+    min-width: 100px;
   }
   
   .slider-row span {
     font-size: 10px;
+  }
+  
+  /* Grab strength slider on mobile */
+  .grab-strength {
+    min-width: 90px;
+    padding: 6px 8px;
+  }
+  
+  .grab-strength input[type=range] {
+    width: 50px;
   }
   
   /* Overlay toggles repositioned */
