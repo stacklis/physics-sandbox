@@ -518,9 +518,8 @@ input[type=range]::-moz-range-thumb {
   animation: none !important;
 }
 
-/* Prevent any rendering glitches with GPU layers */
+/* Prevent any rendering glitches with GPU layers - but NOT on stage (breaks pointer coords) */
 .layout,
-.stage,
 .tools,
 .topbar,
 .topbar-divider,
