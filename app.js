@@ -1730,7 +1730,17 @@ class FloatingOverlay {
     this.el.classList.add('dragging');
     this.drag.active = true;
     
+    // Get the exact current visual position of the overlay
     const rect = this.el.getBoundingClientRect();
+    
+    // Pin the overlay to left/top absolute coords matching its current visual position.
+    // This is critical — without it, overlays using CSS `right` snap on first drag.
+    this.el.style.left = rect.left + 'px';
+    this.el.style.top = rect.top + 'px';
+    this.el.style.right = 'auto';
+    this.el.style.bottom = 'auto';
+    
+    // Offset = where within the overlay the pointer landed
     this.drag.offsetX = e.clientX - rect.left;
     this.drag.offsetY = e.clientY - rect.top;
     this.drag.lastX = e.clientX;
