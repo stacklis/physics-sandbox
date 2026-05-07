@@ -1352,12 +1352,11 @@ class FloatingOverlay {
   
   setOpacity(val) {
     this.opacity = val;
-    // Apply to both background and backdrop-filter area
+    // Direct opacity control - no blur, clean transparency
     this.el.style.setProperty('--overlay-opacity', val);
-    // Adjust backdrop blur based on opacity for better see-through
-    const blurAmount = Math.max(4, 16 * val);
-    this.el.style.backdropFilter = `blur(${blurAmount}px)`;
-    this.el.style.webkitBackdropFilter = `blur(${blurAmount}px)`;
+    // Remove backdrop blur entirely for clean see-through
+    this.el.style.backdropFilter = 'none';
+    this.el.style.webkitBackdropFilter = 'none';
     if (this.opacitySlider) this.opacitySlider.value = val;
     this.saveState();
   }
