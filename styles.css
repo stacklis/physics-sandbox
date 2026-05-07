@@ -1324,6 +1324,22 @@ body.interacting * {
     display: none; 
   }
   
+  /* Topbar dynamic content - scrollable on mobile */
+  .topbar:not(.collapsed) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .topbar:not(.collapsed)::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .bar-group {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+  
   .brand {
     font-size: 15px;
     gap: 8px;
@@ -1340,7 +1356,9 @@ body.interacting * {
   
   .stage { 
     min-height: 50vh; 
-    touch-action: manipulation;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   
   /* Tools horizontal scrolling strip */
@@ -1401,6 +1419,19 @@ body.interacting * {
     padding-right: 40px; /* Space for fade gradient */
   }
   
+  /* Tool grid flows horizontally on mobile */
+  .tool-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  .tool-grid > * {
+    flex: 0 0 auto;
+  }
+  
   .section-title {
     display: none;
   }
@@ -1409,32 +1440,32 @@ body.interacting * {
     display: none;
   }
   
-  /* Mobile tool/preset buttons */
-  .tool, .preset, .material {
+  /* Mobile tool/preset buttons - compact icon-only for tools */
+  .tool {
     width: auto;
     flex: 0 0 auto;
-    padding: 10px 14px;
+    padding: 8px;
     margin: 0;
-    min-width: auto;
-    font-size: 12px;
-  }
-  
-  .tool {
-    min-width: 60px;
+    min-width: 40px;
+    flex-direction: column;
+    gap: 2px;
   }
   
   .tool svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
   
   .tool span {
-    font-size: 11px;
+    font-size: 9px;
   }
   
   .preset, .material {
-    font-size: 11px;
-    padding: 8px 12px;
+    flex: 0 0 auto;
+    font-size: 10px;
+    padding: 6px 10px;
+    min-width: auto;
+    white-space: nowrap;
   }
   
   .check {
@@ -1448,14 +1479,30 @@ body.interacting * {
     height: 16px;
   }
   
+  /* Destruction toggle on mobile */
+  .destruction-toggle {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  
   /* Slider rows in mobile */
   .slider-row {
     padding: 6px 10px;
-    min-width: 120px;
+    min-width: 100px;
   }
   
   .slider-row span {
     font-size: 10px;
+  }
+  
+  /* Grab strength slider on mobile */
+  .grab-strength {
+    min-width: 90px;
+    padding: 6px 8px;
+  }
+  
+  .grab-strength input[type=range] {
+    width: 50px;
   }
   
   /* Overlay toggles repositioned */
@@ -1481,9 +1528,17 @@ body.interacting * {
   .floating-overlay {
     max-width: calc(100vw - 24px);
     max-height: 55vh;
+    font-size: 13px;
+    touch-action: none !important;
+  }
+  
+  /* Only allow scrolling inside the content, not the entire overlay */
+  .floating-overlay .lesson-body,
+  .floating-overlay .readout-grid {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    font-size: 13px;
+    max-height: 40vh;
+    touch-action: pan-y;
   }
   
   .floating-overlay .metric {
@@ -1603,19 +1658,20 @@ body.interacting * {
 
 /* ======================= FLOATING OVERLAYS ======================= */
 .floating-overlay {
-  --overlay-opacity: 0.9;
+  --overlay-opacity: 0.92;
   --overlay-scale: 1;
   position: fixed;
   z-index: 100;
-  background: rgba(15, 17, 24, var(--overlay-opacity));
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: none;
+  background: rgba(12, 14, 20, var(--overlay-opacity));
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
   padding: 12px 14px;
   box-shadow: 
-    0 4px 24px rgba(0, 0, 0, calc(0.5 * var(--overlay-opacity))), 
-    0 0 0 0.5px rgba(255, 255, 255, calc(0.08 * var(--overlay-opacity)));
+    0 8px 32px rgba(0, 0, 0, 0.4), 
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   max-width: calc(340px * var(--overlay-scale));
   min-width: calc(180px * var(--overlay-scale));
   cursor: grab;

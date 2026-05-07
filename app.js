@@ -421,22 +421,62 @@ function canvasPos(ev) {
   return new Vec2(ev.clientX - r.left, ev.clientY - r.top);
 }
 
-// Right-click: deselect tool and switch to grab
-canvas.addEventListener('contextmenu', (ev) => {
-  ev.preventDefault();
-  
-  // Deselect any active material
+// Helper function to switch to grab tool
+function switchToGrabTool() {
   state.activeMaterial = null;
   document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
-  
-  // Switch to grab tool
   state.tool = 'grab';
   document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
   const grabTool = document.querySelector('.tool[data-tool="grab"]');
   if (grabTool) grabTool.classList.add('active');
-  
   triggerHaptic('light');
+}
+
+// Right-click: deselect tool and switch to grab
+canvas.addEventListener('contextmenu', (ev) => {
+  ev.preventDefault();
+  switchToGrabTool();
 });
+
+// Long-press on mobile: deselect tool and switch to grab (500ms)
+let longPressTimer = null;
+let longPressTriggered = false;
+
+canvas.addEventListener('pointerdown', (ev) => {
+  if (ev.pointerType === 'touch') {
+    longPressTriggered = false;
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      switchToGrabTool();
+      // Cancel any ongoing drag
+      state.dragStart = null;
+      state.dragCurrent = null;
+      endGrab();
+    }, 500);
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointermove', () => {
+  // Cancel long press if user moves finger
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointerup', () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointercancel', () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
 
 canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
@@ -1850,11 +1890,12 @@ class FloatingOverlay {
   
   setOpacity(val) {
     this.opacity = val;
-    // Direct opacity control - no blur, clean transparency
+    // Control opacity while maintaining frosted glass effect
     this.el.style.setProperty('--overlay-opacity', val);
-    // Remove backdrop blur entirely for clean see-through
-    this.el.style.backdropFilter = 'none';
-    this.el.style.webkitBackdropFilter = 'none';
+    // Adjust blur based on opacity - more blur when more transparent
+    const blurAmount = Math.max(8, 16 * (1 - val));
+    this.el.style.backdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
+    this.el.style.webkitBackdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
     if (this.opacitySlider) this.opacitySlider.value = val;
     this.saveState();
   }
