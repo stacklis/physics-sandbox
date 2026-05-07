@@ -480,14 +480,29 @@ canvas.addEventListener('pointermove', (ev) => {
   const wp = screenToWorld(cp.x, cp.y);
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
-    // Track mouse velocity for throw force calculation
+    // Track mouse velocity for throw force calculation using rolling average
     const now = performance.now();
     if (state.grabLastPos) {
-      const dt = Math.max(1, now - state.grabLastTime) / 1000; // seconds
+      const dt = Math.max(0.001, (now - state.grabLastTime) / 1000); // seconds
       const dx = (wp.x - state.grabLastPos.x) / dt;
       const dy = (wp.y - state.grabLastPos.y) / dt;
-      const mouseVel = Math.sqrt(dx * dx + dy * dy);
-      state.grabMouseVelocity = { x: dx, y: dy, mag: mouseVel };
+      
+      // Store velocity samples for smoothing
+      if (!state.grabVelSamples) state.grabVelSamples = [];
+      state.grabVelSamples.push({ x: dx, y: dy, t: now });
+      // Keep last 8 samples (roughly 130ms at 60fps)
+      if (state.grabVelSamples.length > 8) state.grabVelSamples.shift();
+      
+      // Average recent samples for smooth throw direction
+      let avgX = 0, avgY = 0;
+      for (const s of state.grabVelSamples) {
+        avgX += s.x;
+        avgY += s.y;
+      }
+      avgX /= state.grabVelSamples.length;
+      avgY /= state.grabVelSamples.length;
+      
+      state.grabMouseVelocity = { x: avgX, y: avgY, mag: Math.sqrt(avgX*avgX + avgY*avgY) };
     }
     state.grabLastPos = { x: wp.x, y: wp.y };
     state.grabLastTime = now;
@@ -605,11 +620,12 @@ function endGrab() {
   }
   
   // Apply mouse velocity as additional throw force
-  if (releasedBody && state.grabMouseVelocity) {
+  if (releasedBody && state.grabMouseVelocity && state.grabMouseVelocity.mag > 0.5) {
     const mouseVel = state.grabMouseVelocity;
     const strength = state.grabStrength;
-    // Scale the mouse velocity to add extra throw impulse
-    const throwMultiplier = 0.5 * strength;
+    // Scale the mouse velocity to add significant throw impulse
+    // Higher multiplier = more responsive to fast mouse movements
+    const throwMultiplier = 1.2 * strength;
     releasedBody.velocity.x += mouseVel.x * throwMultiplier;
     releasedBody.velocity.y += mouseVel.y * throwMultiplier;
     releaseVelocity = releasedBody.velocity.length();
@@ -639,6 +655,7 @@ function endGrab() {
   state.grabMouseVelocity = null;
   state.grabLastPos = null;
   state.grabLastTime = null;
+  state.grabVelSamples = null;
 }
 
 /* =========================== pin / slice =========================== */
