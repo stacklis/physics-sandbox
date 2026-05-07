@@ -339,8 +339,11 @@ input[type=range]::-moz-range-thumb {
 .tools-divider {
   position: relative;
   width: 12px;
+  min-width: 12px;
+  height: 100%;
   background: var(--bg-1);
   border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   cursor: ew-resize;
   touch-action: none;
   z-index: 5;
@@ -353,14 +356,15 @@ input[type=range]::-moz-range-thumb {
 .tools-divider:hover {
   background: var(--bg-2);
   width: 14px;
+  min-width: 14px;
 }
 
 .divider-handle {
   width: 4px;
-  height: 48px;
+  height: 60px;
   background: linear-gradient(180deg, var(--accent), var(--secondary));
   border-radius: 3px;
-  opacity: 0.4;
+  opacity: 0.5;
   transition: all 0.2s ease;
 }
 

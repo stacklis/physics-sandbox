@@ -1141,8 +1141,10 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 }
 
 // Tools divider setup
+const toolsDividerEl = document.getElementById('toolsDivider');
+console.log('[v0] Tools divider element:', toolsDividerEl);
 setupDivider(
-  document.getElementById('toolsDivider'),
+  toolsDividerEl,
   (e, r, mobile) => {
     const minSize = mobile ? 36 : 80;
     const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
