@@ -983,6 +983,20 @@ function updateTrails() {
   }
 }
 
+// ======================= HAPTIC FEEDBACK =======================
+function triggerHaptic(type = 'light') {
+  if ('vibrate' in navigator) {
+    const patterns = {
+      light: [8],
+      medium: [15],
+      heavy: [25],
+      double: [10, 30, 10],
+      success: [10, 50, 20]
+    };
+    navigator.vibrate(patterns[type] || patterns.light);
+  }
+}
+
 /* =========================== UI wiring =========================== */
 ui.gravity.addEventListener('input', () => {
   world.gravity = parseFloat(ui.gravity.value);
@@ -1003,29 +1017,32 @@ ui.clearBtn.addEventListener('click', () => {
   world.preSubstep = null;
 });
 
-// tool buttons
+// tool buttons with haptic feedback
 document.querySelectorAll('.tool').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
+    triggerHaptic('light');
   });
 });
 
-// presets
+// presets with haptic
 document.querySelectorAll('.preset').forEach(el => {
   el.addEventListener('click', () => {
     loadPreset(el.dataset.preset);
     world.emit({ type: 'preset', name: el.dataset.preset });
+    triggerHaptic('double');
   });
 });
 
-// level selection
+// level selection with haptic
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     educator.setLevel(parseInt(el.dataset.level, 10));
+    triggerHaptic('light');
   });
 });
 
@@ -1047,16 +1064,45 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
-// Draggable dividers — pointer events handle mouse + touch uniformly.
+// ======================= TOOLS PANEL COLLAPSE =======================
+const toolsPanel = document.getElementById('toolsPanel');
+const toolsCollapseBtn = document.getElementById('toolsCollapseBtn');
+
+function toggleToolsCollapse() {
+  triggerHaptic('light');
+  toolsPanel.classList.toggle('collapsed');
+  const isCollapsed = toolsPanel.classList.contains('collapsed');
+  try { localStorage.setItem('ps.toolsCollapsed', isCollapsed ? '1' : '0'); } catch (e) {}
+  requestAnimationFrame(resize);
+}
+
+toolsCollapseBtn.addEventListener('click', toggleToolsCollapse);
+
+// Restore collapsed state
+try {
+  if (localStorage.getItem('ps.toolsCollapsed') === '1') {
+    toolsPanel.classList.add('collapsed');
+  }
+} catch (e) {}
+
+// ======================= DRAGGABLE DIVIDERS =======================
 function setupDivider(divider, computeSize, varName, storeKey) {
+  if (!divider) return;
   let dragging = false;
+  
   divider.addEventListener('pointerdown', (e) => {
+    // Un-collapse tools when starting to drag
+    if (toolsPanel.classList.contains('collapsed')) {
+      toolsPanel.classList.remove('collapsed');
+    }
     e.preventDefault();
-    divider.setPointerCapture(e.pointerId);
+    try { divider.setPointerCapture(e.pointerId); } catch (err) {}
     divider.classList.add('dragging');
     layoutEl.classList.add('resizing');
     dragging = true;
+    triggerHaptic('light');
   });
+  
   divider.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const isMobile = window.matchMedia('(max-width: 860px)').matches;
@@ -1064,40 +1110,64 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     const size = computeSize(e, r, isMobile);
     layoutEl.style.setProperty(varName, size + 'px');
   });
+  
   divider.addEventListener('pointerup', () => {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
     layoutEl.classList.remove('resizing');
     resize();
+    triggerHaptic('medium');
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
+  
+  divider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
+  });
 }
-// Tools divider - left side only (panel removed)
+
+// Tools divider setup
 setupDivider(
   document.getElementById('toolsDivider'),
   (e, r, mobile) => {
     const minSize = mobile ? 36 : 80;
-    const maxSize = mobile ? r.height * 0.4 : r.width * 0.35;
+    const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
     const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
     return Math.max(minSize, Math.min(maxSize, rawSize));
   },
   '--tools-size', 'ps.toolsSize'
 );
+
+// Restore tools size
 try {
   const ts = localStorage.getItem('ps.toolsSize');
-  if (ts) layoutEl.style.setProperty('--tools-size', ts);
+  if (ts && !toolsPanel.classList.contains('collapsed')) {
+    layoutEl.style.setProperty('--tools-size', ts);
+  }
 } catch (e) {}
 
 // ======================= MODULAR OVERLAY SYSTEM =======================
-// Reusable overlay manager with fluid dragging
+// Reusable overlay manager with fluid touch dragging and inertia
 class FloatingOverlay {
   constructor(id, toggleId, storageKey) {
     this.el = document.getElementById(id);
     this.toggle = document.getElementById(toggleId);
     this.storageKey = storageKey;
-    this.drag = { active: false, offsetX: 0, offsetY: 0, startX: 0, startY: 0 };
+    this.drag = { 
+      active: false, 
+      offsetX: 0, 
+      offsetY: 0, 
+      velocityX: 0, 
+      velocityY: 0,
+      lastX: 0,
+      lastY: 0,
+      lastTime: 0
+    };
     this.opacity = 0.92;
+    this.inertiaRAF = null;
     
     if (!this.el || !this.toggle) return;
     
@@ -1108,20 +1178,34 @@ class FloatingOverlay {
   }
   
   init() {
-    // Toggle button
-    this.toggle.addEventListener('click', () => this.toggleVisibility());
-    if (this.closeBtn) this.closeBtn.addEventListener('click', () => this.hide());
+    // Toggle button with haptic
+    this.toggle.addEventListener('click', () => {
+      triggerHaptic('light');
+      this.toggleVisibility();
+    });
+    if (this.closeBtn) {
+      this.closeBtn.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.hide();
+      });
+    }
     
     // Opacity slider
     if (this.opacitySlider) {
       this.opacitySlider.addEventListener('input', () => this.setOpacity(parseFloat(this.opacitySlider.value)));
     }
     
-    // Fluid dragging with momentum
-    this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-    this.el.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    // Enhanced touch dragging with velocity tracking
+    this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
+    this.el.addEventListener('pointermove', (e) => this.onPointerMove(e), { passive: false });
     this.el.addEventListener('pointerup', (e) => this.onPointerUp(e));
     this.el.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+    this.el.addEventListener('lostpointercapture', (e) => this.onPointerUp(e));
+    
+    // Prevent context menu on long press
+    this.el.addEventListener('contextmenu', (e) => {
+      if (this.drag.active) e.preventDefault();
+    });
     
     // Restore state
     this.restoreState();
@@ -1136,7 +1220,7 @@ class FloatingOverlay {
   }
   
   show() {
-    // Set initial position if not set
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
     if (!this.el.style.left && !this.el.style.right) {
       this.setDefaultPosition();
     }
@@ -1146,6 +1230,7 @@ class FloatingOverlay {
   }
   
   hide() {
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
     this.el.classList.remove('visible');
     this.toggle.classList.remove('active');
     this.saveState();
@@ -1156,7 +1241,7 @@ class FloatingOverlay {
     const defaultY = this.el.dataset.defaultY || '70';
     
     if (defaultX === 'right') {
-      this.el.style.right = '16px';
+      this.el.style.right = '70px';
       this.el.style.left = 'auto';
     } else if (defaultX === 'center') {
       this.el.style.left = Math.max(16, (window.innerWidth - 320) / 2) + 'px';
@@ -1168,28 +1253,56 @@ class FloatingOverlay {
   
   setOpacity(val) {
     this.opacity = val;
-    this.el.style.background = `rgba(15, 17, 24, ${val})`;
+    // Apply to both background and backdrop-filter area
+    this.el.style.setProperty('--overlay-opacity', val);
     if (this.opacitySlider) this.opacitySlider.value = val;
     this.saveState();
   }
   
   onPointerDown(e) {
-    if (e.target.matches('input, button, a')) return;
+    if (e.target.matches('input, button, a, .floating-overlay-close')) return;
     e.preventDefault();
-    this.el.setPointerCapture(e.pointerId);
+    
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    
     this.el.classList.add('dragging');
     this.drag.active = true;
+    
     const rect = this.el.getBoundingClientRect();
     this.drag.offsetX = e.clientX - rect.left;
     this.drag.offsetY = e.clientY - rect.top;
-    this.drag.startX = rect.left;
-    this.drag.startY = rect.top;
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = performance.now();
+    this.drag.velocityX = 0;
+    this.drag.velocityY = 0;
+    
+    triggerHaptic('light');
   }
   
   onPointerMove(e) {
     if (!this.drag.active) return;
+    e.preventDefault();
+    
+    const now = performance.now();
+    const dt = Math.max(1, now - this.drag.lastTime);
+    
+    // Calculate velocity for inertia
+    this.drag.velocityX = (e.clientX - this.drag.lastX) / dt * 16;
+    this.drag.velocityY = (e.clientY - this.drag.lastY) / dt * 16;
+    
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = now;
+    
+    // Clamp position
     const x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, e.clientX - this.drag.offsetX));
     const y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, e.clientY - this.drag.offsetY));
+    
     this.el.style.left = x + 'px';
     this.el.style.right = 'auto';
     this.el.style.top = y + 'px';
@@ -1199,7 +1312,47 @@ class FloatingOverlay {
     if (!this.drag.active) return;
     this.drag.active = false;
     this.el.classList.remove('dragging');
-    this.saveState();
+    
+    // Apply inertia if velocity is significant
+    const speed = Math.sqrt(this.drag.velocityX ** 2 + this.drag.velocityY ** 2);
+    if (speed > 0.5) {
+      this.applyInertia();
+    } else {
+      this.saveState();
+    }
+  }
+  
+  applyInertia() {
+    const friction = 0.92;
+    const minVelocity = 0.1;
+    
+    const animate = () => {
+      this.drag.velocityX *= friction;
+      this.drag.velocityY *= friction;
+      
+      let x = parseFloat(this.el.style.left) + this.drag.velocityX;
+      let y = parseFloat(this.el.style.top) + this.drag.velocityY;
+      
+      // Bounce off edges with damping
+      const maxX = window.innerWidth - this.el.offsetWidth;
+      const maxY = window.innerHeight - this.el.offsetHeight;
+      
+      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      
+      this.el.style.left = x + 'px';
+      this.el.style.top = y + 'px';
+      
+      if (Math.abs(this.drag.velocityX) > minVelocity || Math.abs(this.drag.velocityY) > minVelocity) {
+        this.inertiaRAF = requestAnimationFrame(animate);
+      } else {
+        this.saveState();
+      }
+    };
+    
+    this.inertiaRAF = requestAnimationFrame(animate);
   }
   
   saveState() {

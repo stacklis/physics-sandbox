@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=8" />
+<link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
 <header class="topbar">
@@ -44,8 +44,10 @@
 </header>
 
 <main class="layout">
-  <div class="resize-divider divider-tools" id="toolsDivider" role="separator" aria-label="Resize tools" title="Drag to resize tools"></div>
-  <aside class="tools" aria-label="Tools">
+  <aside class="tools" aria-label="Tools" id="toolsPanel">
+    <button class="tools-collapse-btn" id="toolsCollapseBtn" aria-label="Collapse tools" title="Collapse/expand tools">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
     <div class="tool-section">
       <div class="section-title">Spawn</div>
       <div class="tool-grid">
@@ -139,7 +141,9 @@
       </label>
     </div>
   </aside>
-
+  <div class="tools-divider" id="toolsDivider" role="separator" aria-label="Resize tools panel" title="Drag to resize">
+    <div class="divider-handle"></div>
+  </div>
   <section class="stage">
     <canvas id="canvas"></canvas>
     <div id="hint" class="hint">
@@ -240,8 +244,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=7"></script>
-<script src="education.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="engine.js?v=8"></script>
+<script src="education.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

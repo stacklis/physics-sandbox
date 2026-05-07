@@ -295,48 +295,154 @@ input[type=range]::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* ======================= DIVIDERS ======================= */
-.resize-divider {
-  position: absolute;
-  z-index: 5;
-  touch-action: none;
-  right: var(--panel-size, 340px);
-  top: 0;
-  bottom: 0;
-  width: 14px;
-  cursor: ew-resize;
+/* ======================= TOOLS DIVIDER ======================= */
+.tools-divider {
+  position: relative;
+  width: 12px;
   background: var(--bg-1);
   border-left: 1px solid var(--line);
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, width 0.2s;
 }
 
-.resize-divider::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+.tools-divider:hover {
+  background: var(--bg-2);
+  width: 14px;
+}
+
+.divider-handle {
   width: 4px;
   height: 48px;
   background: linear-gradient(180deg, var(--accent), var(--secondary));
   border-radius: 3px;
-  opacity: 0.5;
+  opacity: 0.4;
   transition: all 0.2s ease;
 }
 
-.resize-divider:hover::before,
-.resize-divider.dragging::before {
+.tools-divider:hover .divider-handle,
+.tools-divider.dragging .divider-handle {
   opacity: 1;
   height: 70px;
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
+.tools-divider.dragging {
+  background: var(--bg-3);
+}
 
+/* Tools collapse button */
+.tools-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
 
-.divider-tools {
-  right: auto;
-  left: var(--tools-size, 220px);
-  border-left: 0;
-  border-right: 1px solid var(--line);
+.tools-collapse-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tools-collapse-btn:hover {
+  background: var(--bg-4);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tools.collapsed .tools-collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Collapsed tools state */
+.tools.collapsed {
+  --tools-size: 48px !important;
+  width: 48px;
+  min-width: 48px;
+  padding: 8px 6px;
+  padding-top: 44px;
+}
+
+.tools.collapsed .tool-section {
+  flex-direction: column;
+  align-items: center;
+}
+
+.tools.collapsed .section-title {
+  display: none;
+}
+
+.tools.collapsed .tool-grid {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tools.collapsed .tool {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 6px;
+  justify-content: center;
+}
+
+.tools.collapsed .tool span {
+  display: none;
+}
+
+.tools.collapsed .tool svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tools.collapsed .preset {
+  width: 36px;
+  min-width: 36px;
+  padding: 6px;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.tools.collapsed .check {
+  width: 36px;
+  min-width: 36px;
+  padding: 6px;
+  justify-content: center;
+  font-size: 0;
+}
+
+.tools.collapsed .check input {
+  margin: 0;
+}
+
+.tools.collapsed .slider-row {
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.tools.collapsed .slider-row span {
+  display: none;
+}
+
+.tools.collapsed .slider-row input {
+  width: 32px;
+  transform: rotate(-90deg);
+  transform-origin: center;
 }
 
 /* ======================= CARD COLLAPSE ======================= */
@@ -362,19 +468,24 @@ input[type=range]::-moz-range-thumb {
   flex: 1;
   position: relative;
   display: grid;
-  grid-template-columns: var(--tools-size, 200px) 1fr;
+  grid-template-columns: var(--tools-size, 200px) auto 1fr;
   min-height: 0;
 }
 
 /* ======================= TOOLS ======================= */
 .tools {
+  position: relative;
   background: linear-gradient(180deg, var(--bg-1), var(--bg));
   border-right: 1px solid var(--line);
   padding: 12px 10px;
+  padding-top: 44px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tool-section {
@@ -382,6 +493,7 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Tool grid container - wraps when narrow with smooth settling */
@@ -394,7 +506,7 @@ input[type=range]::-moz-range-thumb {
 
 /* Smooth settling animation for all tool items */
 .tool-grid > * {
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .section-title {
@@ -966,7 +1078,7 @@ input[type=range]::-moz-range-thumb {
 /* ======================= RESPONSIVE ======================= */
 @media (max-width: 1100px) {
   .layout {
-    grid-template-columns: var(--tools-size, 160px) 1fr;
+    grid-template-columns: var(--tools-size, 160px) auto 1fr;
   }
 }
 
@@ -976,7 +1088,11 @@ input[type=range]::-moz-range-thumb {
     grid-template-rows: var(--tools-size, 56px) 1fr;
   }
   
-  .resize-divider {
+  .tools-divider {
+    display: none;
+  }
+  
+  .tools-collapse-btn {
     display: none;
   }
   
@@ -1008,6 +1124,14 @@ input[type=range]::-moz-range-thumb {
     border-right: 0;
     border-bottom: 1px solid var(--line);
     scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tools.collapsed {
+    --tools-size: 56px !important;
+    width: auto;
+    min-width: auto;
+    padding: 8px 10px;
   }
   
   .tool-section {
@@ -1035,7 +1159,7 @@ input[type=range]::-moz-range-thumb {
   .tool, .preset {
     width: auto;
     flex: 0 0 auto;
-    padding: 6px 10px;
+    padding: 8px 12px;
     margin: 0;
   }
   
@@ -1044,7 +1168,7 @@ input[type=range]::-moz-range-thumb {
   }
   
   .check {
-    padding: 5px 8px;
+    padding: 6px 10px;
     white-space: nowrap;
   }
   
@@ -1053,25 +1177,42 @@ input[type=range]::-moz-range-thumb {
     bottom: 16px;
     right: 16px;
     flex-direction: row;
+    gap: 10px;
+  }
+  
+  .overlay-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .overlay-toggle svg {
+    width: 20px;
+    height: 20px;
   }
   
   .floating-overlay {
     max-width: calc(100vw - 32px);
     max-height: 60vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
 /* ======================= FLOATING OVERLAYS ======================= */
 .floating-overlay {
+  --overlay-opacity: 0.92;
   position: fixed;
   z-index: 100;
-  background: rgba(15, 17, 24, 0.92);
+  background: rgba(15, 17, 24, var(--overlay-opacity));
   backdrop-filter: blur(16px);
-  border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
   padding: 14px 16px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255,255,255,0.1) inset;
+  box-shadow: 
+    0 8px 40px rgba(0, 0, 0, 0.5), 
+    0 0 1px rgba(255,255,255,0.1) inset,
+    0 0 0 1px rgba(0, 0, 0, 0.3);
   max-width: 340px;
   min-width: 220px;
   cursor: grab;
@@ -1081,6 +1222,7 @@ input[type=range]::-moz-range-thumb {
   transform: scale(0.95) translateY(8px);
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
               transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: none;
 }
 
 .floating-overlay.visible {
