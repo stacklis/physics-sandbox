@@ -182,8 +182,9 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
-// Destruction threshold for breaking objects (lowered to 4 for easier breaking)
-const DESTRUCTION_THRESHOLD = 4;
+// Destruction threshold for breaking objects (velocity in m/s)
+// Requires extremely forceful impacts - only violent collisions will break objects
+const DESTRUCTION_THRESHOLD = 100;
 
 world.on(ev => {
   if (ev.type === 'collision') {
@@ -191,10 +192,9 @@ world.on(ev => {
     
     // Destruction mode: break objects on impacts
     if (state.destructionMode) {
-      const { bodyA, bodyB } = ev;
-      
-      // Debug: log collision info
-      console.log('[v0] Collision detected, relVelocity:', ev.relVelocity, 'threshold:', DESTRUCTION_THRESHOLD);
+      // Engine uses 'a' and 'b', not 'bodyA' and 'bodyB'
+      const bodyA = ev.a;
+      const bodyB = ev.b;
       
       // Use body positions as impact point if ev.point is missing
       const impactPoint = ev.point || (bodyA && bodyB ? {
@@ -202,30 +202,26 @@ world.on(ev => {
         y: (bodyA.position.y + bodyB.position.y) / 2
       } : null);
       
-      // Check velocities - use body velocity magnitude if relVelocity seems low
+      // Check velocities - use body velocity magnitude
       const velA = bodyA ? bodyA.velocity.length() : 0;
       const velB = bodyB ? bodyB.velocity.length() : 0;
       const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
       const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
       
-      console.log('[v0] effectiveVelA:', effectiveVelA, 'effectiveVelB:', effectiveVelB);
+      // Use material-specific destruction threshold if set, otherwise use global default
+      const thresholdA = bodyA?.destructionThreshold ?? DESTRUCTION_THRESHOLD;
+      const thresholdB = bodyB?.destructionThreshold ?? DESTRUCTION_THRESHOLD;
       
       const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
       const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
       
-      console.log('[v0] canDestroyA:', canDestroyA, 'canDestroyB:', canDestroyB);
-      
-      const shouldDestroyA = canDestroyA && (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
-      const shouldDestroyB = canDestroyB && (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
-      
-      console.log('[v0] shouldDestroyA:', shouldDestroyA, 'shouldDestroyB:', shouldDestroyB);
+      const shouldDestroyA = canDestroyA && (effectiveVelA > thresholdA || bodyA._destroyOnImpact);
+      const shouldDestroyB = canDestroyB && (effectiveVelB > thresholdB || bodyB._destroyOnImpact);
       
       if (shouldDestroyA) {
-        console.log('[v0] Destroying body A');
         setTimeout(() => destroyBody(bodyA, impactPoint, effectiveVelA), 0);
       }
       if (shouldDestroyB) {
-        console.log('[v0] Destroying body B');
         setTimeout(() => destroyBody(bodyB, impactPoint, effectiveVelB), 0);
       }
     }
@@ -272,12 +268,7 @@ const state = {
 /* =========================== DESTRUCTION SYSTEM =========================== */
 // Breaks a body into voxel fragments on collision
 function destroyBody(body, impactPoint, impactForce) {
-  console.log('[v0] destroyBody called, body:', body, 'impactForce:', impactForce);
-  if (!body || body.isStatic || walls.includes(body) || body._destroyed) {
-    console.log('[v0] destroyBody early return - body:', !!body, 'isStatic:', body?.isStatic, 'isWall:', walls.includes(body), 'destroyed:', body?._destroyed);
-    return [];
-  }
-  console.log('[v0] Proceeding with destruction');
+  if (!body || body.isStatic || walls.includes(body) || body._destroyed) return [];
   body._destroyed = true;
   
   const fragments = [];
@@ -355,15 +346,17 @@ function updateFragments(dt) {
 }
 
 /* =========================== MATERIALS SYSTEM =========================== */
+// Each material has: density, friction, restitution, color, name, and destructionThreshold
+// destructionThreshold: velocity (m/s) needed to break object - lower = more fragile, higher = tougher
 const MATERIALS = {
-  default: { density: 1, friction: 0.3, restitution: 0.4, color: null, name: 'Default' },
-  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d', name: 'Rubber' },
-  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff', name: 'Ice' },
-  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0', name: 'Metal' },
-  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c', name: 'Wood' },
-  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0', name: 'Bouncy' },
-  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e', name: 'Heavy' },
-  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7', name: 'Light' },
+  default: { density: 1, friction: 0.3, restitution: 0.4, color: null, name: 'Default', destructionThreshold: 100 },
+  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d', name: 'Rubber', destructionThreshold: 150 },
+  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff', name: 'Ice', destructionThreshold: 15 },
+  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0', name: 'Metal', destructionThreshold: 200 },
+  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c', name: 'Wood', destructionThreshold: 40 },
+  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0', name: 'Bouncy', destructionThreshold: 120 },
+  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e', name: 'Heavy', destructionThreshold: 250 },
+  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7', name: 'Light', destructionThreshold: 25 },
 };
 
 // Apply material to an existing body
@@ -387,8 +380,9 @@ function applyMaterialToBody(body, materialKey) {
     body.color = mat.color;
   }
   
-  // Store material name on body
+  // Store material name and destruction threshold on body
   body.materialName = materialKey;
+  body.destructionThreshold = mat.destructionThreshold;
   
   return true;
 }
@@ -427,9 +421,21 @@ function canvasPos(ev) {
   return new Vec2(ev.clientX - r.left, ev.clientY - r.top);
 }
 
-// Prevent context menu on canvas for right-click material reset
+// Right-click: deselect tool and switch to grab
 canvas.addEventListener('contextmenu', (ev) => {
-  if (state.activeMaterial) ev.preventDefault();
+  ev.preventDefault();
+  
+  // Deselect any active material
+  state.activeMaterial = null;
+  document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+  
+  // Switch to grab tool
+  state.tool = 'grab';
+  document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
+  const grabTool = document.querySelector('.tool[data-tool="grab"]');
+  if (grabTool) grabTool.classList.add('active');
+  
+  triggerHaptic('light');
 });
 
 canvas.addEventListener('pointerdown', (ev) => {
