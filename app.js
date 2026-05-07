@@ -1166,6 +1166,13 @@ class FloatingOverlay {
       lastY: 0,
       lastTime: 0
     };
+    this.pinch = {
+      active: false,
+      initialDistance: 0,
+      initialScale: 1,
+      pointers: new Map()
+    };
+    this.scale = 1;
     this.opacity = 0.92;
     this.inertiaRAF = null;
     
@@ -1195,20 +1202,73 @@ class FloatingOverlay {
       this.opacitySlider.addEventListener('input', () => this.setOpacity(parseFloat(this.opacitySlider.value)));
     }
     
-    // Enhanced touch dragging with velocity tracking
+    // Multi-touch support for pinch and drag
     this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
     this.el.addEventListener('pointermove', (e) => this.onPointerMove(e), { passive: false });
     this.el.addEventListener('pointerup', (e) => this.onPointerUp(e));
     this.el.addEventListener('pointercancel', (e) => this.onPointerUp(e));
     this.el.addEventListener('lostpointercapture', (e) => this.onPointerUp(e));
     
+    // Touch events for better pinch detection
+    this.el.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+    this.el.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+    this.el.addEventListener('touchend', (e) => this.onTouchEnd(e));
+    
     // Prevent context menu on long press
     this.el.addEventListener('contextmenu', (e) => {
-      if (this.drag.active) e.preventDefault();
+      if (this.drag.active || this.pinch.active) e.preventDefault();
     });
     
     // Restore state
     this.restoreState();
+  }
+  
+  // Pinch gesture helpers
+  getTouchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  onTouchStart(e) {
+    if (e.target.matches('input, button, a')) return;
+    
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      this.pinch.active = true;
+      this.drag.active = false;
+      this.pinch.initialDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      this.pinch.initialScale = this.scale;
+      this.el.classList.add('pinching');
+      this.el.classList.remove('dragging');
+      triggerHaptic('light');
+    }
+  }
+  
+  onTouchMove(e) {
+    if (this.pinch.active && e.touches.length === 2) {
+      e.preventDefault();
+      const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      const scaleRatio = currentDistance / this.pinch.initialDistance;
+      const newScale = Math.max(0.6, Math.min(1.5, this.pinch.initialScale * scaleRatio));
+      this.setScale(newScale);
+    }
+  }
+  
+  onTouchEnd(e) {
+    if (this.pinch.active && e.touches.length < 2) {
+      this.pinch.active = false;
+      this.el.classList.remove('pinching');
+      triggerHaptic('medium');
+      this.saveState();
+    }
+  }
+  
+  setScale(val) {
+    this.scale = val;
+    this.el.style.setProperty('--overlay-scale', val);
+    // Also scale font sizes proportionally
+    this.el.style.fontSize = (12 * val) + 'px';
   }
   
   toggleVisibility() {
@@ -1361,7 +1421,8 @@ class FloatingOverlay {
         visible: this.el.classList.contains('visible'),
         x: parseInt(this.el.style.left) || 0,
         y: parseInt(this.el.style.top) || 0,
-        opacity: this.opacity
+        opacity: this.opacity,
+        scale: this.scale
       }));
     } catch (e) {}
   }
@@ -1377,6 +1438,7 @@ class FloatingOverlay {
         }
         if (data.y !== undefined) this.el.style.top = data.y + 'px';
         if (data.opacity !== undefined) this.setOpacity(data.opacity);
+        if (data.scale !== undefined) this.setScale(data.scale);
         if (data.visible) this.show();
       }
     } catch (e) {}

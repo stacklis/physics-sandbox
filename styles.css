@@ -1201,27 +1201,30 @@ input[type=range]::-moz-range-thumb {
 /* ======================= FLOATING OVERLAYS ======================= */
 .floating-overlay {
   --overlay-opacity: 0.92;
+  --overlay-scale: 1;
   position: fixed;
   z-index: 100;
   background: rgba(15, 17, 24, var(--overlay-opacity));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: none;
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 12px 14px;
   box-shadow: 
-    0 8px 40px rgba(0, 0, 0, 0.5), 
-    0 0 1px rgba(255,255,255,0.1) inset,
-    0 0 0 1px rgba(0, 0, 0, 0.3);
-  max-width: 340px;
-  min-width: 220px;
+    0 6px 32px rgba(0, 0, 0, 0.45), 
+    0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  max-width: calc(340px * var(--overlay-scale));
+  min-width: calc(180px * var(--overlay-scale));
   cursor: grab;
   user-select: none;
   opacity: 0;
   pointer-events: none;
   transform: scale(0.95) translateY(8px);
+  transform-origin: center center;
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
-              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              max-width 0.15s ease-out,
+              min-width 0.15s ease-out;
   touch-action: none;
 }
 
@@ -1234,16 +1237,21 @@ input[type=range]::-moz-range-thumb {
 .floating-overlay.dragging {
   cursor: grabbing;
   transition: none;
-  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.6), 0 0 0 2px var(--accent);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 160, 0.4);
+}
+
+.floating-overlay.pinching {
+  transition: none;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(100, 220, 255, 0.5);
 }
 
 .floating-overlay-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .floating-overlay-title {
@@ -1261,15 +1269,15 @@ input[type=range]::-moz-range-thumb {
 }
 
 .floating-overlay-close {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
