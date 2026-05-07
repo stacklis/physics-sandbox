@@ -39,16 +39,16 @@ function rebuildBoundaries() {
   const t = 0.4;
   // floor
   walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#1a1a24' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#1a1a24' })));
   // left
   walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#1a1a24' })));
   // right
   walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#1a1a24' })));
 }
 
 /* =========================== UI elements =========================== */
@@ -350,7 +350,7 @@ canvas.addEventListener('pointerup', (ev) => {
       world.emit({ type: 'spring' });
     } else {
       // anchor in space: create static anchor body
-      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#2a2a3a' }));
       world.addConstraint(new DistanceConstraint(startBody, anchor, state.springStartLocal, new Vec2(0, 0), {
         isSpring: true, springK: 480, damping: 9.6
       }));
@@ -507,7 +507,7 @@ function finishSpawn(start, end) {
       const w = Math.max(0.5, Math.abs(dx) || 2);
       const h = Math.max(0.2, Math.abs(dy) || 0.4);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#3b4456' }));
+      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#2a2a3a' }));
       break;
     }
     case 'triangle': {
@@ -533,7 +533,7 @@ function finishSpawn(start, end) {
         const x = ws.x + dx * t;
         const y = ws.y + dy * t;
         const seg = world.add(makeCircle(x, y, segR, {
-          color: '#cfd6e6', density: 0.4, friction: 0.4, restitution: 0.05
+          color: '#8888a0', density: 0.4, friction: 0.4, restitution: 0.05
         }));
         segs.push(seg);
       }
@@ -550,7 +550,19 @@ function finishSpawn(start, end) {
   }
 }
 
-const SPAWN_PALETTE = ['#6aa6ff', '#8ad0ff', '#6ee29a', '#ffc46a', '#ff7a8a', '#c79bff', '#9bf2e0', '#ffa1cf'];
+// Vibrant, joyful palette that matches the new UI theme
+const SPAWN_PALETTE = [
+  '#00e5a0', // accent green
+  '#ff6b9d', // secondary pink
+  '#6b8bff', // tertiary blue
+  '#ffc46a', // warm yellow
+  '#00ffc8', // bright cyan
+  '#ff8bb8', // soft pink
+  '#8ba8ff', // light blue
+  '#a0ffdb', // mint
+  '#ffb366', // orange
+  '#c9a0ff', // lavender
+];
 let spawnIdx = 0;
 function pickSpawnColor() { spawnIdx = (spawnIdx + 1) % SPAWN_PALETTE.length; return SPAWN_PALETTE[spawnIdx]; }
 
@@ -590,23 +602,25 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  // Subtle grid with accent tint
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.025)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = (camera.x % sPx); x < cssW; x += sPx) {
-    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+  ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
   }
   for (let y = (camera.y % sPx); y < cssH; y += sPx) {
-    ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
+  ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
   }
   ctx.stroke();
-
-  // axis at floor level
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  
+  // axis at floor level with glow effect
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.08)';
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
-}
+  }
 
 // Speed → color: blue (slow) → cyan → green → yellow → red (fast).
 // Mapped over 0..30 m/s, which covers most sandbox motion before the velocity
@@ -614,13 +628,13 @@ function drawGrid() {
 function speedColor(v) {
   const HEATMAP_VMAX = 30;
   const t = Math.min(1, v / HEATMAP_VMAX);
-  // 5-stop gradient
+// 5-stop gradient matching the vibrant theme
   const stops = [
-    [0.00, 90, 130, 220], // slow blue
-    [0.25, 100, 200, 230],
-    [0.50, 110, 220, 130],
-    [0.75, 240, 200, 90],
-    [1.00, 240, 100, 110]  // fast red
+  [0.00, 107, 139, 255], // slow tertiary blue
+  [0.25, 0, 229, 160],   // accent green
+  [0.50, 0, 255, 200],   // bright cyan
+  [0.75, 255, 196, 106], // warm yellow
+  [1.00, 255, 107, 157]  // fast secondary pink
   ];
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i][0]) {
@@ -639,98 +653,125 @@ function drawBody(b) {
   ctx.save();
   const useHeatmap = ui.showHeatmap.checked && !b.isStatic && !walls.includes(b);
   const fillColor = useHeatmap ? speedColor(b.velocity.length()) : b.color;
+  const isDynamic = !b.isStatic && !walls.includes(b);
+  
+  // Add subtle glow for dynamic bodies
+  if (isDynamic) {
+  ctx.shadowColor = withAlpha(fillColor, 0.4);
+  ctx.shadowBlur = 10;
+  }
+  
   if (b.shape === SHAPE.CIRCLE) {
-    const p = worldToScreen(b.position.x, b.position.y);
-    const r = b.radius * camera.scale;
-    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.55 : 0.85);
-    ctx.strokeStyle = fillColor;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // orientation marker
-    const ex = p.x + Math.cos(b.angle) * r;
-    const ey = p.y + Math.sin(b.angle) * r;
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+  const p = worldToScreen(b.position.x, b.position.y);
+  const r = b.radius * camera.scale;
+  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // orientation marker
+  ctx.shadowBlur = 0;
+  const ex = p.x + Math.cos(b.angle) * r;
+  const ey = p.y + Math.sin(b.angle) * r;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
   } else {
-    const verts = b.worldVertices();
-    ctx.beginPath();
-    for (let i = 0; i < verts.length; i++) {
-      const p = worldToScreen(verts[i].x, verts[i].y);
-      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.45 : 0.85);
-    ctx.strokeStyle = fillColor;
-    ctx.lineWidth = 1.5;
-    ctx.fill();
-    ctx.stroke();
+  const verts = b.worldVertices();
+  ctx.beginPath();
+  for (let i = 0; i < verts.length; i++) {
+  const p = worldToScreen(verts[i].x, verts[i].y);
+  if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
   }
   ctx.restore();
-}
+  }
 
 function drawAABBs() {
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(107, 139, 255, 0.4)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
+  ctx.setLineDash([4, 4]);
   for (const b of world.bodies) {
-    if (walls.includes(b)) continue;
-    const a = b.aabb();
-    const min = worldToScreen(a.minX, a.minY);
-    const max = worldToScreen(a.maxX, a.maxY);
-    ctx.strokeRect(min.x, min.y, max.x - min.x, max.y - min.y);
+  if (walls.includes(b)) continue;
+  const a = b.aabb();
+  const min = worldToScreen(a.minX, a.minY);
+  const max = worldToScreen(a.maxX, a.maxY);
+  ctx.strokeRect(min.x, min.y, max.x - min.x, max.y - min.y);
   }
   ctx.setLineDash([]);
-}
+  }
 
 function drawFPS() {
   ctx.save();
-  ctx.fillStyle = 'rgba(15,18,28,0.7)';
-  ctx.fillRect(8, 8, 130, 38);
-  ctx.fillStyle = '#cfd6e6';
-  ctx.font = '11px ui-monospace, monospace';
+  // Rounded rect background
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
+  ctx.beginPath();
+  ctx.roundRect(10, 10, 140, 44, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  ctx.font = '500 12px "JetBrains Mono", monospace';
   ctx.textBaseline = 'top';
   const fps = state.fpsEMA.toFixed(1);
   const dyn = world.bodies.filter(b => !b.isStatic).length;
-  ctx.fillText(`${fps} fps`, 14, 12);
-  ctx.fillText(`bodies: ${world.bodies.length} (${dyn} dyn)`, 14, 26);
+  ctx.fillStyle = '#00e5a0';
+  ctx.fillText(`${fps} fps`, 18, 16);
+  ctx.fillStyle = '#8888a0';
+  ctx.fillText(`bodies: ${world.bodies.length} (${dyn} dyn)`, 18, 32);
   ctx.restore();
-}
+  }
 
 function drawConstraint(c) {
   const wA = applyTransform(c.A, c.anchorA);
   const wB = applyTransform(c.B, c.anchorB);
   const a = worldToScreen(wA.x, wA.y);
   const b = worldToScreen(wB.x, wB.y);
-  ctx.strokeStyle = c.isSpring ? '#9bf2e0' : '#cfd6e6';
-  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = c.isSpring ? '#00ffc8' : '#8888a0';
+  ctx.lineWidth = 2;
   if (c.isSpring) {
-    drawSpring(a, b);
+  drawSpring(a, b);
   } else {
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
-}
-function drawSpring(a, b) {
+  }
+  function drawSpring(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   const ux = dx / len, uy = dy / len;
   const nx = -uy, ny = ux;
   const coils = Math.max(8, Math.floor(len / 8));
+  
+  // Glow effect for springs
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
+  ctx.shadowBlur = 8;
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   for (let i = 1; i < coils; i++) {
-    const t = i / coils;
-    const cx = a.x + ux * len * t;
-    const cy = a.y + uy * len * t;
-    const off = (i % 2 === 0 ? 1 : -1) * 4;
-    ctx.lineTo(cx + nx * off, cy + ny * off);
+  const t = i / coils;
+  const cx = a.x + ux * len * t;
+  const cy = a.y + uy * len * t;
+  const off = (i % 2 === 0 ? 1 : -1) * 5;
+  ctx.lineTo(cx + nx * off, cy + ny * off);
   }
   ctx.lineTo(b.x, b.y);
   ctx.stroke();
-  // anchor dots
-  ctx.fillStyle = '#9bf2e0';
-  ctx.beginPath(); ctx.arc(a.x, a.y, 2.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(b.x, b.y, 2.5, 0, Math.PI * 2); ctx.fill();
-}
+  ctx.shadowBlur = 0;
+  
+  // anchor dots with glow
+  ctx.fillStyle = '#00ffc8';
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
+  ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(a.x, a.y, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  }
 
 function applyTransform(b, local) {
   const cos = Math.cos(b.angle), sin = Math.sin(b.angle);
@@ -739,55 +780,70 @@ function applyTransform(b, local) {
 }
 
 function drawToolOverlay() {
-  // Spawn drag preview
+  // Spawn drag preview with glow
   if (state.dragStart && state.dragCurrent) {
-    const a = state.dragStart, b = state.dragCurrent;
-    ctx.strokeStyle = 'rgba(106,166,255,0.7)';
-    ctx.fillStyle = 'rgba(106,166,255,0.10)';
-    ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    if (state.tool === 'circle') {
-      const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    } else {
-      const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-      const w = Math.max(20, Math.abs(b.x - a.x));
-      const h = Math.max(20, Math.abs(b.y - a.y));
-      ctx.rect(x0, y0, w, h);
-    }
-    ctx.fill(); ctx.stroke();
-    ctx.setLineDash([]);
+  const a = state.dragStart, b = state.dragCurrent;
+  ctx.shadowColor = 'rgba(0, 229, 160, 0.4)';
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.8)';
+  ctx.fillStyle = 'rgba(0, 229, 160, 0.12)';
+  ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (state.tool === 'circle') {
+  const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+  const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  } else {
+  const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+  const w = Math.max(20, Math.abs(b.x - a.x));
+  const h = Math.max(20, Math.abs(b.y - a.y));
+  ctx.roundRect(x0, y0, w, h, 4);
   }
-
-  // Spring drag preview
+  ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+  }
+  
+  // Spring drag preview with glow
   if (state.springStart && state.dragCurrent) {
-    const wA = applyTransform(state.springStart, state.springStartLocal);
-    const a = worldToScreen(wA.x, wA.y);
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = '#9bf2e0';
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
-    ctx.setLineDash([]);
+  const wA = applyTransform(state.springStart, state.springStartLocal);
+  const a = worldToScreen(wA.x, wA.y);
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.5)';
+  ctx.shadowBlur = 10;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#00ffc8';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
   }
-
-  // Impulse drag preview
+  
+  // Impulse drag preview with glow
   if (state.impulseBody && state.impulseStart && state.impulseEnd) {
-    const a = state.impulseStart, b = state.impulseEnd;
-    ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    drawArrowhead(a, b, '#ffc46a');
+  const a = state.impulseStart, b = state.impulseEnd;
+  ctx.shadowColor = 'rgba(255, 196, 106, 0.5)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  drawArrowhead(a, b, '#ffc46a');
+  ctx.shadowBlur = 0;
   }
-
-  // Slice stroke preview
+  
+  // Slice stroke preview with glow
   if (state.slicePath && state.slicePath.length > 1) {
-    ctx.strokeStyle = '#ff7a8a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
-    for (let i = 1; i < state.slicePath.length; i++) {
-      ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
-    }
-    ctx.stroke();
+  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
+  for (let i = 1; i < state.slicePath.length; i++) {
+  ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
   }
 }
 
@@ -804,55 +860,93 @@ function drawArrowhead(a, b, color) {
 }
 
 function drawContacts() {
-  ctx.fillStyle = '#ff7a8a';
+  ctx.fillStyle = '#ff6b9d';
+  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
+  ctx.shadowBlur = 8;
   for (const c of world.contacts) {
-    for (const p of c.points) {
-      const s = worldToScreen(p.x, p.y);
-      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
-      const tip = { x: s.x + c.normal.x * 12, y: s.y + c.normal.y * 12 };
-      ctx.strokeStyle = '#ff7a8a';
-      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-    }
+  for (const p of c.points) {
+  const s = worldToScreen(p.x, p.y);
+  ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI * 2); ctx.fill();
+  const tip = { x: s.x + c.normal.x * 14, y: s.y + c.normal.y * 14 };
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
   }
-}
+  }
+  ctx.shadowBlur = 0;
+  }
 
 function drawVelocities() {
-  ctx.strokeStyle = '#8ad0ff';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = '#6b8bff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(107, 139, 255, 0.5)';
+  ctx.shadowBlur = 6;
   for (const b of world.bodies) {
-    if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
-    const p = worldToScreen(b.position.x, b.position.y);
-    const ex = p.x + b.velocity.x * camera.scale * 0.25;
-    const ey = p.y + b.velocity.y * camera.scale * 0.25;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
-    drawArrowhead(p, { x: ex, y: ey }, '#8ad0ff');
+  if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
+  const p = worldToScreen(b.position.x, b.position.y);
+  const ex = p.x + b.velocity.x * camera.scale * 0.25;
+  const ey = p.y + b.velocity.y * camera.scale * 0.25;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+  drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
   }
-}
-
-function drawTrails() {
+  ctx.shadowBlur = 0;
+  }
+  
+  function drawTrails() {
   for (const [id, pts] of state.trails) {
-    if (pts.length < 2) continue;
-    ctx.strokeStyle = 'rgba(138,208,255,0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 0; i < pts.length; i++) {
-      const s = worldToScreen(pts[i].x, pts[i].y);
-      if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-    }
-    ctx.stroke();
+  if (pts.length < 2) continue;
+  // Gradient trail from transparent to vibrant
+  const gradient = ctx.createLinearGradient(
+    worldToScreen(pts[0].x, pts[0].y).x,
+    worldToScreen(pts[0].x, pts[0].y).y,
+    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).x,
+    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).y
+  );
+  gradient.addColorStop(0, 'rgba(0, 229, 160, 0.1)');
+  gradient.addColorStop(1, 'rgba(0, 229, 160, 0.6)');
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+  const s = worldToScreen(pts[i].x, pts[i].y);
+  if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
   }
-}
+  ctx.stroke();
+  }
+  }
 
 function drawSelectionRing(b) {
   const aabb = b.aabb();
   const min = worldToScreen(aabb.minX, aabb.minY);
   const max = worldToScreen(aabb.maxX, aabb.maxY);
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.setLineDash([3, 4]);
+  const pad = 6;
+  const w = max.x - min.x + pad * 2;
+  const h = max.y - min.y + pad * 2;
+  const x = min.x - pad;
+  const y = min.y - pad;
+  const r = 6; // corner radius
+  
+  // Glow effect
+  ctx.shadowColor = 'rgba(0, 229, 160, 0.5)';
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  
+  // Inner dashed line
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.setLineDash([4, 4]);
   ctx.lineWidth = 1;
-  ctx.strokeRect(min.x - 4, min.y - 4, max.x - min.x + 8, max.y - min.y + 8);
+  ctx.beginPath();
+  ctx.roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
+  ctx.stroke();
   ctx.setLineDash([]);
-}
+  }
 
 function withAlpha(hex, a) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -1117,7 +1211,7 @@ function loadPreset(name) {
     }
     case 'pendulum': {
       const ax = Wm * 0.5, ay = 0.5;
-      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#2a2a3a' }));
       const bob = world.add(makeCircle(ax + 3, ay + 0.2, 0.5, { color: '#ff7a8a', density: 4 }));
       world.addConstraint(new DistanceConstraint(anchor, bob, new Vec2(0, 0), new Vec2(0, 0), {
         length: 3.2, stiffness: 1.0
@@ -1134,7 +1228,7 @@ function loadPreset(name) {
       const N = 5;
       for (let i = 0; i < N; i++) {
         const x = cx + (i - (N - 1) / 2) * spacing;
-        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#3b4456' }));
+        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#2a2a3a' }));
         const ball = world.add(makeCircle(x, ay + len, radius, {
           color: '#8ad0ff', restitution: 0.95, friction: 0.0, density: 5
         }));
@@ -1157,14 +1251,14 @@ function loadPreset(name) {
         position: new Vec2(Wm * 0.5, Hm * 0.7),
         vertices: verts,
         isStatic: true,
-        color: '#3b4456'
+        color: '#2a2a3a'
       });
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
       world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#3b4456' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#2a2a3a' }));
       break;
     }
     case 'orbit': {
@@ -1244,7 +1338,7 @@ function loadPreset(name) {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
       const ropeLen = Math.min(4.5, Hm * 0.55);
-      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#2a2a3a' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
       }));
