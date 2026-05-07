@@ -1324,6 +1324,22 @@ body.interacting * {
     display: none; 
   }
   
+  /* Topbar dynamic content - scrollable on mobile */
+  .topbar:not(.collapsed) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .topbar:not(.collapsed)::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .bar-group {
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+  
   .brand {
     font-size: 15px;
     gap: 8px;
@@ -1512,9 +1528,17 @@ body.interacting * {
   .floating-overlay {
     max-width: calc(100vw - 24px);
     max-height: 55vh;
+    font-size: 13px;
+    touch-action: none !important;
+  }
+  
+  /* Only allow scrolling inside the content, not the entire overlay */
+  .floating-overlay .lesson-body,
+  .floating-overlay .readout-grid {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    font-size: 13px;
+    max-height: 40vh;
+    touch-action: pan-y;
   }
   
   .floating-overlay .metric {
@@ -1634,19 +1658,20 @@ body.interacting * {
 
 /* ======================= FLOATING OVERLAYS ======================= */
 .floating-overlay {
-  --overlay-opacity: 0.9;
+  --overlay-opacity: 0.92;
   --overlay-scale: 1;
   position: fixed;
   z-index: 100;
-  background: rgba(15, 17, 24, var(--overlay-opacity));
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: none;
+  background: rgba(12, 14, 20, var(--overlay-opacity));
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
   padding: 12px 14px;
   box-shadow: 
-    0 4px 24px rgba(0, 0, 0, calc(0.5 * var(--overlay-opacity))), 
-    0 0 0 0.5px rgba(255, 255, 255, calc(0.08 * var(--overlay-opacity)));
+    0 8px 32px rgba(0, 0, 0, 0.4), 
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   max-width: calc(340px * var(--overlay-scale));
   min-width: calc(180px * var(--overlay-scale));
   cursor: grab;

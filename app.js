@@ -1890,11 +1890,12 @@ class FloatingOverlay {
   
   setOpacity(val) {
     this.opacity = val;
-    // Direct opacity control - no blur, clean transparency
+    // Control opacity while maintaining frosted glass effect
     this.el.style.setProperty('--overlay-opacity', val);
-    // Remove backdrop blur entirely for clean see-through
-    this.el.style.backdropFilter = 'none';
-    this.el.style.webkitBackdropFilter = 'none';
+    // Adjust blur based on opacity - more blur when more transparent
+    const blurAmount = Math.max(8, 16 * (1 - val));
+    this.el.style.backdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
+    this.el.style.webkitBackdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
     if (this.opacitySlider) this.opacitySlider.value = val;
     this.saveState();
   }
