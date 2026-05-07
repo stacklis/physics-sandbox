@@ -527,38 +527,51 @@ input[type=range]::-moz-range-thumb {
   transition: none !important;
 }
 
-/* Global interaction class - disables all transitions during pointer activity */
-body.interacting *,
-body.interacting .tools,
-body.interacting .tool-section,
-body.interacting .tool-grid,
-body.interacting .tool-grid > *,
-body.interacting .stage,
-body.interacting .topbar,
-body.interacting .layout,
-body.interacting .divider,
-body.interacting .tools-divider,
-body.interacting .topbar-divider {
-  transition: none !important;
-}
-
-/* Disable ALL layout-affecting transitions on dividers and adjacent elements */
+/* ======================= ANTI-FLICKER RULES ======================= */
+/* Completely disable ALL transitions on layout-critical elements */
+.layout,
+.layout *,
+.stage,
+.stage *,
+.tools,
+.tools *,
+.topbar,
+.topbar *,
 .topbar-divider,
 .topbar-divider *,
 .tools-divider,
 .tools-divider *,
-.layout,
-.stage {
+#canvas {
   transition: none !important;
+  animation: none !important;
 }
 
-/* Only allow safe transitions (color, opacity, box-shadow - not layout-affecting) */
-.tool,
-.preset,
-.material,
-.check,
-.overlay-toggle {
-  transition: background 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s, opacity 0.1s !important;
+/* Prevent any rendering glitches with GPU layers */
+.layout,
+.stage,
+.tools,
+.topbar,
+.topbar-divider,
+.tools-divider {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Global interaction class - extra safety during pointer activity */
+body.interacting * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Only allow micro-transitions on interactive elements that don't affect layout */
+.tool:hover,
+.preset:hover,
+.material:hover,
+.check:hover,
+.overlay-toggle:hover {
+  transition: none !important;
 }
 
 /* Destruction mode toggle - special styling */
@@ -576,6 +589,28 @@ body.interacting .topbar-divider {
 .destruction-toggle input:checked + *::before,
 .destruction-toggle:has(input:checked)::after {
   color: #ff6b6b;
+}
+
+/* Grab strength slider in physics section */
+.grab-strength {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-2);
+  border-radius: 6px;
+}
+
+.grab-strength span {
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 32px;
+}
+
+.grab-strength input[type=range] {
+  flex: 1;
+  accent-color: var(--accent);
 }
 
 /* ======================= TOOLS ======================= */
