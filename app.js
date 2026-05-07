@@ -39,16 +39,16 @@ function rebuildBoundaries() {
   const t = 0.4;
   // floor
   walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // left
   walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // right
   walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
 }
 
 /* =========================== UI elements =========================== */
@@ -350,7 +350,7 @@ canvas.addEventListener('pointerup', (ev) => {
       world.emit({ type: 'spring' });
     } else {
       // anchor in space: create static anchor body
-      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#4a5068' }));
       world.addConstraint(new DistanceConstraint(startBody, anchor, state.springStartLocal, new Vec2(0, 0), {
         isSpring: true, springK: 480, damping: 9.6
       }));
@@ -507,7 +507,7 @@ function finishSpawn(start, end) {
       const w = Math.max(0.5, Math.abs(dx) || 2);
       const h = Math.max(0.2, Math.abs(dy) || 0.4);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#2a2a3a' }));
+      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'triangle': {
@@ -533,7 +533,7 @@ function finishSpawn(start, end) {
         const x = ws.x + dx * t;
         const y = ws.y + dy * t;
         const seg = world.add(makeCircle(x, y, segR, {
-          color: '#8888a0', density: 0.4, friction: 0.4, restitution: 0.05
+          color: '#9ba8c0', density: 0.4, friction: 0.4, restitution: 0.05
         }));
         segs.push(seg);
       }
@@ -568,7 +568,9 @@ function pickSpawnColor() { spawnIdx = (spawnIdx + 1) % SPAWN_PALETTE.length; re
 
 /* =========================== rendering =========================== */
 function render() {
-  ctx.clearRect(0, 0, cssW, cssH);
+  // Fill with lighter background instead of clear
+  ctx.fillStyle = '#1a1d28';
+  ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
   // bodies
@@ -602,8 +604,8 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  // Subtle grid with accent tint
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.025)';
+  // Subtle grid - neutral color for visibility
+  ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = (camera.x % sPx); x < cssW; x += sPx) {
@@ -614,9 +616,9 @@ function drawGrid() {
   }
   ctx.stroke();
   
-  // axis at floor level with glow effect
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.08)';
-  ctx.lineWidth = 2;
+  // Floor line with accent
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
@@ -1304,7 +1306,7 @@ function loadPreset(name) {
     }
     case 'pendulum': {
       const ax = Wm * 0.5, ay = 0.5;
-      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#4a5068' }));
       const bob = world.add(makeCircle(ax + 3, ay + 0.2, 0.5, { color: '#ff7a8a', density: 4 }));
       world.addConstraint(new DistanceConstraint(anchor, bob, new Vec2(0, 0), new Vec2(0, 0), {
         length: 3.2, stiffness: 1.0
@@ -1321,7 +1323,7 @@ function loadPreset(name) {
       const N = 5;
       for (let i = 0; i < N; i++) {
         const x = cx + (i - (N - 1) / 2) * spacing;
-        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#2a2a3a' }));
+        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#4a5068' }));
         const ball = world.add(makeCircle(x, ay + len, radius, {
           color: '#8ad0ff', restitution: 0.95, friction: 0.0, density: 5
         }));
@@ -1344,14 +1346,14 @@ function loadPreset(name) {
         position: new Vec2(Wm * 0.5, Hm * 0.7),
         vertices: verts,
         isStatic: true,
-        color: '#2a2a3a'
+        color: '#4a5068'
       });
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
       world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#2a2a3a' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'orbit': {
@@ -1431,7 +1433,7 @@ function loadPreset(name) {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
       const ropeLen = Math.min(4.5, Hm * 0.55);
-      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#4a5068' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
       }));

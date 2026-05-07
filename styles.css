@@ -39,23 +39,16 @@ body {
   flex-direction: column;
 }
 
-/* Animated background */
+/* Subtle ambient background */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 1200px 800px at 10% 0%, rgba(0, 229, 160, 0.08), transparent 60%),
-    radial-gradient(ellipse 1000px 600px at 90% 100%, rgba(255, 107, 157, 0.06), transparent 60%),
-    radial-gradient(ellipse 800px 500px at 50% 50%, rgba(107, 139, 255, 0.04), transparent 50%);
+    radial-gradient(ellipse 1000px 600px at 5% 0%, rgba(0, 229, 160, 0.04), transparent 50%),
+    radial-gradient(ellipse 800px 500px at 95% 100%, rgba(107, 139, 255, 0.03), transparent 50%);
   pointer-events: none;
   z-index: 0;
-  animation: bgPulse 20s ease-in-out infinite alternate;
-}
-
-@keyframes bgPulse {
-  0% { opacity: 0.8; }
-  100% { opacity: 1; }
 }
 
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -250,10 +243,14 @@ input, button { font: inherit; }
 
 .panel-toggle {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   z-index: 3;
+  font-size: 12px;
 }
+
+.panel-toggle::before { content: '\25B8'; }
+.layout.panel-collapsed .panel-toggle::before { content: '\25C2'; }
 
 /* ======================= RANGE INPUTS ======================= */
 input[type=range] {
@@ -357,8 +354,7 @@ input[type=range]::-moz-range-thumb {
 .card.collapsed .card-title { margin-bottom: 0; }
 .level-badge { margin-left: auto; }
 
-.panel-toggle::before { content: '▸'; }
-.layout.panel-collapsed .panel-toggle::before { content: '◂'; }
+
 .layout.panel-collapsed .panel > .card { display: none; }
 .layout.panel-collapsed .panel { padding: 8px; gap: 0; }
 .layout.panel-collapsed { grid-template-columns: var(--tools-size, 220px) 1fr 48px; }
