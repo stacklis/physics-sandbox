@@ -1719,11 +1719,6 @@ class FloatingOverlay {
   
   onPointerDown(e) {
     if (e.target.matches('input, button, a, .floating-overlay-close')) return;
-    
-    // Only allow dragging from the header area
-    const header = this.el.querySelector('.floating-overlay-header');
-    if (header && !header.contains(e.target)) return;
-    
     e.preventDefault();
     
     if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
@@ -1735,9 +1730,7 @@ class FloatingOverlay {
     this.el.classList.add('dragging');
     this.drag.active = true;
     
-    // Get the current position of the overlay in viewport coordinates
     const rect = this.el.getBoundingClientRect();
-    // Offset from cursor to the top-left corner of the overlay
     this.drag.offsetX = e.clientX - rect.left;
     this.drag.offsetY = e.clientY - rect.top;
     this.drag.lastX = e.clientX;
@@ -1764,14 +1757,13 @@ class FloatingOverlay {
     this.drag.lastY = e.clientY;
     this.drag.lastTime = now;
     
-    // Calculate new position: cursor position minus the grab offset
-    // This keeps the grab point at the cursor
-    let x = e.clientX - this.drag.offsetX;
-    let y = e.clientY - this.drag.offsetY;
+    // New position: cursor position minus the offset where we grabbed
+    const newX = e.clientX - this.drag.offsetX;
+    const newY = e.clientY - this.drag.offsetY;
     
-    // Clamp to viewport bounds
-    x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, x));
-    y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, y));
+    // Clamp to viewport bounds to prevent dragging off-screen
+    const x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, newX));
+    const y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, newY));
     
     this.el.style.left = x + 'px';
     this.el.style.right = 'auto';
