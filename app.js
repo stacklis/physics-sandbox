@@ -417,97 +417,245 @@ function spawnPrefab(type, cx, cy) {
 const fluidParticles = [];
 const FLUID_SETTINGS = {
   enabled: false,
-  type: 'water', // water, oil, lava, sand
+  pouring: false, // true while mouse held down
+  pourPos: null,  // current pour position
+  type: 'water',
+  maxParticles: 400,
   colors: {
-    water: '#4488ff',
-    oil: '#3a3a3a',
-    lava: '#ff4400',
-    sand: '#daa520'
+    water: ['#2277ee', '#44aaff', '#66ccff'],
+    oil: ['#2a2a2a', '#3a3a3a', '#4a4a4a'],
+    lava: ['#ff2200', '#ff6600', '#ffaa00'],
+    sand: ['#c49a6c', '#daa520', '#e6be8a']
   },
-  gravity: { water: 0.3, oil: 0.15, lava: 0.4, sand: 0.5 },
-  viscosity: { water: 0.98, oil: 0.95, lava: 0.9, sand: 0.85 },
-  spread: { water: 0.8, oil: 0.5, lava: 0.6, sand: 0.3 }
+  // Physics properties per type
+  props: {
+    water: { gravity: 0.25, viscosity: 0.985, spread: 1.2, density: 1.0, radius: 4, pushForce: 0.008 },
+    oil:   { gravity: 0.12, viscosity: 0.96, spread: 0.6, density: 0.8, radius: 5, pushForce: 0.004 },
+    lava:  { gravity: 0.35, viscosity: 0.92, spread: 0.8, density: 2.5, radius: 6, pushForce: 0.015 },
+    sand:  { gravity: 0.45, viscosity: 0.88, spread: 0.3, density: 1.6, radius: 3, pushForce: 0.012 }
+  }
 };
 
-function spawnFluid(x, y, count = 10) {
+// Spatial hash for fluid particle lookups (performance)
+const fluidGrid = { cells: new Map(), cellSize: 16 };
+
+function fluidGridKey(x, y) {
+  return `${Math.floor(x / fluidGrid.cellSize)},${Math.floor(y / fluidGrid.cellSize)}`;
+}
+
+function rebuildFluidGrid() {
+  fluidGrid.cells.clear();
+  for (let i = 0; i < fluidParticles.length; i++) {
+    const p = fluidParticles[i];
+    const key = fluidGridKey(p.x, p.y);
+    if (!fluidGrid.cells.has(key)) fluidGrid.cells.set(key, []);
+    fluidGrid.cells.get(key).push(i);
+  }
+}
+
+function getFluidNeighbors(x, y) {
+  const neighbors = [];
+  const cx = Math.floor(x / fluidGrid.cellSize);
+  const cy = Math.floor(y / fluidGrid.cellSize);
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const key = `${cx + dx},${cy + dy}`;
+      const cell = fluidGrid.cells.get(key);
+      if (cell) neighbors.push(...cell);
+    }
+  }
+  return neighbors;
+}
+
+function spawnFluid(x, y, count = 5) {
   if (!FLUID_SETTINGS.enabled) return;
   const type = FLUID_SETTINGS.type;
-  const color = FLUID_SETTINGS.colors[type];
-  const spread = FLUID_SETTINGS.spread[type];
+  const colors = FLUID_SETTINGS.colors[type];
+  const props = FLUID_SETTINGS.props[type];
   
   for (let i = 0; i < count; i++) {
+    if (fluidParticles.length >= FLUID_SETTINGS.maxParticles) {
+      fluidParticles.shift(); // Remove oldest
+    }
+    const angle = Math.random() * Math.PI * 2;
+    const spd = Math.random() * props.spread * 2;
     fluidParticles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y + (Math.random() - 0.5) * 20,
-      vx: (Math.random() - 0.5) * spread * 3,
-      vy: Math.random() * 2,
-      radius: 4 + Math.random() * 3,
-      color,
-      type
+      x: x + (Math.random() - 0.5) * 8,
+      y: y + (Math.random() - 0.5) * 8,
+      vx: Math.cos(angle) * spd + (state.mouseVelocity.x || 0) * 0.01,
+      vy: Math.sin(angle) * spd + Math.random() * 1.5,
+      radius: props.radius * (0.8 + Math.random() * 0.4),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      type,
+      life: 1.0
     });
   }
-  // Limit total fluid particles
-  while (fluidParticles.length > 500) fluidParticles.shift();
 }
 
 function updateFluid() {
-  if (!FLUID_SETTINGS.enabled || fluidParticles.length === 0) return;
+  const len = fluidParticles.length;
+  if (len === 0) return;
   
-  const type = FLUID_SETTINGS.type;
-  const gravity = FLUID_SETTINGS.gravity[type];
-  const viscosity = FLUID_SETTINGS.viscosity[type];
+  // Rebuild spatial grid
+  rebuildFluidGrid();
   
-  for (let i = fluidParticles.length - 1; i >= 0; i--) {
+  const props = FLUID_SETTINGS.props[FLUID_SETTINGS.type];
+  const gravity = props.gravity;
+  const viscosity = props.viscosity;
+  const pushForce = props.pushForce;
+  const interactDist = 14;
+  const interactDistSq = interactDist * interactDist;
+  
+  // Get all physics bodies for collision
+  const bodies = world.bodies.filter(b => !b.isStatic);
+  
+  for (let i = len - 1; i >= 0; i--) {
     const p = fluidParticles[i];
+    const pProps = FLUID_SETTINGS.props[p.type];
     
     // Apply gravity
-    p.vy += gravity;
+    p.vy += pProps.gravity;
     
-    // Apply viscosity (damping)
-    p.vx *= viscosity;
-    p.vy *= viscosity;
+    // Particle-particle interaction (pressure + viscosity)
+    const neighbors = getFluidNeighbors(p.x, p.y);
+    for (const j of neighbors) {
+      if (j <= i) continue;
+      const q = fluidParticles[j];
+      const dx = p.x - q.x;
+      const dy = p.y - q.y;
+      const distSq = dx * dx + dy * dy;
+      
+      if (distSq < interactDistSq && distSq > 0.01) {
+        const dist = Math.sqrt(distSq);
+        const overlap = interactDist - dist;
+        const nx = dx / dist, ny = dy / dist;
+        
+        // Pressure force (repulsion)
+        const pressure = overlap * 0.15;
+        p.vx += nx * pressure;
+        p.vy += ny * pressure;
+        q.vx -= nx * pressure;
+        q.vy -= ny * pressure;
+        
+        // Viscosity (velocity averaging)
+        const avgVx = (p.vx + q.vx) * 0.5;
+        const avgVy = (p.vy + q.vy) * 0.5;
+        p.vx += (avgVx - p.vx) * 0.02;
+        p.vy += (avgVy - p.vy) * 0.02;
+        q.vx += (avgVx - q.vx) * 0.02;
+        q.vy += (avgVy - q.vy) * 0.02;
+      }
+    }
+    
+    // Collision with physics bodies - apply force to bodies
+    for (const body of bodies) {
+      const bx = body.position.x * PX_PER_M;
+      const by = body.position.y * PX_PER_M;
+      const dx = p.x - bx;
+      const dy = p.y - by;
+      const dist = Math.hypot(dx, dy);
+      const bodyRadius = (body.shape?.radius || 0.5) * PX_PER_M;
+      const collisionDist = bodyRadius + p.radius + 5;
+      
+      if (dist < collisionDist && dist > 0.1) {
+        const nx = dx / dist, ny = dy / dist;
+        const overlap = collisionDist - dist;
+        
+        // Push particle away from body
+        p.x += nx * overlap * 0.5;
+        p.y += ny * overlap * 0.5;
+        
+        // Reflect velocity
+        const dot = p.vx * nx + p.vy * ny;
+        if (dot < 0) {
+          p.vx -= 1.5 * dot * nx;
+          p.vy -= 1.5 * dot * ny;
+          p.vx *= 0.7;
+          p.vy *= 0.7;
+        }
+        
+        // Apply force to body (buoyancy + drag)
+        const forceMag = pProps.pushForce * pProps.density * (1 + Math.hypot(p.vx, p.vy) * 0.1);
+        body.applyForce(new Vec2(-nx * forceMag, -ny * forceMag - pProps.density * 0.002));
+      }
+    }
+    
+    // Apply damping
+    p.vx *= pProps.viscosity;
+    p.vy *= pProps.viscosity;
+    
+    // Clamp velocity
+    const speed = Math.hypot(p.vx, p.vy);
+    if (speed > 12) {
+      p.vx = (p.vx / speed) * 12;
+      p.vy = (p.vy / speed) * 12;
+    }
     
     // Move
     p.x += p.vx;
     p.y += p.vy;
     
-    // Simple particle-particle repulsion
-    for (let j = i - 1; j >= Math.max(0, i - 20); j--) {
-      const q = fluidParticles[j];
-      const dx = p.x - q.x;
-      const dy = p.y - q.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 12 && dist > 0.1) {
-        const force = (12 - dist) / 12 * 0.5;
-        const nx = dx / dist, ny = dy / dist;
-        p.vx += nx * force;
-        p.vy += ny * force;
-        q.vx -= nx * force;
-        q.vy -= ny * force;
-      }
+    // Bounce off screen walls
+    if (p.x < p.radius) { p.x = p.radius; p.vx *= -0.4; }
+    if (p.x > canvas.width - p.radius) { p.x = canvas.width - p.radius; p.vx *= -0.4; }
+    if (p.y > canvas.height - p.radius) { 
+      p.y = canvas.height - p.radius; 
+      p.vy *= -0.2; 
+      p.vx *= 0.92;
+      // Sand and lava settle faster
+      if (p.type === 'sand' || p.type === 'lava') p.life -= 0.002;
     }
     
-    // Bounce off walls
-    if (p.x < p.radius) { p.x = p.radius; p.vx *= -0.5; }
-    if (p.x > canvas.width - p.radius) { p.x = canvas.width - p.radius; p.vx *= -0.5; }
-    if (p.y > canvas.height - p.radius) { p.y = canvas.height - p.radius; p.vy *= -0.3; p.vx *= 0.95; }
+    // Decay life slowly
+    p.life -= 0.0003;
     
-    // Remove particles that escape
-    if (p.y < -100 || p.x < -100 || p.x > canvas.width + 100) {
+    // Remove dead or escaped particles
+    if (p.life <= 0 || p.y < -50 || p.x < -50 || p.x > canvas.width + 50) {
       fluidParticles.splice(i, 1);
     }
   }
 }
 
 function drawFluid() {
-  if (fluidParticles.length === 0) return;
+  const len = fluidParticles.length;
+  if (len === 0) return;
   
-  ctx.globalAlpha = 0.7;
-  for (const p of fluidParticles) {
+  // Sort by y for depth effect (optional, skip for performance)
+  // fluidParticles.sort((a, b) => a.y - b.y);
+  
+  for (let i = 0; i < len; i++) {
+    const p = fluidParticles[i];
+    const alpha = Math.min(0.85, p.life);
+    
+    // Draw drop shadow for depth
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(p.x + 1, p.y + 2, p.radius * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw main particle
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = p.color;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Highlight for liquid effect
+    if (p.type === 'water' || p.type === 'oil') {
+      ctx.globalAlpha = alpha * 0.4;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(p.x - p.radius * 0.3, p.y - p.radius * 0.3, p.radius * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.type === 'lava') {
+      // Glowing core for lava
+      ctx.globalAlpha = alpha * 0.6;
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -600,10 +748,10 @@ canvas.addEventListener('pointerdown', (ev) => {
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
   
-  // Spawn fluid if enabled and clicking empty space
-  if (FLUID_SETTINGS.enabled && !body) {
-    const speedBoost = Math.min(3, 1 + state.mouseVelocity.speed / 500);
-    spawnFluid(cp.x, cp.y, Math.floor(8 * speedBoost));
+  // Start pouring fluid if enabled
+  if (FLUID_SETTINGS.enabled) {
+    FLUID_SETTINGS.pouring = true;
+    FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
   }
 
   switch (state.tool) {
@@ -688,10 +836,9 @@ canvas.addEventListener('pointermove', (ev) => {
     sliceAlong(prev, cp);
   }
 
-  // Continuous fluid spawn while dragging
-  if (FLUID_SETTINGS.enabled && state.mouseVelocity.speed > 50) {
-    const speedBoost = Math.min(2, 1 + state.mouseVelocity.speed / 800);
-    spawnFluid(cp.x, cp.y, Math.floor(3 * speedBoost));
+  // Update pour position while holding
+  if (FLUID_SETTINGS.pouring) {
+    FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
   }
 
   // hover-select for readouts when no other selection
@@ -707,6 +854,10 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
+  
+  // Stop pouring fluid
+  FLUID_SETTINGS.pouring = false;
+  FLUID_SETTINGS.pourPos = null;
 
   if (state.dragStart) {
     finishSpawn(state.dragStart, cp);
@@ -2430,6 +2581,12 @@ function loop(now) {
     sampleEnvironment(now);
     updateTrails();
   }
+  // Continuous fluid pouring while mouse held
+  if (FLUID_SETTINGS.pouring && FLUID_SETTINGS.pourPos) {
+    const speedBoost = Math.min(2.5, 1 + (state.mouseVelocity.speed || 0) / 600);
+    spawnFluid(FLUID_SETTINGS.pourPos.x, FLUID_SETTINGS.pourPos.y, Math.floor(3 * speedBoost));
+  }
+  
   // Always update particles and fluid (even when paused for visual effect)
   updateParticles(rawDt);
   updateFluid();
