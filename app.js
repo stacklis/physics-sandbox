@@ -172,6 +172,67 @@ const AudioFx = (() => {
     },
     pin() {
       tone({ freq: 880, dur: 0.05, type: 'square', gain: 0.07 });
+    },
+    // ======================= UI SOUNDS =======================
+    // Soft hover tick - subtle high frequency blip
+    hover() {
+      tone({ freq: 2200, dur: 0.025, type: 'sine', gain: 0.04 });
+    },
+    // Click/select sound - satisfying pop
+    click() {
+      tone({ freq: 660, dur: 0.04, type: 'triangle', gain: 0.08 });
+      tone({ freq: 1320, dur: 0.02, type: 'sine', gain: 0.04 });
+    },
+    // Tool selection - distinctive chirp
+    toolSelect() {
+      tone({ freq: 880, dur: 0.05, type: 'triangle', gain: 0.10, slideTo: 1100 });
+    },
+    // Toggle on - rising tone
+    toggleOn() {
+      tone({ freq: 440, dur: 0.06, type: 'sine', gain: 0.08, slideTo: 880 });
+    },
+    // Toggle off - falling tone
+    toggleOff() {
+      tone({ freq: 660, dur: 0.06, type: 'sine', gain: 0.06, slideTo: 330 });
+    },
+    // Slider tick - tiny click for each step
+    sliderTick() {
+      noise({ dur: 0.015, filter: 3000, type: 'highpass', gain: 0.03 });
+    },
+    // Overlay open - whoosh up
+    overlayOpen() {
+      noise({ dur: 0.12, filter: 2000, type: 'bandpass', gain: 0.08 });
+      tone({ freq: 400, dur: 0.10, type: 'sine', gain: 0.06, slideTo: 600 });
+    },
+    // Overlay close - whoosh down
+    overlayClose() {
+      noise({ dur: 0.10, filter: 1500, type: 'bandpass', gain: 0.06 });
+      tone({ freq: 500, dur: 0.08, type: 'sine', gain: 0.05, slideTo: 300 });
+    },
+    // Preset load - musical flourish
+    presetLoad() {
+      tone({ freq: 523, dur: 0.08, type: 'triangle', gain: 0.10 }); // C5
+      setTimeout(() => tone({ freq: 659, dur: 0.08, type: 'triangle', gain: 0.10 }), 60); // E5
+      setTimeout(() => tone({ freq: 784, dur: 0.12, type: 'triangle', gain: 0.12 }), 120); // G5
+    },
+    // Reset/clear sound - descending sweep
+    reset() {
+      tone({ freq: 800, dur: 0.15, type: 'sawtooth', gain: 0.08, slideTo: 200 });
+      noise({ dur: 0.12, filter: 800, type: 'lowpass', gain: 0.10 });
+    },
+    // Error/invalid action
+    error() {
+      tone({ freq: 200, dur: 0.12, type: 'square', gain: 0.08 });
+      tone({ freq: 180, dur: 0.12, type: 'square', gain: 0.06 });
+    },
+    // Drag start
+    dragStart() {
+      noise({ dur: 0.05, filter: 2500, type: 'bandpass', gain: 0.06 });
+    },
+    // Drag end/drop
+    dragEnd() {
+      tone({ freq: 440, dur: 0.04, type: 'sine', gain: 0.06 });
+      noise({ dur: 0.03, filter: 1800, type: 'lowpass', gain: 0.05 });
     }
   };
 })();
@@ -1009,51 +1070,88 @@ function triggerHaptic(type = 'light') {
 }
 
 /* =========================== UI wiring =========================== */
+// Slider sound throttle to prevent spam
+let lastSliderSoundT = 0;
+const sliderSoundThrottle = 40; // ms between slider ticks
+
 ui.gravity.addEventListener('input', () => {
   world.gravity = parseFloat(ui.gravity.value);
   ui.gravityVal.textContent = world.gravity.toFixed(2);
+  const now = performance.now();
+  if (now - lastSliderSoundT > sliderSoundThrottle) {
+    AudioFx.sliderTick();
+    lastSliderSoundT = now;
+  }
 });
 ui.timeScale.addEventListener('input', () => {
   state.timeScale = parseFloat(ui.timeScale.value);
   ui.timeVal.textContent = state.timeScale.toFixed(2);
+  const now = performance.now();
+  if (now - lastSliderSoundT > sliderSoundThrottle) {
+    AudioFx.sliderTick();
+    lastSliderSoundT = now;
+  }
 });
 ui.pauseBtn.addEventListener('click', () => {
   state.paused = !state.paused;
   ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
+  if (state.paused) AudioFx.toggleOff(); else AudioFx.toggleOn();
 });
-ui.resetBtn.addEventListener('click', () => loadPreset('default'));
+ui.resetBtn.addEventListener('click', () => {
+  loadPreset('default');
+  AudioFx.reset();
+});
 ui.clearBtn.addEventListener('click', () => {
   world.clear(); rebuildBoundaries(); state.selected = null; state.trails.clear();
   world.gravity = parseFloat(ui.gravity.value);
   world.preSubstep = null;
+  AudioFx.reset();
 });
 
-// tool buttons with haptic feedback
+// tool buttons with haptic and sound
 document.querySelectorAll('.tool').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
     triggerHaptic('light');
+    AudioFx.toolSelect();
   });
 });
 
-// presets with haptic
+// presets with haptic and sound
 document.querySelectorAll('.preset').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     loadPreset(el.dataset.preset);
     world.emit({ type: 'preset', name: el.dataset.preset });
     triggerHaptic('double');
+    AudioFx.presetLoad();
   });
 });
 
-// level selection with haptic
+// level selection with haptic and sound
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     educator.setLevel(parseInt(el.dataset.level, 10));
     triggerHaptic('light');
+    AudioFx.click();
+  });
+});
+
+// Add hover sounds to all interactive elements
+document.querySelectorAll('.bar-group button, .overlay-toggle, .check, .bar-toggle').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
+});
+
+// Checkbox toggle sounds
+document.querySelectorAll('.check input[type=checkbox]').forEach(el => {
+  el.addEventListener('change', () => {
+    if (el.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
   });
 });
 
@@ -1260,30 +1358,40 @@ class FloatingOverlay {
   }
   
   init() {
-    // Toggle button with haptic
+    // Toggle button with haptic and sound
+    this.toggle.addEventListener('mouseenter', () => AudioFx.hover());
     this.toggle.addEventListener('click', () => {
       triggerHaptic('light');
       this.toggleVisibility();
     });
     if (this.closeBtn) {
+      this.closeBtn.addEventListener('mouseenter', () => AudioFx.hover());
       this.closeBtn.addEventListener('click', () => {
         triggerHaptic('light');
         this.hide();
       });
     }
     
-    // Opacity slider
+    // Opacity slider with sound
     if (this.opacitySlider) {
+      let lastOpacitySoundT = 0;
       this.opacitySlider.addEventListener('input', () => {
         this.setOpacity(parseFloat(this.opacitySlider.value));
+        const now = performance.now();
+        if (now - lastOpacitySoundT > 50) {
+          AudioFx.sliderTick();
+          lastOpacitySoundT = now;
+        }
       });
     }
     
-    // Glass mode toggle
+    // Glass mode toggle with sound
     if (this.glassToggle) {
+      this.glassToggle.addEventListener('mouseenter', () => AudioFx.hover());
       this.glassToggle.addEventListener('click', () => {
         triggerHaptic('light');
         this.toggleGlassMode();
+        if (this.glassMode) AudioFx.toggleOn(); else AudioFx.toggleOff();
       });
     }
     
@@ -1398,6 +1506,7 @@ class FloatingOverlay {
     }
     this.el.classList.add('visible');
     this.toggle.classList.add('active');
+    AudioFx.overlayOpen();
     this.saveState();
   }
   
@@ -1405,6 +1514,7 @@ class FloatingOverlay {
     if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
     this.el.classList.remove('visible');
     this.toggle.classList.remove('active');
+    AudioFx.overlayClose();
     this.saveState();
   }
   
@@ -1446,6 +1556,7 @@ class FloatingOverlay {
     
     this.el.classList.add('dragging');
     this.drag.active = true;
+    AudioFx.dragStart();
     
     const rect = this.el.getBoundingClientRect();
     this.drag.offsetX = e.clientX - rect.left;
@@ -1487,6 +1598,7 @@ class FloatingOverlay {
     if (!this.drag.active) return;
     this.drag.active = false;
     this.el.classList.remove('dragging');
+    AudioFx.dragEnd();
     
     // Apply inertia if velocity is significant
     const speed = Math.sqrt(this.drag.velocityX ** 2 + this.drag.velocityY ** 2);
@@ -1512,10 +1624,10 @@ class FloatingOverlay {
       const maxX = window.innerWidth - this.el.offsetWidth;
       const maxY = window.innerHeight - this.el.offsetHeight;
       
-      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
-      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
-      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
-      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); AudioFx.click(); }
+      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); AudioFx.click(); }
+      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); AudioFx.click(); }
+      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); AudioFx.click(); }
       
       this.el.style.left = x + 'px';
       this.el.style.top = y + 'px';
