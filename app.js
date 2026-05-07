@@ -991,28 +991,95 @@ function applyTransform(b, local) {
 }
 
 function drawToolOverlay() {
-  // Spawn drag preview with glow
+  // Spawn drag preview with glow - thinner, sleeker outlines matching shape geometry
   if (state.dragStart && state.dragCurrent) {
-  const a = state.dragStart, b = state.dragCurrent;
-  ctx.shadowColor = 'rgba(0, 229, 160, 0.4)';
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.8)';
-  ctx.fillStyle = 'rgba(0, 229, 160, 0.12)';
-  ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
-  ctx.beginPath();
-  if (state.tool === 'circle') {
-  const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-  const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  } else {
-  const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-  const w = Math.max(20, Math.abs(b.x - a.x));
-  const h = Math.max(20, Math.abs(b.y - a.y));
-  ctx.roundRect(x0, y0, w, h, 4);
-  }
-  ctx.fill(); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
+    const a = state.dragStart, b = state.dragCurrent;
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
+    
+    ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
+    ctx.fillStyle = 'rgba(0, 229, 160, 0.06)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    switch (state.tool) {
+      case 'circle':
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        break;
+        
+      case 'triangle': {
+        // Equilateral triangle pointing up, sized by drag radius
+        const triR = Math.max(14, r);
+        for (let i = 0; i < 3; i++) {
+          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 3);
+          const px = cx + Math.cos(angle) * triR;
+          const py = cy + Math.sin(angle) * triR;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+      
+      case 'polygon': {
+        // Pentagon preview (polygon spawns 5-8 sides randomly)
+        const polyR = Math.max(14, r);
+        const sides = 5;
+        for (let i = 0; i < sides; i++) {
+          const angle = -Math.PI / 2 + (i * 2 * Math.PI / sides);
+          const px = cx + Math.cos(angle) * polyR;
+          const py = cy + Math.sin(angle) * polyR;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+      
+      case 'rope': {
+        // Rope preview - a dotted line from start to end
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        // Draw small circles at endpoints
+        ctx.moveTo(a.x + 6, a.y);
+        ctx.arc(a.x, a.y, 6, 0, Math.PI * 2);
+        ctx.moveTo(b.x + 6, b.y);
+        ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+        break;
+      }
+      
+      case 'wall': {
+        // Wall preview - rectangle with no rounded corners, different color
+        ctx.strokeStyle = 'rgba(74, 80, 104, 0.8)';
+        ctx.fillStyle = 'rgba(74, 80, 104, 0.1)';
+        ctx.shadowColor = 'rgba(74, 80, 104, 0.3)';
+        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+        const w = Math.max(20, Math.abs(b.x - a.x));
+        const h = Math.max(10, Math.abs(b.y - a.y));
+        ctx.rect(x0, y0, w, h);
+        break;
+      }
+      
+      case 'box':
+      default: {
+        // Box preview - rectangle with slight rounding
+        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+        const w = Math.max(20, Math.abs(b.x - a.x));
+        const h = Math.max(20, Math.abs(b.y - a.y));
+        ctx.roundRect(x0, y0, w, h, 2);
+        break;
+      }
+    }
+    
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
   }
   
   // Spring drag preview with glow
