@@ -317,6 +317,33 @@ const MATERIALS = {
   light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7' },
 };
 
+// Apply material to an existing body
+function applyMaterialToBody(body, materialName) {
+  if (!body || body.isStatic) return false;
+  const mat = MATERIALS[materialName];
+  if (!mat) return false;
+  
+  // Store original area for mass recalculation
+  const area = body.mass / (body.density || 1);
+  
+  // Apply material properties
+  body.density = mat.density;
+  body.mass = mat.density * area;
+  body.invMass = body.mass > 0 ? 1 / body.mass : 0;
+  body.friction = mat.friction;
+  body.restitution = mat.restitution;
+  
+  // Apply color if material has one
+  if (mat.color) {
+    body.color = mat.color;
+  }
+  
+  // Store material name on body for readout display
+  body.materialName = materialName;
+  
+  return true;
+}
+
 /* =========================== PREFAB STRUCTURES =========================== */
 function spawnPrefab(type, cx, cy) {
   const bodies = [];
@@ -1024,7 +1051,8 @@ function getMaterialProps() {
     density: mat.density,
     friction: mat.friction,
     restitution: mat.restitution,
-    color: mat.color || pickSpawnColor()
+    color: mat.color || pickSpawnColor(),
+    materialName: state.material // Store material name for readouts
   };
 }
 
@@ -1660,15 +1688,33 @@ document.querySelectorAll('.check input[type=checkbox]').forEach(el => {
   });
 });
 
-// Material selection
+// Material selection - applies to selected body if one exists, otherwise sets default for new spawns
 document.querySelectorAll('.material').forEach(el => {
   el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
-    state.material = el.dataset.material;
-    triggerHaptic('light');
-    AudioFx.click();
+    const materialName = el.dataset.material;
+    state.material = materialName;
+    
+    // Apply to selected body if one exists
+    if (state.selected && !state.selected.isStatic && !walls.includes(state.selected)) {
+      const applied = applyMaterialToBody(state.selected, materialName);
+      if (applied) {
+        // Spawn particles at body position for visual feedback
+        const pt = worldToScreen(state.selected.position.x, state.selected.position.y);
+        const matColor = MATERIALS[materialName]?.color || '#00e5a0';
+        spawnParticles(pt.x, pt.y, 12, { color: matColor, speed: 3, life: 0.5 });
+        triggerHaptic('medium');
+        AudioFx.presetLoad();
+      } else {
+        triggerHaptic('light');
+        AudioFx.click();
+      }
+    } else {
+      triggerHaptic('light');
+      AudioFx.click();
+    }
   });
 });
 
@@ -2270,6 +2316,12 @@ const ovLessonFormula = document.getElementById('ov-lessonFormula');
 const ovLevelBadge = document.getElementById('ov-levelBadge');
 const ovConceptList = document.getElementById('ov-conceptList');
 
+// Overlay elements for material properties
+const ovMaterial = document.getElementById('ov-material');
+const ovMass = document.getElementById('ov-mass');
+const ovFriction = document.getElementById('ov-friction');
+const ovBounce = document.getElementById('ov-bounce');
+
 // Update info overlay readings
 function updateInfoOverlay() {
   const infoEl = document.getElementById('infoOverlay');
@@ -2290,6 +2342,10 @@ function updateInfoOverlay() {
   
   if (!b || walls.includes(b)) {
     if (ovSelected) ovSelected.textContent = '—';
+    if (ovMaterial) ovMaterial.textContent = '—';
+    if (ovMass) ovMass.textContent = '0';
+    if (ovFriction) ovFriction.textContent = '0';
+    if (ovBounce) ovBounce.textContent = '0';
     if (ovSpeed) ovSpeed.textContent = '0';
     if (ovKe) ovKe.textContent = '0';
     if (ovPe) ovPe.textContent = '0';
@@ -2303,7 +2359,26 @@ function updateInfoOverlay() {
   const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
   const momentum = b.mass * speed;
   
-  if (ovSelected) ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  // Determine shape name
+  let shapeName = 'Box';
+  if (b.shape === SHAPE.CIRCLE) shapeName = 'Ball';
+  else if (b.shape === SHAPE.POLYGON && b.vertices?.length === 3) shapeName = 'Triangle';
+  else if (b.shape === SHAPE.POLYGON) shapeName = 'Polygon';
+  
+  // Get material name (capitalize first letter)
+  const matName = b.materialName || 'default';
+  const displayMatName = matName.charAt(0).toUpperCase() + matName.slice(1);
+  
+  if (ovSelected) ovSelected.textContent = shapeName;
+  if (ovMaterial) {
+    ovMaterial.textContent = displayMatName;
+    // Color the material name based on its type
+    const matColor = MATERIALS[matName]?.color;
+    ovMaterial.style.color = matColor || 'inherit';
+  }
+  if (ovMass) ovMass.textContent = b.mass.toFixed(2);
+  if (ovFriction) ovFriction.textContent = (b.friction || 0).toFixed(2);
+  if (ovBounce) ovBounce.textContent = (b.restitution || 0).toFixed(2);
   if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
   if (ovKe) ovKe.textContent = ke.toFixed(1);
   if (ovPe) ovPe.textContent = pe.toFixed(1);

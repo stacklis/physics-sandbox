@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=20" />
+<link rel="stylesheet" href="styles.css?v=21" />
 </head>
 <body>
 <header class="topbar">
@@ -215,6 +215,10 @@
       </div>
       <div class="readout-grid">
         <div class="metric"><div class="metric-label">Object</div><div class="metric-val" id="ov-selected">—</div></div>
+        <div class="metric"><div class="metric-label">Material</div><div class="metric-val" id="ov-material">—</div></div>
+        <div class="metric"><div class="metric-label">Mass</div><div class="metric-val"><span id="ov-mass">0</span> <span class="unit">kg</span></div></div>
+        <div class="metric"><div class="metric-label">Friction</div><div class="metric-val"><span id="ov-friction">0</span></div></div>
+        <div class="metric"><div class="metric-label">Bounce</div><div class="metric-val"><span id="ov-bounce">0</span></div></div>
         <div class="metric"><div class="metric-label">Speed</div><div class="metric-val"><span id="ov-speed">0</span> <span class="unit">m/s</span></div></div>
         <div class="metric"><div class="metric-label">Kinetic E</div><div class="metric-val"><span id="ov-ke">0</span> <span class="unit">J</span></div></div>
         <div class="metric"><div class="metric-label">Potential E</div><div class="metric-val"><span id="ov-pe">0</span> <span class="unit">J</span></div></div>
@@ -296,8 +300,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=20"></script>
-<script src="education.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="engine.js?v=21"></script>
+<script src="education.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
