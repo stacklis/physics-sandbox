@@ -182,8 +182,8 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
-// Destruction threshold for breaking objects (lowered to 4 for easier breaking)
-const DESTRUCTION_THRESHOLD = 4;
+// Destruction threshold for breaking objects - VERY LOW because engine reports tiny velocities
+const DESTRUCTION_THRESHOLD = 0.05;
 
 world.on(ev => {
   if (ev.type === 'collision') {
@@ -191,7 +191,9 @@ world.on(ev => {
     
     // Destruction mode: break objects on impacts
     if (state.destructionMode) {
+      console.log('[v0] Event object:', ev);
       const { bodyA, bodyB } = ev;
+      console.log('[v0] Extracted bodyA:', bodyA, 'bodyB:', bodyB);
       
       // Debug: log collision info
       console.log('[v0] Collision detected, relVelocity:', ev.relVelocity, 'threshold:', DESTRUCTION_THRESHOLD);
