@@ -480,6 +480,18 @@ canvas.addEventListener('pointermove', (ev) => {
   const wp = screenToWorld(cp.x, cp.y);
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
+    // Track mouse velocity for throw force calculation
+    const now = performance.now();
+    if (state.grabLastPos) {
+      const dt = Math.max(1, now - state.grabLastTime) / 1000; // seconds
+      const dx = (wp.x - state.grabLastPos.x) / dt;
+      const dy = (wp.y - state.grabLastPos.y) / dt;
+      const mouseVel = Math.sqrt(dx * dx + dy * dy);
+      state.grabMouseVelocity = { x: dx, y: dy, mag: mouseVel };
+    }
+    state.grabLastPos = { x: wp.x, y: wp.y };
+    state.grabLastTime = now;
+    
     // move grab anchor
     state.grabAnchor.position = wp;
   }
@@ -592,10 +604,19 @@ function endGrab() {
     if (i >= 0) world.constraints.splice(i, 1);
   }
   
-  // Calculate release velocity from history
-  if (releasedBody && state.grabVelocityHistory.length > 1) {
+  // Apply mouse velocity as additional throw force
+  if (releasedBody && state.grabMouseVelocity) {
+    const mouseVel = state.grabMouseVelocity;
+    const strength = state.grabStrength;
+    // Scale the mouse velocity to add extra throw impulse
+    const throwMultiplier = 0.5 * strength;
+    releasedBody.velocity.x += mouseVel.x * throwMultiplier;
+    releasedBody.velocity.y += mouseVel.y * throwMultiplier;
     releaseVelocity = releasedBody.velocity.length();
-    // Also check velocity history for peak velocity during drag
+  }
+  
+  // Also check velocity history for peak velocity during drag
+  if (releasedBody && state.grabVelocityHistory.length > 1) {
     const maxHistoryVel = Math.max(...state.grabVelocityHistory);
     releaseVelocity = Math.max(releaseVelocity, maxHistoryVel * 0.8);
   }
@@ -615,6 +636,9 @@ function endGrab() {
   state.grabBody = null; state.grabAnchor = null; state.grabConstraint = null;
   state.grabPrevGravityScale = null;
   state.grabVelocityHistory = [];
+  state.grabMouseVelocity = null;
+  state.grabLastPos = null;
+  state.grabLastTime = null;
 }
 
 /* =========================== pin / slice =========================== */
@@ -1797,19 +1821,15 @@ class FloatingOverlay {
     this.el.classList.add('dragging');
     this.drag.active = true;
     
-    // Get the exact current visual position of the overlay
+    // Store the starting cursor position and current element position
+    this.drag.startX = e.clientX;
+    this.drag.startY = e.clientY;
+    
+    // Get element's current visual position
     const rect = this.el.getBoundingClientRect();
+    this.drag.elStartX = rect.left;
+    this.drag.elStartY = rect.top;
     
-    // Pin the overlay to left/top absolute coords matching its current visual position.
-    // This is critical — without it, overlays using CSS `right` snap on first drag.
-    this.el.style.left = rect.left + 'px';
-    this.el.style.top = rect.top + 'px';
-    this.el.style.right = 'auto';
-    this.el.style.bottom = 'auto';
-    
-    // Offset = where within the overlay the pointer landed
-    this.drag.offsetX = e.clientX - rect.left;
-    this.drag.offsetY = e.clientY - rect.top;
     this.drag.lastX = e.clientX;
     this.drag.lastY = e.clientY;
     this.drag.lastTime = performance.now();
@@ -1834,13 +1854,17 @@ class FloatingOverlay {
     this.drag.lastY = e.clientY;
     this.drag.lastTime = now;
     
-    // New position: cursor position minus the offset where we grabbed
-    const newX = e.clientX - this.drag.offsetX;
-    const newY = e.clientY - this.drag.offsetY;
+    // Calculate delta from drag start
+    const dx = e.clientX - this.drag.startX;
+    const dy = e.clientY - this.drag.startY;
     
-    // Clamp to viewport bounds to prevent dragging off-screen
-    const x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, newX));
-    const y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, newY));
+    // New position = element start position + delta
+    let x = this.drag.elStartX + dx;
+    let y = this.drag.elStartY + dy;
+    
+    // Clamp to viewport bounds
+    x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, y));
     
     this.el.style.left = x + 'px';
     this.el.style.right = 'auto';
