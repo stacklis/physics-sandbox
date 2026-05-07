@@ -190,8 +190,12 @@ world.on(ev => {
     AudioFx.collision(ev.relVelocity, performance.now());
     
     // Destruction mode: break objects on impacts
-    if (state.destructionMode && ev.relVelocity > 0.5) {
+    if (state.destructionMode) {
       const { bodyA, bodyB } = ev;
+      
+      // Debug: log collision info
+      console.log('[v0] Collision detected, relVelocity:', ev.relVelocity, 'threshold:', DESTRUCTION_THRESHOLD);
+      
       // Use body positions as impact point if ev.point is missing
       const impactPoint = ev.point || (bodyA && bodyB ? {
         x: (bodyA.position.x + bodyB.position.x) / 2,
@@ -204,16 +208,24 @@ world.on(ev => {
       const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
       const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
       
+      console.log('[v0] effectiveVelA:', effectiveVelA, 'effectiveVelB:', effectiveVelB);
+      
       const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
       const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
+      
+      console.log('[v0] canDestroyA:', canDestroyA, 'canDestroyB:', canDestroyB);
       
       const shouldDestroyA = canDestroyA && (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
       const shouldDestroyB = canDestroyB && (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
       
+      console.log('[v0] shouldDestroyA:', shouldDestroyA, 'shouldDestroyB:', shouldDestroyB);
+      
       if (shouldDestroyA) {
+        console.log('[v0] Destroying body A');
         setTimeout(() => destroyBody(bodyA, impactPoint, effectiveVelA), 0);
       }
       if (shouldDestroyB) {
+        console.log('[v0] Destroying body B');
         setTimeout(() => destroyBody(bodyB, impactPoint, effectiveVelB), 0);
       }
     }
@@ -260,7 +272,12 @@ const state = {
 /* =========================== DESTRUCTION SYSTEM =========================== */
 // Breaks a body into voxel fragments on collision
 function destroyBody(body, impactPoint, impactForce) {
-  if (!body || body.isStatic || walls.includes(body) || body._destroyed) return [];
+  console.log('[v0] destroyBody called, body:', body, 'impactForce:', impactForce);
+  if (!body || body.isStatic || walls.includes(body) || body._destroyed) {
+    console.log('[v0] destroyBody early return - body:', !!body, 'isStatic:', body?.isStatic, 'isWall:', walls.includes(body), 'destroyed:', body?._destroyed);
+    return [];
+  }
+  console.log('[v0] Proceeding with destruction');
   body._destroyed = true;
   
   const fragments = [];
