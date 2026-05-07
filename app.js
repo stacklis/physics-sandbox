@@ -69,24 +69,13 @@ const ui = {
   audioOn: document.getElementById('audioOn'),
   audioVol: document.getElementById('audioVol'),
   hint: document.getElementById('hint'),
-  // panel
-  selected: document.getElementById('m-selected'),
-  speed: document.getElementById('m-speed'),
-  momentum: document.getElementById('m-momentum'),
-  ke: document.getElementById('m-ke'),
-  pe: document.getElementById('m-pe'),
-  ang: document.getElementById('m-ang'),
-  tke: document.getElementById('m-tke'),
-  tpe: document.getElementById('m-tpe'),
-  tot: document.getElementById('m-tot'),
-  count: document.getElementById('m-count'),
-  // educator targets
-  lessonTitle: document.getElementById('lessonTitle'),
-  lessonBody: document.getElementById('lessonBody'),
-  lessonFormula: document.getElementById('lessonFormula'),
-  lessonTags: document.getElementById('lessonTags'),
-  levelBadge: document.getElementById('levelBadge'),
-  conceptList: document.getElementById('conceptList'),
+  // educator targets (now in floating overlays)
+  lessonTitle: document.getElementById('ov-lessonTitle'),
+  lessonBody: document.getElementById('ov-lessonBody'),
+  lessonFormula: document.getElementById('ov-lessonFormula'),
+  lessonTags: document.getElementById('ov-lessonTags'),
+  levelBadge: document.getElementById('ov-levelBadge'),
+  conceptList: document.getElementById('ov-conceptList'),
 };
 
 const educator = new Educator(world, ui);
@@ -973,38 +962,9 @@ function bodyHeightAboveFloor(body) {
   return h > 0 ? h : 0;
 }
 
+// Readouts are now handled by the floating info overlay
 function updateReadouts() {
-  const b = state.selected;
-  if (b && !walls.includes(b)) {
-    const v = b.velocity.length();
-    ui.selected.textContent = b.shape === SHAPE.CIRCLE ? `Ball (m=${b.mass.toFixed(2)})` : `Polygon (m=${b.mass.toFixed(2)})`;
-    ui.speed.textContent = fmtNum(v);
-    ui.momentum.textContent = fmtNum(b.mass * v);
-    ui.ke.textContent = fmtNum(0.5 * b.mass * v * v + 0.5 * b.inertia * b.angularVelocity * b.angularVelocity);
-    ui.pe.textContent = fmtNum(b.mass * world.gravity * bodyHeightAboveFloor(b));
-    ui.ang.textContent = fmtNum(b.angularVelocity);
-  } else {
-    ui.selected.textContent = '—';
-    ui.speed.textContent = '0';
-    ui.momentum.textContent = '0';
-    ui.ke.textContent = '0';
-    ui.pe.textContent = '0';
-    ui.ang.textContent = '0';
-  }
-
-  // System totals
-  let tke = 0, tpe = 0, n = 0;
-  for (const body of world.bodies) {
-    if (body.isStatic) continue;
-    n++;
-    const v2 = body.velocity.lengthSq();
-    tke += 0.5 * body.mass * v2 + 0.5 * body.inertia * body.angularVelocity * body.angularVelocity;
-    tpe += body.mass * world.gravity * bodyHeightAboveFloor(body);
-  }
-  ui.tke.textContent = fmtNum(tke) + ' J';
-  ui.tpe.textContent = fmtNum(tpe) + ' J';
-  ui.tot.textContent = fmtNum(tke + tpe) + ' J';
-  ui.count.textContent = String(n);
+  // No-op - readings moved to floating overlay
 }
 
 /* =========================== trails update =========================== */
@@ -1078,10 +1038,7 @@ document.getElementById('topbarToggle').addEventListener('click', () => {
   // ResizeObserver picks this up, but call resize() directly so canvas redraws this frame.
   requestAnimationFrame(resize);
 });
-document.getElementById('panelToggle').addEventListener('click', () => {
-  layoutEl.classList.toggle('panel-collapsed');
-  requestAnimationFrame(resize);
-});
+
 document.getElementById('hintClose').addEventListener('click', () => {
   hintEl.classList.add('dismissed');
   try { localStorage.setItem('ps.hintDismissed', '1'); } catch (e) { /* private mode */ }
@@ -1116,18 +1073,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
 }
-// Panel divider - right side
-setupDivider(
-  document.getElementById('panelDivider'),
-  (e, r, mobile) => {
-    const minSize = mobile ? 50 : 120;
-    const maxSize = mobile ? r.height * 0.7 : r.width * 0.55;
-    const rawSize = mobile ? r.bottom - e.clientY : r.right - e.clientX;
-    return Math.max(minSize, Math.min(maxSize, rawSize));
-  },
-  '--panel-size', 'ps.panelSize'
-);
-// Tools divider - left side
+// Tools divider - left side only (panel removed)
 setupDivider(
   document.getElementById('toolsDivider'),
   (e, r, mobile) => {
@@ -1139,197 +1085,254 @@ setupDivider(
   '--tools-size', 'ps.toolsSize'
 );
 try {
-  const ps = localStorage.getItem('ps.panelSize');
-  if (ps) layoutEl.style.setProperty('--panel-size', ps);
   const ts = localStorage.getItem('ps.toolsSize');
   if (ts) layoutEl.style.setProperty('--tools-size', ts);
 } catch (e) {}
 
-// Info overlay — toggleable, draggable, transparent
-const infoOverlay = document.getElementById('infoOverlay');
-const infoOverlayToggle = document.getElementById('infoOverlayToggle');
-const infoOverlayClose = document.getElementById('infoOverlayClose');
-const overlayOpacity = document.getElementById('overlayOpacity');
+// ======================= MODULAR OVERLAY SYSTEM =======================
+// Reusable overlay manager with fluid dragging
+class FloatingOverlay {
+  constructor(id, toggleId, storageKey) {
+    this.el = document.getElementById(id);
+    this.toggle = document.getElementById(toggleId);
+    this.storageKey = storageKey;
+    this.drag = { active: false, offsetX: 0, offsetY: 0, startX: 0, startY: 0 };
+    this.opacity = 0.92;
+    
+    if (!this.el || !this.toggle) return;
+    
+    this.closeBtn = this.el.querySelector('.floating-overlay-close');
+    this.opacitySlider = this.el.querySelector('input[type=range]');
+    
+    this.init();
+  }
+  
+  init() {
+    // Toggle button
+    this.toggle.addEventListener('click', () => this.toggleVisibility());
+    if (this.closeBtn) this.closeBtn.addEventListener('click', () => this.hide());
+    
+    // Opacity slider
+    if (this.opacitySlider) {
+      this.opacitySlider.addEventListener('input', () => this.setOpacity(parseFloat(this.opacitySlider.value)));
+    }
+    
+    // Fluid dragging with momentum
+    this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    this.el.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    this.el.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    this.el.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+    
+    // Restore state
+    this.restoreState();
+  }
+  
+  toggleVisibility() {
+    if (this.el.classList.contains('visible')) {
+      this.hide();
+    } else {
+      this.show();
+    }
+  }
+  
+  show() {
+    // Set initial position if not set
+    if (!this.el.style.left && !this.el.style.right) {
+      this.setDefaultPosition();
+    }
+    this.el.classList.add('visible');
+    this.toggle.classList.add('active');
+    this.saveState();
+  }
+  
+  hide() {
+    this.el.classList.remove('visible');
+    this.toggle.classList.remove('active');
+    this.saveState();
+  }
+  
+  setDefaultPosition() {
+    const defaultX = this.el.dataset.defaultX || '16';
+    const defaultY = this.el.dataset.defaultY || '70';
+    
+    if (defaultX === 'right') {
+      this.el.style.right = '16px';
+      this.el.style.left = 'auto';
+    } else if (defaultX === 'center') {
+      this.el.style.left = Math.max(16, (window.innerWidth - 320) / 2) + 'px';
+    } else {
+      this.el.style.left = defaultX + 'px';
+    }
+    this.el.style.top = defaultY + 'px';
+  }
+  
+  setOpacity(val) {
+    this.opacity = val;
+    this.el.style.background = `rgba(15, 17, 24, ${val})`;
+    if (this.opacitySlider) this.opacitySlider.value = val;
+    this.saveState();
+  }
+  
+  onPointerDown(e) {
+    if (e.target.matches('input, button, a')) return;
+    e.preventDefault();
+    this.el.setPointerCapture(e.pointerId);
+    this.el.classList.add('dragging');
+    this.drag.active = true;
+    const rect = this.el.getBoundingClientRect();
+    this.drag.offsetX = e.clientX - rect.left;
+    this.drag.offsetY = e.clientY - rect.top;
+    this.drag.startX = rect.left;
+    this.drag.startY = rect.top;
+  }
+  
+  onPointerMove(e) {
+    if (!this.drag.active) return;
+    const x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, e.clientX - this.drag.offsetX));
+    const y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, e.clientY - this.drag.offsetY));
+    this.el.style.left = x + 'px';
+    this.el.style.right = 'auto';
+    this.el.style.top = y + 'px';
+  }
+  
+  onPointerUp(e) {
+    if (!this.drag.active) return;
+    this.drag.active = false;
+    this.el.classList.remove('dragging');
+    this.saveState();
+  }
+  
+  saveState() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify({
+        visible: this.el.classList.contains('visible'),
+        x: parseInt(this.el.style.left) || 0,
+        y: parseInt(this.el.style.top) || 0,
+        opacity: this.opacity
+      }));
+    } catch (e) {}
+  }
+  
+  restoreState() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.x !== undefined) {
+          this.el.style.left = data.x + 'px';
+          this.el.style.right = 'auto';
+        }
+        if (data.y !== undefined) this.el.style.top = data.y + 'px';
+        if (data.opacity !== undefined) this.setOpacity(data.opacity);
+        if (data.visible) this.show();
+      }
+    } catch (e) {}
+  }
+}
+
+// Create overlay instances
+const infoOverlayManager = new FloatingOverlay('infoOverlay', 'infoOverlayToggle', 'ps.infoOverlay');
+const lessonOverlayManager = new FloatingOverlay('lessonOverlay', 'lessonOverlayToggle', 'ps.lessonOverlay');
+const tipsOverlayManager = new FloatingOverlay('tipsOverlay', 'tipsOverlayToggle', 'ps.tipsOverlay');
+
+// Toggle functions for keyboard shortcuts
+function toggleInfoOverlay() { infoOverlayManager.toggleVisibility(); }
+function toggleLessonOverlay() { lessonOverlayManager.toggleVisibility(); }
+function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
+
+// Element refs for updates
 const ovSelected = document.getElementById('ov-selected');
 const ovSpeed = document.getElementById('ov-speed');
 const ovKe = document.getElementById('ov-ke');
 const ovPe = document.getElementById('ov-pe');
-
-// Toggle visibility
-function toggleInfoOverlay() {
-  infoOverlay.classList.toggle('hidden');
-  infoOverlayToggle.classList.toggle('active', !infoOverlay.classList.contains('hidden'));
-  try { localStorage.setItem('ps.infoOverlay', infoOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
-}
-infoOverlayToggle.addEventListener('click', toggleInfoOverlay);
-infoOverlayClose.addEventListener('click', toggleInfoOverlay);
-
-// Restore overlay state
-try {
-  if (localStorage.getItem('ps.infoOverlay') === '1') {
-    infoOverlay.classList.remove('hidden');
-    infoOverlayToggle.classList.add('active');
-  }
-  const savedPos = localStorage.getItem('ps.infoOverlayPos');
-  if (savedPos) {
-    const [x, y] = savedPos.split(',').map(Number);
-    infoOverlay.style.left = x + 'px';
-    infoOverlay.style.top = y + 'px';
-  }
-  const savedOpacity = localStorage.getItem('ps.infoOverlayOpacity');
-  if (savedOpacity) {
-    overlayOpacity.value = savedOpacity;
-    infoOverlay.style.background = `rgba(18, 20, 28, ${savedOpacity})`;
-  }
-} catch (e) {}
-
-// Opacity control
-overlayOpacity.addEventListener('input', () => {
-  const val = parseFloat(overlayOpacity.value);
-  infoOverlay.style.background = `rgba(18, 20, 28, ${val})`;
-  try { localStorage.setItem('ps.infoOverlayOpacity', val); } catch (e) {}
-});
-
-// Draggable overlay
-let overlayDrag = { active: false, offsetX: 0, offsetY: 0 };
-infoOverlay.addEventListener('pointerdown', (e) => {
-  if (e.target.matches('input, button')) return;
-  e.preventDefault();
-  infoOverlay.setPointerCapture(e.pointerId);
-  overlayDrag.active = true;
-  const rect = infoOverlay.getBoundingClientRect();
-  overlayDrag.offsetX = e.clientX - rect.left;
-  overlayDrag.offsetY = e.clientY - rect.top;
-});
-infoOverlay.addEventListener('pointermove', (e) => {
-  if (!overlayDrag.active) return;
-  const x = Math.max(0, Math.min(window.innerWidth - infoOverlay.offsetWidth, e.clientX - overlayDrag.offsetX));
-  const y = Math.max(0, Math.min(window.innerHeight - infoOverlay.offsetHeight, e.clientY - overlayDrag.offsetY));
-  infoOverlay.style.left = x + 'px';
-  infoOverlay.style.top = y + 'px';
-});
-infoOverlay.addEventListener('pointerup', () => {
-  if (!overlayDrag.active) return;
-  overlayDrag.active = false;
-  try { localStorage.setItem('ps.infoOverlayPos', `${parseInt(infoOverlay.style.left)},${parseInt(infoOverlay.style.top)}`); } catch (e) {}
-});
-
-// Update overlay readings each frame
-function updateInfoOverlay() {
-  if (infoOverlay.classList.contains('hidden')) return;
-  const b = state.selected;
-  if (!b || walls.includes(b)) {
-    ovSelected.textContent = '—';
-    ovSpeed.textContent = '0';
-    ovKe.textContent = '0';
-    ovPe.textContent = '0';
-    return;
-  }
-  ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
-  ovSpeed.textContent = b.velocity.length().toFixed(2);
-  const ke = 0.5 * b.mass * b.velocity.lengthSq();
-  ovKe.textContent = ke.toFixed(1);
-  const h = bodyHeightAboveFloor(b);
-  const pe = b.mass * Math.abs(world.gravity) * h;
-  ovPe.textContent = pe.toFixed(1);
-}
-
-// Lesson overlay — toggleable, draggable, transparent
-const lessonOverlay = document.getElementById('lessonOverlay');
-const lessonOverlayToggle = document.getElementById('lessonOverlayToggle');
-const lessonOverlayClose = document.getElementById('lessonOverlayClose');
-const lessonOverlayOpacity = document.getElementById('lessonOverlayOpacity');
+const ovMomentum = document.getElementById('ov-momentum');
+const ovAngular = document.getElementById('ov-angular');
+const ovTotal = document.getElementById('ov-total');
+const ovCount = document.getElementById('ov-count');
 const ovLessonTitle = document.getElementById('ov-lessonTitle');
 const ovLessonBody = document.getElementById('ov-lessonBody');
 const ovLessonFormula = document.getElementById('ov-lessonFormula');
-const ovLessonTags = document.getElementById('ov-lessonTags');
+const ovLevelBadge = document.getElementById('ov-levelBadge');
+const ovConceptList = document.getElementById('ov-conceptList');
 
-function toggleLessonOverlay() {
-  lessonOverlay.classList.toggle('hidden');
-  lessonOverlayToggle.classList.toggle('active', !lessonOverlay.classList.contains('hidden'));
-  try { localStorage.setItem('ps.lessonOverlay', lessonOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+// Update info overlay readings
+function updateInfoOverlay() {
+  const infoEl = document.getElementById('infoOverlay');
+  if (!infoEl || !infoEl.classList.contains('visible')) return;
+  
+  const b = state.selected;
+  const dynamicBodies = world.bodies.filter(x => !x.isStatic && !walls.includes(x));
+  
+  // System totals
+  let totalKE = 0, totalPE = 0;
+  dynamicBodies.forEach(body => {
+    totalKE += 0.5 * body.mass * body.velocity.lengthSq();
+    totalPE += body.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(body);
+  });
+  
+  if (ovTotal) ovTotal.textContent = (totalKE + totalPE).toFixed(1);
+  if (ovCount) ovCount.textContent = dynamicBodies.length;
+  
+  if (!b || walls.includes(b)) {
+    if (ovSelected) ovSelected.textContent = '—';
+    if (ovSpeed) ovSpeed.textContent = '0';
+    if (ovKe) ovKe.textContent = '0';
+    if (ovPe) ovPe.textContent = '0';
+    if (ovMomentum) ovMomentum.textContent = '0';
+    if (ovAngular) ovAngular.textContent = '0';
+    return;
+  }
+  
+  const speed = b.velocity.length();
+  const ke = 0.5 * b.mass * b.velocity.lengthSq();
+  const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
+  const momentum = b.mass * speed;
+  
+  if (ovSelected) ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
+  if (ovKe) ovKe.textContent = ke.toFixed(1);
+  if (ovPe) ovPe.textContent = pe.toFixed(1);
+  if (ovMomentum) ovMomentum.textContent = momentum.toFixed(2);
+  if (ovAngular) ovAngular.textContent = Math.abs(b.angularVelocity || 0).toFixed(2);
 }
-lessonOverlayToggle.addEventListener('click', toggleLessonOverlay);
-lessonOverlayClose.addEventListener('click', toggleLessonOverlay);
 
-// Restore lesson overlay state
-try {
-  if (localStorage.getItem('ps.lessonOverlay') === '1') {
-    lessonOverlay.classList.remove('hidden');
-    lessonOverlayToggle.classList.add('active');
-  }
-  const savedLessonPos = localStorage.getItem('ps.lessonOverlayPos');
-  if (savedLessonPos) {
-    const [x, y] = savedLessonPos.split(',').map(Number);
-    lessonOverlay.style.left = x + 'px';
-    lessonOverlay.style.right = 'auto';
-    lessonOverlay.style.top = y + 'px';
-  }
-  const savedLessonOpacity = localStorage.getItem('ps.lessonOverlayOpacity');
-  if (savedLessonOpacity) {
-    lessonOverlayOpacity.value = savedLessonOpacity;
-    lessonOverlay.style.background = `rgba(18, 20, 28, ${savedLessonOpacity})`;
-  }
-} catch (e) {}
-
-lessonOverlayOpacity.addEventListener('input', () => {
-  const val = parseFloat(lessonOverlayOpacity.value);
-  lessonOverlay.style.background = `rgba(18, 20, 28, ${val})`;
-  try { localStorage.setItem('ps.lessonOverlayOpacity', val); } catch (e) {}
-});
-
-// Draggable lesson overlay
-let lessonDrag = { active: false, offsetX: 0, offsetY: 0 };
-lessonOverlay.addEventListener('pointerdown', (e) => {
-  if (e.target.matches('input, button')) return;
-  e.preventDefault();
-  lessonOverlay.setPointerCapture(e.pointerId);
-  lessonDrag.active = true;
-  const rect = lessonOverlay.getBoundingClientRect();
-  lessonDrag.offsetX = e.clientX - rect.left;
-  lessonDrag.offsetY = e.clientY - rect.top;
-});
-lessonOverlay.addEventListener('pointermove', (e) => {
-  if (!lessonDrag.active) return;
-  const x = Math.max(0, Math.min(window.innerWidth - lessonOverlay.offsetWidth, e.clientX - lessonDrag.offsetX));
-  const y = Math.max(0, Math.min(window.innerHeight - lessonOverlay.offsetHeight, e.clientY - lessonDrag.offsetY));
-  lessonOverlay.style.left = x + 'px';
-  lessonOverlay.style.right = 'auto';
-  lessonOverlay.style.top = y + 'px';
-});
-lessonOverlay.addEventListener('pointerup', () => {
-  if (!lessonDrag.active) return;
-  lessonDrag.active = false;
-  try { localStorage.setItem('ps.lessonOverlayPos', `${parseInt(lessonOverlay.style.left)},${parseInt(lessonOverlay.style.top)}`); } catch (e) {}
-});
-
-// Sync lesson overlay with education system
+// Update lesson overlay from education system
 function updateLessonOverlay() {
-  if (lessonOverlay.classList.contains('hidden')) return;
-  // Mirror the panel lesson content
-  const panelTitle = document.getElementById('lessonTitle');
-  const panelBody = document.getElementById('lessonBody');
-  const panelFormula = document.getElementById('lessonFormula');
-  if (panelTitle) ovLessonTitle.textContent = panelTitle.textContent;
-  if (panelBody) ovLessonBody.textContent = panelBody.textContent;
-  if (panelFormula && !panelFormula.hidden) {
-    ovLessonFormula.innerHTML = panelFormula.innerHTML;
-    ovLessonFormula.hidden = false;
-  } else {
-    ovLessonFormula.hidden = true;
+  const lessonEl = document.getElementById('lessonOverlay');
+  if (!lessonEl || !lessonEl.classList.contains('visible')) return;
+  
+  // Sync with education.js if available
+  if (typeof currentLesson !== 'undefined' && currentLesson) {
+    if (ovLessonTitle) ovLessonTitle.textContent = currentLesson.title || 'Physics Concepts';
+    if (ovLessonBody) ovLessonBody.textContent = currentLesson.body || '';
+    if (ovLessonFormula && currentLesson.formula) {
+      ovLessonFormula.textContent = currentLesson.formula;
+      ovLessonFormula.hidden = false;
+    } else if (ovLessonFormula) {
+      ovLessonFormula.hidden = true;
+    }
+  }
+  
+  // Update level badge
+  if (ovLevelBadge) {
+    const levelNames = ['Curious', 'Student', 'University', 'Expert'];
+    const currentLevel = parseInt(document.querySelector('#levelSegment .seg.active')?.dataset.level) || 1;
+    ovLevelBadge.textContent = levelNames[currentLevel - 1];
   }
 }
 
-// Per-card collapse — click any card title to hide its body.
-document.querySelectorAll('.panel .card').forEach(card => {
-  const title = card.querySelector('.card-title');
-  if (!title) return;
-  const chev = document.createElement('span');
-  chev.className = 'card-chevron';
-  chev.textContent = '▾';
-  title.appendChild(chev);
-  title.addEventListener('click', () => card.classList.toggle('collapsed'));
-});
+// Update tips overlay concepts
+function updateTipsOverlay() {
+  if (!ovConceptList) return;
+  const tipsEl = document.getElementById('tipsOverlay');
+  if (!tipsEl || !tipsEl.classList.contains('visible')) return;
+  
+  // Sync with education.js concept list if available
+  const panelConcepts = document.getElementById('conceptList');
+  if (panelConcepts) {
+    ovConceptList.innerHTML = panelConcepts.innerHTML;
+  }
+}
 
 // keyboard
 window.addEventListener('keydown', (ev) => {
@@ -1359,6 +1362,8 @@ window.addEventListener('keydown', (ev) => {
     toggleInfoOverlay();
   } else if (ev.key === 'l' || ev.key === 'L') {
     toggleLessonOverlay();
+  } else if (ev.key === 't' || ev.key === 'T') {
+    toggleTipsOverlay();
   }
 });
 
@@ -1572,6 +1577,7 @@ render();
   updateReadouts();
   updateInfoOverlay();
   updateLessonOverlay();
+  updateTipsOverlay();
   requestAnimationFrame(loop);
   }
 
