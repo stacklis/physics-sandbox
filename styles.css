@@ -261,8 +261,8 @@ input, button { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, height 0.15s;
   flex-shrink: 0;
+  contain: layout style;
 }
 
 .topbar-divider:hover {
@@ -276,13 +276,11 @@ input, button { font: inherit; }
   background: linear-gradient(90deg, var(--accent), var(--secondary));
   border-radius: 2px;
   opacity: 0.35;
-  transition: all 0.2s ease;
 }
 
 .topbar-divider:hover .divider-handle-h,
 .topbar-divider.dragging .divider-handle-h {
   opacity: 1;
-  width: 80px;
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
@@ -350,13 +348,11 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, width 0.2s;
+  contain: layout style;
 }
 
 .tools-divider:hover {
   background: var(--bg-2);
-  width: 14px;
-  min-width: 14px;
 }
 
 .divider-handle {
@@ -365,13 +361,11 @@ input[type=range]::-moz-range-thumb {
   background: linear-gradient(180deg, var(--accent), var(--secondary));
   border-radius: 3px;
   opacity: 0.5;
-  transition: all 0.2s ease;
 }
 
 .tools-divider:hover .divider-handle,
 .tools-divider.dragging .divider-handle {
   opacity: 1;
-  height: 70px;
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
@@ -514,6 +508,55 @@ input[type=range]::-moz-range-thumb {
   display: grid;
   grid-template-columns: var(--tools-size, 200px) auto 1fr;
   min-height: 0;
+  contain: layout style;
+}
+
+/* Disable ALL transitions during resize/interaction to prevent flicker */
+.layout.resizing,
+.layout.resizing *,
+.layout.resizing .tools,
+.layout.resizing .tool-section,
+.layout.resizing .tool-grid,
+.layout.resizing .tool-grid > *,
+.layout.resizing .stage {
+  transition: none !important;
+}
+
+.topbar.resizing,
+.topbar.resizing * {
+  transition: none !important;
+}
+
+/* Global interaction class - disables all transitions during pointer activity */
+body.interacting *,
+body.interacting .tools,
+body.interacting .tool-section,
+body.interacting .tool-grid,
+body.interacting .tool-grid > *,
+body.interacting .stage,
+body.interacting .topbar,
+body.interacting .layout,
+body.interacting .divider,
+body.interacting .tools-divider,
+body.interacting .topbar-divider {
+  transition: none !important;
+}
+
+/* Destruction mode toggle - special styling */
+.destruction-toggle {
+  background: var(--bg-2);
+  border-color: var(--line);
+}
+
+.destruction-toggle:has(input:checked) {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.5);
+  color: #ff6b6b;
+}
+
+.destruction-toggle input:checked + *::before,
+.destruction-toggle:has(input:checked)::after {
+  color: #ff6b6b;
 }
 
 /* ======================= TOOLS ======================= */
@@ -527,9 +570,8 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  contain: layout style paint;
+  isolation: isolate;
 }
 
 .tool-section {
@@ -537,7 +579,6 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Tool grid container - wraps when narrow with smooth settling */
@@ -768,6 +809,8 @@ input[type=range]::-moz-range-thumb {
   position: relative;
   background: var(--bg);
   overflow: hidden;
+  contain: layout style paint;
+  isolation: isolate;
 }
 
 .stage::before {
@@ -785,7 +828,9 @@ input[type=range]::-moz-range-thumb {
   width: 100%;
   height: 100%;
   touch-action: none;
-}
+  will-change: contents;
+  contain: strict;
+  }
 
 .hint {
   position: absolute;
@@ -1220,11 +1265,13 @@ input[type=range]::-moz-range-thumb {
   .topbar-divider {
     display: none;
   }
+  
   .layout {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--tools-size, 56px) 1fr;
+    grid-template-rows: auto auto 1fr;
   }
   
+  /* Replace vertical divider with horizontal swipe indicator */
   .tools-divider {
     display: none;
   }
@@ -1234,55 +1281,107 @@ input[type=range]::-moz-range-thumb {
   }
   
   .bar-toggle {
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
-    background: rgba(0, 229, 160, 0.15);
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    background: rgba(0, 229, 160, 0.12);
     color: var(--accent);
-    border-color: rgba(0, 229, 160, 0.4);
+    border-color: rgba(0, 229, 160, 0.3);
+    flex-shrink: 0;
   }
   
   .topbar {
-    padding-right: 62px;
+    padding: 10px 14px;
+    gap: 10px;
+    flex-wrap: nowrap;
+    min-height: auto;
+    position: relative;
   }
   
-  .topbar.collapsed { gap: 0; }
-  .topbar { position: relative; }
-  .bar-toggle { margin-left: auto; }
-  .stage { min-height: 60vh; }
-  .topbar { flex-wrap: wrap; gap: 12px; }
+  .topbar.collapsed { 
+    gap: 8px; 
+    padding: 8px 14px;
+  }
   
+  .topbar.collapsed > :not(.brand):not(.bar-toggle) { 
+    display: none; 
+  }
+  
+  .brand {
+    font-size: 15px;
+    gap: 8px;
+  }
+  
+  .brand svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .bar-toggle { 
+    margin-left: auto; 
+  }
+  
+  .stage { 
+    min-height: 50vh; 
+    touch-action: manipulation;
+  }
+  
+  /* Tools horizontal scrolling strip */
   .tools {
     display: flex;
     flex-wrap: nowrap;
+    flex-direction: row;
     overflow-x: auto;
-    padding: 8px 10px;
-    gap: 6px;
+    overflow-y: hidden;
+    padding: 10px 12px;
+    gap: 8px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    position: relative;
+    background: var(--bg-1);
+  }
+  
+  .tools::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Horizontal scroll indicator gradient */
+  .tools::after {
+    content: '';
+    position: sticky;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    flex-shrink: 0;
+    background: linear-gradient(90deg, transparent, var(--bg-1) 80%);
+    pointer-events: none;
   }
   
   .tools.collapsed {
-    --tools-size: 56px !important;
-    width: auto;
-    min-width: auto;
-    padding: 8px 10px;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+    border-bottom: none;
   }
   
   .tool-section {
     margin: 0;
     display: flex;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
     flex: 0 0 auto;
     border-right: 1px solid var(--line);
-    padding-right: 8px;
+    padding-right: 10px;
+    margin-right: 2px;
   }
   
   .tool-section:last-child {
     border-right: 0;
+    padding-right: 40px; /* Space for fade gradient */
   }
   
   .section-title {
@@ -1293,45 +1392,195 @@ input[type=range]::-moz-range-thumb {
     display: none;
   }
   
-  .tool, .preset {
+  /* Mobile tool/preset buttons */
+  .tool, .preset, .material {
     width: auto;
     flex: 0 0 auto;
-    padding: 8px 12px;
+    padding: 10px 14px;
     margin: 0;
+    min-width: auto;
+    font-size: 12px;
   }
   
-  .tool span, .preset {
+  .tool {
+    min-width: 60px;
+  }
+  
+  .tool svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .tool span {
     font-size: 11px;
   }
   
-  .check {
-    padding: 6px 10px;
-    white-space: nowrap;
+  .preset, .material {
+    font-size: 11px;
+    padding: 8px 12px;
   }
   
+  .check {
+    padding: 8px 12px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  
+  .check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Slider rows in mobile */
+  .slider-row {
+    padding: 6px 10px;
+    min-width: 120px;
+  }
+  
+  .slider-row span {
+    font-size: 10px;
+  }
+  
+  /* Overlay toggles repositioned */
   .overlay-toggles {
     top: auto;
-    bottom: 16px;
-    right: 16px;
+    bottom: 12px;
+    right: 12px;
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
   }
   
   .overlay-toggle {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
   }
   
   .overlay-toggle svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+  }
+  
+  /* Floating overlays on mobile */
+  .floating-overlay {
+    max-width: calc(100vw - 24px);
+    max-height: 55vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 13px;
+  }
+  
+  .floating-overlay .metric {
+    padding: 6px 8px;
+  }
+  
+  .floating-overlay .metric-val {
+    font-size: 14px;
+  }
+  
+  .readout-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  /* Info overlay header */
+  .floating-overlay .overlay-header h3 {
+    font-size: 11px;
+  }
+  
+  /* Lesson panel mobile */
+  .lesson-body {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  
+  .formula {
+    font-size: 11px;
+    padding: 10px 12px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 480px) {
+  .topbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  
+  .brand {
+    font-size: 14px;
+    gap: 6px;
+  }
+  
+  .brand svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .bar-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  
+  .tools {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .tool, .preset, .material {
+    padding: 8px 10px;
+  }
+  
+  .tool {
+    min-width: 54px;
+  }
+  
+  .tool svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .tool span {
+    font-size: 10px;
+  }
+  
+  .overlay-toggles {
+    bottom: 10px;
+    right: 10px;
+    gap: 6px;
+  }
+  
+  .overlay-toggle {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .overlay-toggle svg {
+    width: 16px;
+    height: 16px;
   }
   
   .floating-overlay {
-    max-width: calc(100vw - 32px);
-    max-height: 60vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    max-width: calc(100vw - 20px);
+    max-height: 50vh;
+    padding: 10px;
+  }
+  
+  .readout-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  
+  .floating-overlay .metric {
+    padding: 5px 6px;
+  }
+  
+  .floating-overlay .metric-val {
+    font-size: 13px;
+  }
+  
+  .floating-overlay .metric-label {
+    font-size: 8px;
   }
 }
 

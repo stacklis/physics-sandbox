@@ -66,6 +66,7 @@ const ui = {
   showAABB: document.getElementById('showAABB'),
   showHeatmap: document.getElementById('showHeatmap'),
   showFPS: document.getElementById('showFPS'),
+  destructionMode: document.getElementById('destructionMode'),
   audioOn: document.getElementById('audioOn'),
   audioVol: document.getElementById('audioVol'),
   hint: document.getElementById('hint'),
@@ -179,8 +180,25 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
+// Destruction threshold for breaking objects
+const DESTRUCTION_THRESHOLD = 8;
+
 world.on(ev => {
-  if (ev.type === 'collision') AudioFx.collision(ev.relVelocity, performance.now());
+  if (ev.type === 'collision') {
+    AudioFx.collision(ev.relVelocity, performance.now());
+    
+    // Destruction mode: break objects on high-velocity impacts
+    if (state.destructionMode && ev.relVelocity > DESTRUCTION_THRESHOLD) {
+      const { bodyA, bodyB, point } = ev;
+      // Only destroy non-static, non-wall, non-fragment bodies
+      if (bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed) {
+        setTimeout(() => destroyBody(bodyA, point, ev.relVelocity), 0);
+      }
+      if (bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed) {
+        setTimeout(() => destroyBody(bodyB, point, ev.relVelocity), 0);
+      }
+    }
+  }
   else if (ev.type === 'spring') AudioFx.spring();
   else if (ev.type === 'push') AudioFx.push();
   else if (ev.type === 'spawn') AudioFx.spawn();
@@ -208,11 +226,93 @@ const state = {
   impulseBody: null, impulseStart: null, impulseEnd: null,
   // selection for readouts
   selected: null,
-  // trails
+// trails
   trails: new Map(), // body.id -> array of recent positions (world)
   // material applicator
   activeMaterial: null, // currently selected material for application
-};
+  // destruction mode
+  destructionMode: false,
+  };
+
+/* =========================== DESTRUCTION SYSTEM =========================== */
+// Breaks a body into voxel fragments on collision
+function destroyBody(body, impactPoint, impactForce) {
+  if (!body || body.isStatic || walls.includes(body) || body._destroyed) return [];
+  body._destroyed = true;
+  
+  const fragments = [];
+  const pos = body.position;
+  const vel = body.velocity;
+  const color = body.color || '#888';
+  
+  // Determine fragment count based on body size and impact force
+  const bodySize = body.shape === SHAPE.CIRCLE 
+    ? body.radius * 2 
+    : Math.max(body.width || 1, body.height || 1);
+  const fragmentCount = Math.min(12, Math.max(4, Math.floor(bodySize * 2 + impactForce * 0.5)));
+  const fragmentSize = Math.max(0.15, bodySize / fragmentCount * 0.8);
+  
+  // Create voxel fragments
+  for (let i = 0; i < fragmentCount; i++) {
+    // Spread fragments from impact point
+    const angle = (i / fragmentCount) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = Math.random() * bodySize * 0.4;
+    const fx = pos.x + Math.cos(angle) * dist;
+    const fy = pos.y + Math.sin(angle) * dist;
+    
+    // Calculate explosion velocity from impact point
+    const dx = fx - (impactPoint?.x || pos.x);
+    const dy = fy - (impactPoint?.y || pos.y);
+    const expDist = Math.hypot(dx, dy) || 0.1;
+    const expForce = (impactForce * 0.3 + 2) * (1 - expDist / bodySize);
+    
+    const frag = world.add(makeBox(fx, fy, fragmentSize, fragmentSize, {
+      density: body.density * 0.5,
+      friction: 0.5,
+      restitution: 0.3,
+      color: color
+    }));
+    
+    // Apply explosion velocity plus inherited velocity
+    frag.velocity = new Vec2(
+      vel.x + (dx / expDist) * expForce + (Math.random() - 0.5) * 2,
+      vel.y + (dy / expDist) * expForce + (Math.random() - 0.5) * 2 - 2
+    );
+    frag.angularVelocity = (Math.random() - 0.5) * 15;
+    frag._isFragment = true;
+    frag._fragmentLife = 5 + Math.random() * 3; // Fragments fade after 5-8 seconds
+    
+    fragments.push(frag);
+  }
+  
+  // Remove original body
+  world.remove(body);
+  if (state.selected === body) state.selected = null;
+  
+  // Play destruction sound
+  AudioFx.slice();
+  
+  return fragments;
+}
+
+// Update fragment lifetimes and fade them out
+function updateFragments(dt) {
+  if (!state.destructionMode) return;
+  
+  for (const body of [...world.bodies]) {
+    if (body._isFragment) {
+      body._fragmentLife -= dt;
+      if (body._fragmentLife <= 0) {
+        world.remove(body);
+      } else if (body._fragmentLife < 1) {
+        // Fade out - shrink the fragment
+        const scale = body._fragmentLife;
+        body.width *= 0.98;
+        body.height *= 0.98;
+      }
+    }
+  }
+}
 
 /* =========================== MATERIALS SYSTEM =========================== */
 const MATERIALS = {
@@ -1133,6 +1233,17 @@ document.querySelectorAll('.material').forEach(el => {
   });
 });
 
+// Destruction mode toggle
+if (ui.destructionMode) {
+  ui.destructionMode.addEventListener('change', () => {
+    state.destructionMode = ui.destructionMode.checked;
+    triggerHaptic(state.destructionMode ? 'medium' : 'light');
+    if (state.destructionMode) {
+      AudioFx.slice();
+    }
+  });
+}
+
 // presets with haptic
 document.querySelectorAll('.preset').forEach(el => {
   el.addEventListener('click', () => {
@@ -1205,6 +1316,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     try { divider.setPointerCapture(e.pointerId); } catch (err) {}
     divider.classList.add('dragging');
     layoutEl.classList.add('resizing');
+    document.body.classList.add('interacting');
     dragging = true;
     triggerHaptic('light');
   });
@@ -1222,6 +1334,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     dragging = false;
     divider.classList.remove('dragging');
     layoutEl.classList.remove('resizing');
+    document.body.classList.remove('interacting');
     resize();
     triggerHaptic('medium');
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
@@ -1232,6 +1345,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     dragging = false;
     divider.classList.remove('dragging');
     layoutEl.classList.remove('resizing');
+    document.body.classList.remove('interacting');
   });
 }
 
@@ -1272,6 +1386,8 @@ function setupTopbarDivider() {
     e.preventDefault();
     try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
     topbarDivider.classList.add('dragging');
+    topbar.classList.add('resizing');
+    document.body.classList.add('interacting');
     dragging = true;
     startY = e.clientY;
     startHeight = topbar.offsetHeight;
@@ -1289,6 +1405,8 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
+    document.body.classList.remove('interacting');
     triggerHaptic('medium');
     try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
   });
@@ -1297,6 +1415,8 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
+    document.body.classList.remove('interacting');
   });
   
   // Double-click to reset
@@ -2021,6 +2141,7 @@ function loop(now) {
     world.step(rawDt * state.timeScale);
     sampleEnvironment(now);
     updateTrails();
+    updateFragments(rawDt);
   }
 render();
   updateReadouts();
