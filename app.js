@@ -149,15 +149,16 @@ const AudioFx = (() => {
       if (masterGain) masterGain.gain.setValueAtTime(v, actx.currentTime);
     },
     collision(relV, now) {
-      // Dedupe: cap to ~one impact sound per 25 ms across all contacts.
-      if (now - lastCollisionT < 25) return;
+      // Dedupe: cap to ~one impact sound per 30 ms across all contacts.
+      if (now - lastCollisionT < 30) return;
       lastCollisionT = now;
-      const v = Math.min(Math.max(relV || 0, 0.5), 30);
-      const pitch = 90 + v * 12;          // soft thud → sharp clack
-      const gain = Math.min(0.45, 0.04 + v * 0.018);
-      noise({ dur: 0.04 + v * 0.004, filter: pitch * 6, gain });
-      // tiny sub-thud for low-velocity hits to give body
-      if (v < 8) tone({ freq: 80, dur: 0.06, type: 'sine', gain: gain * 0.3 });
+      const v = Math.min(Math.max(relV || 0, 0.5), 20);
+      const pitch = 60 + v * 8;          // softer thud
+      const gain = Math.min(0.25, 0.02 + v * 0.01);
+      // Use lower filter for softer sound
+      noise({ dur: 0.03 + v * 0.003, filter: pitch * 4, gain });
+      // Sub-thud for body
+      if (v < 10) tone({ freq: 60, dur: 0.05, type: 'sine', gain: gain * 0.2 });
     },
     spring() {
       tone({ freq: 320, dur: 0.18, type: 'triangle', gain: 0.12, slideTo: 180 });
@@ -1307,6 +1308,17 @@ function setupDivider(divider, computeSize, varName, storeKey) {
   if (!divider) return;
   let dragging = false;
   
+  // Prevent flicker on hover by adding interacting class
+  divider.addEventListener('pointerenter', () => {
+    document.body.classList.add('interacting');
+  });
+  
+  divider.addEventListener('pointerleave', () => {
+    if (!dragging) {
+      document.body.classList.remove('interacting');
+    }
+  });
+  
   divider.addEventListener('pointerdown', (e) => {
     // Un-collapse tools when starting to drag
     if (toolsPanel.classList.contains('collapsed')) {
@@ -1351,7 +1363,6 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 
 // Tools divider setup
 const toolsDividerEl = document.getElementById('toolsDivider');
-console.log('[v0] Tools divider element:', toolsDividerEl);
 setupDivider(
   toolsDividerEl,
   (e, r, mobile) => {

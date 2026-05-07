@@ -542,6 +542,25 @@ body.interacting .topbar-divider {
   transition: none !important;
 }
 
+/* Disable ALL layout-affecting transitions on dividers and adjacent elements */
+.topbar-divider,
+.topbar-divider *,
+.tools-divider,
+.tools-divider *,
+.layout,
+.stage {
+  transition: none !important;
+}
+
+/* Only allow safe transitions (color, opacity, box-shadow - not layout-affecting) */
+.tool,
+.preset,
+.material,
+.check,
+.overlay-toggle {
+  transition: background 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s, opacity 0.1s !important;
+}
+
 /* Destruction mode toggle - special styling */
 .destruction-toggle {
   background: var(--bg-2);
