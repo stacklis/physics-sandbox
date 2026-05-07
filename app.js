@@ -183,7 +183,8 @@ ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audi
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
 // Destruction threshold for breaking objects (velocity in m/s)
-const DESTRUCTION_THRESHOLD = 2;
+// Requires strong throws or hard impacts - gentle drops won't break objects
+const DESTRUCTION_THRESHOLD = 10;
 
 world.on(ev => {
   if (ev.type === 'collision') {
@@ -206,11 +207,6 @@ world.on(ev => {
       const velB = bodyB ? bodyB.velocity.length() : 0;
       const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
       const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
-      
-      // Temporary debug: log velocities for tuning threshold
-      if (effectiveVelA > 0.1 || effectiveVelB > 0.1) {
-        console.log('[v0] Collision velocities - relVel:', ev.relVelocity.toFixed(3), 'velA:', velA.toFixed(3), 'velB:', velB.toFixed(3), 'effectiveA:', effectiveVelA.toFixed(3), 'effectiveB:', effectiveVelB.toFixed(3));
-      }
       
       const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
       const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
