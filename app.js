@@ -1671,6 +1671,8 @@ function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
 
 // Element refs for updates
 const ovSelected = document.getElementById('ov-selected');
+const ovMaterial = document.getElementById('ov-material');
+const ovMass = document.getElementById('ov-mass');
 const ovSpeed = document.getElementById('ov-speed');
 const ovKe = document.getElementById('ov-ke');
 const ovPe = document.getElementById('ov-pe');
@@ -1704,6 +1706,8 @@ function updateInfoOverlay() {
   
   if (!b || walls.includes(b)) {
     if (ovSelected) ovSelected.textContent = '—';
+    if (ovMaterial) { ovMaterial.textContent = '—'; ovMaterial.style.color = ''; }
+    if (ovMass) ovMass.textContent = '0';
     if (ovSpeed) ovSpeed.textContent = '0';
     if (ovKe) ovKe.textContent = '0';
     if (ovPe) ovPe.textContent = '0';
@@ -1717,7 +1721,23 @@ function updateInfoOverlay() {
   const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
   const momentum = b.mass * speed;
   
-  if (ovSelected) ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  // Determine shape name
+  let shapeName = 'Box';
+  if (b.shape === SHAPE.CIRCLE) shapeName = 'Ball';
+  else if (b.shape === SHAPE.POLYGON && b.vertices?.length === 3) shapeName = 'Triangle';
+  else if (b.shape === SHAPE.POLYGON) shapeName = 'Polygon';
+  
+  // Get material name (capitalize first letter)
+  const matKey = b.materialName || 'default';
+  const matData = MATERIALS[matKey];
+  const displayMatName = matData?.name || (matKey.charAt(0).toUpperCase() + matKey.slice(1));
+  
+  if (ovSelected) ovSelected.textContent = shapeName;
+  if (ovMaterial) {
+    ovMaterial.textContent = displayMatName;
+    ovMaterial.style.color = matData?.color || '';
+  }
+  if (ovMass) ovMass.textContent = b.mass.toFixed(2);
   if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
   if (ovKe) ovKe.textContent = ke.toFixed(1);
   if (ovPe) ovPe.textContent = pe.toFixed(1);
