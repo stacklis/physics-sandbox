@@ -1104,6 +1104,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     e.preventDefault();
     divider.setPointerCapture(e.pointerId);
     divider.classList.add('dragging');
+    layoutEl.classList.add('resizing');
     dragging = true;
   });
   divider.addEventListener('pointermove', (e) => {
@@ -1117,6 +1118,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
     resize();
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
@@ -1124,15 +1126,15 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 setupDivider(
   document.getElementById('panelDivider'),
   (e, r, mobile) => mobile
-    ? Math.max(80, Math.min(r.height * 0.85, r.bottom - e.clientY))
-    : Math.max(180, Math.min(r.width * 0.7, r.right - e.clientX)),
+    ? Math.max(60, Math.min(r.height * 0.88, r.bottom - e.clientY))
+    : Math.max(140, Math.min(r.width * 0.75, r.right - e.clientX)),
   '--panel-size', 'ps.panelSize'
 );
 setupDivider(
   document.getElementById('toolsDivider'),
   (e, r, mobile) => mobile
-    ? Math.max(40, Math.min(r.height * 0.45, e.clientY - r.top))
-    : Math.max(120, Math.min(r.width * 0.4, e.clientX - r.left)),
+    ? Math.max(40, Math.min(r.height * 0.5, e.clientY - r.top))
+    : Math.max(100, Math.min(r.width * 0.45, e.clientX - r.left)),
   '--tools-size', 'ps.toolsSize'
 );
 try {
@@ -1141,6 +1143,95 @@ try {
   const ts = localStorage.getItem('ps.toolsSize');
   if (ts) layoutEl.style.setProperty('--tools-size', ts);
 } catch (e) {}
+
+// Info overlay — toggleable, draggable, transparent
+const infoOverlay = document.getElementById('infoOverlay');
+const infoOverlayToggle = document.getElementById('infoOverlayToggle');
+const infoOverlayClose = document.getElementById('infoOverlayClose');
+const overlayOpacity = document.getElementById('overlayOpacity');
+const ovSelected = document.getElementById('ov-selected');
+const ovSpeed = document.getElementById('ov-speed');
+const ovKe = document.getElementById('ov-ke');
+const ovPe = document.getElementById('ov-pe');
+
+// Toggle visibility
+function toggleInfoOverlay() {
+  infoOverlay.classList.toggle('hidden');
+  infoOverlayToggle.classList.toggle('active', !infoOverlay.classList.contains('hidden'));
+  try { localStorage.setItem('ps.infoOverlay', infoOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+}
+infoOverlayToggle.addEventListener('click', toggleInfoOverlay);
+infoOverlayClose.addEventListener('click', toggleInfoOverlay);
+
+// Restore overlay state
+try {
+  if (localStorage.getItem('ps.infoOverlay') === '1') {
+    infoOverlay.classList.remove('hidden');
+    infoOverlayToggle.classList.add('active');
+  }
+  const savedPos = localStorage.getItem('ps.infoOverlayPos');
+  if (savedPos) {
+    const [x, y] = savedPos.split(',').map(Number);
+    infoOverlay.style.left = x + 'px';
+    infoOverlay.style.top = y + 'px';
+  }
+  const savedOpacity = localStorage.getItem('ps.infoOverlayOpacity');
+  if (savedOpacity) {
+    overlayOpacity.value = savedOpacity;
+    infoOverlay.style.background = `rgba(10, 10, 15, ${savedOpacity})`;
+  }
+} catch (e) {}
+
+// Opacity control
+overlayOpacity.addEventListener('input', () => {
+  const val = parseFloat(overlayOpacity.value);
+  infoOverlay.style.background = `rgba(10, 10, 15, ${val})`;
+  try { localStorage.setItem('ps.infoOverlayOpacity', val); } catch (e) {}
+});
+
+// Draggable overlay
+let overlayDrag = { active: false, offsetX: 0, offsetY: 0 };
+infoOverlay.addEventListener('pointerdown', (e) => {
+  if (e.target.matches('input, button')) return;
+  e.preventDefault();
+  infoOverlay.setPointerCapture(e.pointerId);
+  overlayDrag.active = true;
+  const rect = infoOverlay.getBoundingClientRect();
+  overlayDrag.offsetX = e.clientX - rect.left;
+  overlayDrag.offsetY = e.clientY - rect.top;
+});
+infoOverlay.addEventListener('pointermove', (e) => {
+  if (!overlayDrag.active) return;
+  const x = Math.max(0, Math.min(window.innerWidth - infoOverlay.offsetWidth, e.clientX - overlayDrag.offsetX));
+  const y = Math.max(0, Math.min(window.innerHeight - infoOverlay.offsetHeight, e.clientY - overlayDrag.offsetY));
+  infoOverlay.style.left = x + 'px';
+  infoOverlay.style.top = y + 'px';
+});
+infoOverlay.addEventListener('pointerup', () => {
+  if (!overlayDrag.active) return;
+  overlayDrag.active = false;
+  try { localStorage.setItem('ps.infoOverlayPos', `${parseInt(infoOverlay.style.left)},${parseInt(infoOverlay.style.top)}`); } catch (e) {}
+});
+
+// Update overlay readings each frame
+function updateInfoOverlay() {
+  if (infoOverlay.classList.contains('hidden')) return;
+  const b = state.selected;
+  if (!b || walls.includes(b)) {
+    ovSelected.textContent = '—';
+    ovSpeed.textContent = '0';
+    ovKe.textContent = '0';
+    ovPe.textContent = '0';
+    return;
+  }
+  ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  ovSpeed.textContent = b.velocity.length().toFixed(2);
+  const ke = 0.5 * b.mass * b.velocity.lengthSq();
+  ovKe.textContent = ke.toFixed(1);
+  const h = bodyHeightAboveFloor(b);
+  const pe = b.mass * Math.abs(world.gravity) * h;
+  ovPe.textContent = pe.toFixed(1);
+}
 
 // Per-card collapse — click any card title to hide its body.
 document.querySelectorAll('.panel .card').forEach(card => {
@@ -1177,6 +1268,8 @@ window.addEventListener('keydown', (ev) => {
     ui.clearBtn.click();
   } else if (ev.key === '?') {
     document.getElementById('helpDialog').showModal();
+  } else if (ev.key === 'i' || ev.key === 'I') {
+    toggleInfoOverlay();
   }
 });
 
@@ -1386,10 +1479,11 @@ function loop(now) {
     sampleEnvironment(now);
     updateTrails();
   }
-  render();
+render();
   updateReadouts();
+  updateInfoOverlay();
   requestAnimationFrame(loop);
-}
+  }
 
 /* =========================== bootstrap =========================== */
 function init() {
