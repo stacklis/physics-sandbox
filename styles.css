@@ -261,8 +261,8 @@ input, button { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, height 0.15s;
   flex-shrink: 0;
+  contain: layout style;
 }
 
 .topbar-divider:hover {
@@ -276,13 +276,11 @@ input, button { font: inherit; }
   background: linear-gradient(90deg, var(--accent), var(--secondary));
   border-radius: 2px;
   opacity: 0.35;
-  transition: all 0.2s ease;
 }
 
 .topbar-divider:hover .divider-handle-h,
 .topbar-divider.dragging .divider-handle-h {
   opacity: 1;
-  width: 80px;
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
@@ -350,13 +348,11 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, width 0.2s;
+  contain: layout style;
 }
 
 .tools-divider:hover {
   background: var(--bg-2);
-  width: 14px;
-  min-width: 14px;
 }
 
 .divider-handle {
@@ -365,13 +361,11 @@ input[type=range]::-moz-range-thumb {
   background: linear-gradient(180deg, var(--accent), var(--secondary));
   border-radius: 3px;
   opacity: 0.5;
-  transition: all 0.2s ease;
 }
 
 .tools-divider:hover .divider-handle,
 .tools-divider.dragging .divider-handle {
   opacity: 1;
-  height: 70px;
   box-shadow: 0 0 20px var(--accent-glow);
 }
 
@@ -514,6 +508,7 @@ input[type=range]::-moz-range-thumb {
   display: grid;
   grid-template-columns: var(--tools-size, 200px) auto 1fr;
   min-height: 0;
+  contain: layout style;
 }
 
 /* Disable ALL transitions during resize/interaction to prevent flicker */
@@ -575,9 +570,8 @@ body.interacting .topbar-divider {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  contain: layout style paint;
+  isolation: isolate;
 }
 
 .tool-section {
@@ -585,7 +579,6 @@ body.interacting .topbar-divider {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Tool grid container - wraps when narrow with smooth settling */
@@ -816,6 +809,8 @@ body.interacting .topbar-divider {
   position: relative;
   background: var(--bg);
   overflow: hidden;
+  contain: layout style paint;
+  isolation: isolate;
 }
 
 .stage::before {
@@ -833,7 +828,9 @@ body.interacting .topbar-divider {
   width: 100%;
   height: 100%;
   touch-action: none;
-}
+  will-change: contents;
+  contain: strict;
+  }
 
 .hint {
   position: absolute;
