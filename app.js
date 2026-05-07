@@ -748,12 +748,6 @@ canvas.addEventListener('pointerdown', (ev) => {
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
   
-  // Start pouring fluid if enabled
-  if (FLUID_SETTINGS.enabled) {
-    FLUID_SETTINGS.pouring = true;
-    FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
-  }
-
   switch (state.tool) {
     case 'box': case 'circle': case 'polygon': case 'wall': case 'triangle': case 'rope':
       state.dragStart = cp;
@@ -793,6 +787,13 @@ canvas.addEventListener('pointerdown', (ev) => {
       break;
     case 'slice':
       state.slicePath = [{ x: cp.x, y: cp.y }];
+      break;
+    case 'fluid':
+      // Start pouring fluid when fluid tool is selected and mouse is held
+      if (FLUID_SETTINGS.enabled) {
+        FLUID_SETTINGS.pouring = true;
+        FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
+      }
       break;
   }
 });
@@ -1613,6 +1614,12 @@ document.querySelectorAll('.tool').forEach(el => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
+    // Auto-enable fluid when fluid tool is selected
+    if (el.dataset.tool === 'fluid') {
+      FLUID_SETTINGS.enabled = true;
+      const fluidCheck = document.getElementById('fluidEnabled');
+      if (fluidCheck) fluidCheck.checked = true;
+    }
     triggerHaptic('light');
     AudioFx.toolSelect();
   });
