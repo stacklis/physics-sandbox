@@ -210,7 +210,53 @@ const state = {
   selected: null,
   // trails
   trails: new Map(), // body.id -> array of recent positions (world)
+  // material applicator
+  activeMaterial: null, // currently selected material for application
 };
+
+/* =========================== MATERIALS SYSTEM =========================== */
+const MATERIALS = {
+  default: { density: 1, friction: 0.3, restitution: 0.4, color: null, name: 'Default' },
+  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d', name: 'Rubber' },
+  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff', name: 'Ice' },
+  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0', name: 'Metal' },
+  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c', name: 'Wood' },
+  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0', name: 'Bouncy' },
+  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e', name: 'Heavy' },
+  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7', name: 'Light' },
+};
+
+// Apply material to an existing body
+function applyMaterialToBody(body, materialKey) {
+  if (!body || body.isStatic) return false;
+  const mat = MATERIALS[materialKey];
+  if (!mat) return false;
+  
+  // Store original area for mass recalculation
+  const area = body.mass / (body.density || 1);
+  
+  // Apply material properties
+  body.density = mat.density;
+  body.mass = mat.density * area;
+  body.invMass = body.mass > 0 ? 1 / body.mass : 0;
+  body.friction = mat.friction;
+  body.restitution = mat.restitution;
+  
+  // Apply color if material has one
+  if (mat.color) {
+    body.color = mat.color;
+  }
+  
+  // Store material name on body
+  body.materialName = materialKey;
+  
+  return true;
+}
+
+// Reset body to default material
+function resetBodyMaterial(body) {
+  return applyMaterialToBody(body, 'default');
+}
 
 /* =========================== world events → educator =========================== */
 let lastFallSampled = 0;
@@ -241,13 +287,38 @@ function canvasPos(ev) {
   return new Vec2(ev.clientX - r.left, ev.clientY - r.top);
 }
 
+// Prevent context menu on canvas for right-click material reset
+canvas.addEventListener('contextmenu', (ev) => {
+  if (state.activeMaterial) ev.preventDefault();
+});
+
 canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
+  
+  // Material applicator mode - apply on left click, reset on right click
+  if (state.activeMaterial && body && !body.isStatic && !walls.includes(body)) {
+    if (ev.pointerType === 'mouse' && ev.button === 2) {
+      // Right-click: reset to default and deselect material
+      resetBodyMaterial(body);
+      state.activeMaterial = null;
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      AudioFx.toggleOff();
+      triggerHaptic('medium');
+      return;
+    } else if (ev.pointerType !== 'mouse' || ev.button === 0) {
+      // Left-click: apply selected material
+      applyMaterialToBody(body, state.activeMaterial);
+      AudioFx.spawn();
+      triggerHaptic('light');
+      return;
+    }
+  }
+  
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
 
   switch (state.tool) {
     case 'box': case 'circle': case 'polygon': case 'wall': case 'triangle': case 'rope':
@@ -1034,6 +1105,30 @@ document.querySelectorAll('.tool').forEach(el => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
+    // Deselect material applicator when switching tools
+    state.activeMaterial = null;
+    document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+    triggerHaptic('light');
+  });
+});
+
+// Material applicator - click to select, click again to deselect
+document.querySelectorAll('.material').forEach(el => {
+  el.addEventListener('click', () => {
+    const matKey = el.dataset.material;
+    
+    // Toggle: if same material clicked, deselect
+    if (state.activeMaterial === matKey) {
+      state.activeMaterial = null;
+      el.classList.remove('active');
+      AudioFx.toggleOff();
+    } else {
+      // Deselect previous and select new
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      state.activeMaterial = matKey;
+      AudioFx.toolSelect();
+    }
     triggerHaptic('light');
   });
 });
