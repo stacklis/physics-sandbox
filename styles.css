@@ -518,9 +518,8 @@ input[type=range]::-moz-range-thumb {
   animation: none !important;
 }
 
-/* Prevent any rendering glitches with GPU layers */
+/* Prevent any rendering glitches with GPU layers - but NOT on stage (breaks pointer coords) */
 .layout,
-.stage,
 .tools,
 .topbar,
 .topbar-divider,
@@ -1665,7 +1664,8 @@ body.interacting * {
 
 .floating-overlay.dragging {
   cursor: grabbing;
-  transition: none;
+  transition: none !important;
+  transform: none !important;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 160, 0.4);
 }
 
