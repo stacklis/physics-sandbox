@@ -39,16 +39,16 @@ function rebuildBoundaries() {
   const t = 0.4;
   // floor
   walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // left
   walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
   // right
   walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#1a1a24' })));
+    { isStatic: true, color: '#3a4055' })));
 }
 
 /* =========================== UI elements =========================== */
@@ -350,7 +350,7 @@ canvas.addEventListener('pointerup', (ev) => {
       world.emit({ type: 'spring' });
     } else {
       // anchor in space: create static anchor body
-      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#4a5068' }));
       world.addConstraint(new DistanceConstraint(startBody, anchor, state.springStartLocal, new Vec2(0, 0), {
         isSpring: true, springK: 480, damping: 9.6
       }));
@@ -507,7 +507,7 @@ function finishSpawn(start, end) {
       const w = Math.max(0.5, Math.abs(dx) || 2);
       const h = Math.max(0.2, Math.abs(dy) || 0.4);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#2a2a3a' }));
+      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'triangle': {
@@ -533,7 +533,7 @@ function finishSpawn(start, end) {
         const x = ws.x + dx * t;
         const y = ws.y + dy * t;
         const seg = world.add(makeCircle(x, y, segR, {
-          color: '#8888a0', density: 0.4, friction: 0.4, restitution: 0.05
+          color: '#9ba8c0', density: 0.4, friction: 0.4, restitution: 0.05
         }));
         segs.push(seg);
       }
@@ -568,7 +568,9 @@ function pickSpawnColor() { spawnIdx = (spawnIdx + 1) % SPAWN_PALETTE.length; re
 
 /* =========================== rendering =========================== */
 function render() {
-  ctx.clearRect(0, 0, cssW, cssH);
+  // Fill with lighter background instead of clear
+  ctx.fillStyle = '#1a1d28';
+  ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
   // bodies
@@ -602,8 +604,8 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  // Subtle grid with accent tint
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.025)';
+  // Subtle grid - neutral color for visibility
+  ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = (camera.x % sPx); x < cssW; x += sPx) {
@@ -614,9 +616,9 @@ function drawGrid() {
   }
   ctx.stroke();
   
-  // axis at floor level with glow effect
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.08)';
-  ctx.lineWidth = 2;
+  // Floor line with accent
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
@@ -921,31 +923,22 @@ function drawSelectionRing(b) {
   const aabb = b.aabb();
   const min = worldToScreen(aabb.minX, aabb.minY);
   const max = worldToScreen(aabb.maxX, aabb.maxY);
-  const pad = 6;
+  const pad = 4;
   const w = max.x - min.x + pad * 2;
   const h = max.y - min.y + pad * 2;
   const x = min.x - pad;
   const y = min.y - pad;
-  const r = 6; // corner radius
+  const r = 4; // corner radius
   
-  // Glow effect
-  ctx.shadowColor = 'rgba(0, 229, 160, 0.5)';
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.8)';
-  ctx.lineWidth = 2;
+  // Subtle glow
+  ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.stroke();
   ctx.shadowBlur = 0;
-  
-  // Inner dashed line
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
-  ctx.stroke();
-  ctx.setLineDash([]);
   }
 
 function withAlpha(hex, a) {
@@ -1104,6 +1097,7 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     e.preventDefault();
     divider.setPointerCapture(e.pointerId);
     divider.classList.add('dragging');
+    layoutEl.classList.add('resizing');
     dragging = true;
   });
   divider.addEventListener('pointermove', (e) => {
@@ -1117,22 +1111,31 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
     resize();
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
 }
+// Panel divider - right side
 setupDivider(
   document.getElementById('panelDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(80, Math.min(r.height * 0.85, r.bottom - e.clientY))
-    : Math.max(180, Math.min(r.width * 0.7, r.right - e.clientX)),
+  (e, r, mobile) => {
+    const minSize = mobile ? 50 : 120;
+    const maxSize = mobile ? r.height * 0.7 : r.width * 0.55;
+    const rawSize = mobile ? r.bottom - e.clientY : r.right - e.clientX;
+    return Math.max(minSize, Math.min(maxSize, rawSize));
+  },
   '--panel-size', 'ps.panelSize'
 );
+// Tools divider - left side
 setupDivider(
   document.getElementById('toolsDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(40, Math.min(r.height * 0.45, e.clientY - r.top))
-    : Math.max(120, Math.min(r.width * 0.4, e.clientX - r.left)),
+  (e, r, mobile) => {
+    const minSize = mobile ? 36 : 80;
+    const maxSize = mobile ? r.height * 0.4 : r.width * 0.35;
+    const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
+    return Math.max(minSize, Math.min(maxSize, rawSize));
+  },
   '--tools-size', 'ps.toolsSize'
 );
 try {
@@ -1141,6 +1144,181 @@ try {
   const ts = localStorage.getItem('ps.toolsSize');
   if (ts) layoutEl.style.setProperty('--tools-size', ts);
 } catch (e) {}
+
+// Info overlay — toggleable, draggable, transparent
+const infoOverlay = document.getElementById('infoOverlay');
+const infoOverlayToggle = document.getElementById('infoOverlayToggle');
+const infoOverlayClose = document.getElementById('infoOverlayClose');
+const overlayOpacity = document.getElementById('overlayOpacity');
+const ovSelected = document.getElementById('ov-selected');
+const ovSpeed = document.getElementById('ov-speed');
+const ovKe = document.getElementById('ov-ke');
+const ovPe = document.getElementById('ov-pe');
+
+// Toggle visibility
+function toggleInfoOverlay() {
+  infoOverlay.classList.toggle('hidden');
+  infoOverlayToggle.classList.toggle('active', !infoOverlay.classList.contains('hidden'));
+  try { localStorage.setItem('ps.infoOverlay', infoOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+}
+infoOverlayToggle.addEventListener('click', toggleInfoOverlay);
+infoOverlayClose.addEventListener('click', toggleInfoOverlay);
+
+// Restore overlay state
+try {
+  if (localStorage.getItem('ps.infoOverlay') === '1') {
+    infoOverlay.classList.remove('hidden');
+    infoOverlayToggle.classList.add('active');
+  }
+  const savedPos = localStorage.getItem('ps.infoOverlayPos');
+  if (savedPos) {
+    const [x, y] = savedPos.split(',').map(Number);
+    infoOverlay.style.left = x + 'px';
+    infoOverlay.style.top = y + 'px';
+  }
+  const savedOpacity = localStorage.getItem('ps.infoOverlayOpacity');
+  if (savedOpacity) {
+    overlayOpacity.value = savedOpacity;
+    infoOverlay.style.background = `rgba(18, 20, 28, ${savedOpacity})`;
+  }
+} catch (e) {}
+
+// Opacity control
+overlayOpacity.addEventListener('input', () => {
+  const val = parseFloat(overlayOpacity.value);
+  infoOverlay.style.background = `rgba(18, 20, 28, ${val})`;
+  try { localStorage.setItem('ps.infoOverlayOpacity', val); } catch (e) {}
+});
+
+// Draggable overlay
+let overlayDrag = { active: false, offsetX: 0, offsetY: 0 };
+infoOverlay.addEventListener('pointerdown', (e) => {
+  if (e.target.matches('input, button')) return;
+  e.preventDefault();
+  infoOverlay.setPointerCapture(e.pointerId);
+  overlayDrag.active = true;
+  const rect = infoOverlay.getBoundingClientRect();
+  overlayDrag.offsetX = e.clientX - rect.left;
+  overlayDrag.offsetY = e.clientY - rect.top;
+});
+infoOverlay.addEventListener('pointermove', (e) => {
+  if (!overlayDrag.active) return;
+  const x = Math.max(0, Math.min(window.innerWidth - infoOverlay.offsetWidth, e.clientX - overlayDrag.offsetX));
+  const y = Math.max(0, Math.min(window.innerHeight - infoOverlay.offsetHeight, e.clientY - overlayDrag.offsetY));
+  infoOverlay.style.left = x + 'px';
+  infoOverlay.style.top = y + 'px';
+});
+infoOverlay.addEventListener('pointerup', () => {
+  if (!overlayDrag.active) return;
+  overlayDrag.active = false;
+  try { localStorage.setItem('ps.infoOverlayPos', `${parseInt(infoOverlay.style.left)},${parseInt(infoOverlay.style.top)}`); } catch (e) {}
+});
+
+// Update overlay readings each frame
+function updateInfoOverlay() {
+  if (infoOverlay.classList.contains('hidden')) return;
+  const b = state.selected;
+  if (!b || walls.includes(b)) {
+    ovSelected.textContent = '—';
+    ovSpeed.textContent = '0';
+    ovKe.textContent = '0';
+    ovPe.textContent = '0';
+    return;
+  }
+  ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  ovSpeed.textContent = b.velocity.length().toFixed(2);
+  const ke = 0.5 * b.mass * b.velocity.lengthSq();
+  ovKe.textContent = ke.toFixed(1);
+  const h = bodyHeightAboveFloor(b);
+  const pe = b.mass * Math.abs(world.gravity) * h;
+  ovPe.textContent = pe.toFixed(1);
+}
+
+// Lesson overlay — toggleable, draggable, transparent
+const lessonOverlay = document.getElementById('lessonOverlay');
+const lessonOverlayToggle = document.getElementById('lessonOverlayToggle');
+const lessonOverlayClose = document.getElementById('lessonOverlayClose');
+const lessonOverlayOpacity = document.getElementById('lessonOverlayOpacity');
+const ovLessonTitle = document.getElementById('ov-lessonTitle');
+const ovLessonBody = document.getElementById('ov-lessonBody');
+const ovLessonFormula = document.getElementById('ov-lessonFormula');
+const ovLessonTags = document.getElementById('ov-lessonTags');
+
+function toggleLessonOverlay() {
+  lessonOverlay.classList.toggle('hidden');
+  lessonOverlayToggle.classList.toggle('active', !lessonOverlay.classList.contains('hidden'));
+  try { localStorage.setItem('ps.lessonOverlay', lessonOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+}
+lessonOverlayToggle.addEventListener('click', toggleLessonOverlay);
+lessonOverlayClose.addEventListener('click', toggleLessonOverlay);
+
+// Restore lesson overlay state
+try {
+  if (localStorage.getItem('ps.lessonOverlay') === '1') {
+    lessonOverlay.classList.remove('hidden');
+    lessonOverlayToggle.classList.add('active');
+  }
+  const savedLessonPos = localStorage.getItem('ps.lessonOverlayPos');
+  if (savedLessonPos) {
+    const [x, y] = savedLessonPos.split(',').map(Number);
+    lessonOverlay.style.left = x + 'px';
+    lessonOverlay.style.right = 'auto';
+    lessonOverlay.style.top = y + 'px';
+  }
+  const savedLessonOpacity = localStorage.getItem('ps.lessonOverlayOpacity');
+  if (savedLessonOpacity) {
+    lessonOverlayOpacity.value = savedLessonOpacity;
+    lessonOverlay.style.background = `rgba(18, 20, 28, ${savedLessonOpacity})`;
+  }
+} catch (e) {}
+
+lessonOverlayOpacity.addEventListener('input', () => {
+  const val = parseFloat(lessonOverlayOpacity.value);
+  lessonOverlay.style.background = `rgba(18, 20, 28, ${val})`;
+  try { localStorage.setItem('ps.lessonOverlayOpacity', val); } catch (e) {}
+});
+
+// Draggable lesson overlay
+let lessonDrag = { active: false, offsetX: 0, offsetY: 0 };
+lessonOverlay.addEventListener('pointerdown', (e) => {
+  if (e.target.matches('input, button')) return;
+  e.preventDefault();
+  lessonOverlay.setPointerCapture(e.pointerId);
+  lessonDrag.active = true;
+  const rect = lessonOverlay.getBoundingClientRect();
+  lessonDrag.offsetX = e.clientX - rect.left;
+  lessonDrag.offsetY = e.clientY - rect.top;
+});
+lessonOverlay.addEventListener('pointermove', (e) => {
+  if (!lessonDrag.active) return;
+  const x = Math.max(0, Math.min(window.innerWidth - lessonOverlay.offsetWidth, e.clientX - lessonDrag.offsetX));
+  const y = Math.max(0, Math.min(window.innerHeight - lessonOverlay.offsetHeight, e.clientY - lessonDrag.offsetY));
+  lessonOverlay.style.left = x + 'px';
+  lessonOverlay.style.right = 'auto';
+  lessonOverlay.style.top = y + 'px';
+});
+lessonOverlay.addEventListener('pointerup', () => {
+  if (!lessonDrag.active) return;
+  lessonDrag.active = false;
+  try { localStorage.setItem('ps.lessonOverlayPos', `${parseInt(lessonOverlay.style.left)},${parseInt(lessonOverlay.style.top)}`); } catch (e) {}
+});
+
+// Sync lesson overlay with education system
+function updateLessonOverlay() {
+  if (lessonOverlay.classList.contains('hidden')) return;
+  // Mirror the panel lesson content
+  const panelTitle = document.getElementById('lessonTitle');
+  const panelBody = document.getElementById('lessonBody');
+  const panelFormula = document.getElementById('lessonFormula');
+  if (panelTitle) ovLessonTitle.textContent = panelTitle.textContent;
+  if (panelBody) ovLessonBody.textContent = panelBody.textContent;
+  if (panelFormula && !panelFormula.hidden) {
+    ovLessonFormula.innerHTML = panelFormula.innerHTML;
+    ovLessonFormula.hidden = false;
+  } else {
+    ovLessonFormula.hidden = true;
+  }
+}
 
 // Per-card collapse — click any card title to hide its body.
 document.querySelectorAll('.panel .card').forEach(card => {
@@ -1177,6 +1355,10 @@ window.addEventListener('keydown', (ev) => {
     ui.clearBtn.click();
   } else if (ev.key === '?') {
     document.getElementById('helpDialog').showModal();
+  } else if (ev.key === 'i' || ev.key === 'I') {
+    toggleInfoOverlay();
+  } else if (ev.key === 'l' || ev.key === 'L') {
+    toggleLessonOverlay();
   }
 });
 
@@ -1211,7 +1393,7 @@ function loadPreset(name) {
     }
     case 'pendulum': {
       const ax = Wm * 0.5, ay = 0.5;
-      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#4a5068' }));
       const bob = world.add(makeCircle(ax + 3, ay + 0.2, 0.5, { color: '#ff7a8a', density: 4 }));
       world.addConstraint(new DistanceConstraint(anchor, bob, new Vec2(0, 0), new Vec2(0, 0), {
         length: 3.2, stiffness: 1.0
@@ -1228,7 +1410,7 @@ function loadPreset(name) {
       const N = 5;
       for (let i = 0; i < N; i++) {
         const x = cx + (i - (N - 1) / 2) * spacing;
-        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#2a2a3a' }));
+        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#4a5068' }));
         const ball = world.add(makeCircle(x, ay + len, radius, {
           color: '#8ad0ff', restitution: 0.95, friction: 0.0, density: 5
         }));
@@ -1251,14 +1433,14 @@ function loadPreset(name) {
         position: new Vec2(Wm * 0.5, Hm * 0.7),
         vertices: verts,
         isStatic: true,
-        color: '#2a2a3a'
+        color: '#4a5068'
       });
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
       world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#2a2a3a' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'orbit': {
@@ -1338,7 +1520,7 @@ function loadPreset(name) {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
       const ropeLen = Math.min(4.5, Hm * 0.55);
-      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#2a2a3a' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#4a5068' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
       }));
@@ -1386,10 +1568,12 @@ function loop(now) {
     sampleEnvironment(now);
     updateTrails();
   }
-  render();
+render();
   updateReadouts();
+  updateInfoOverlay();
+  updateLessonOverlay();
   requestAnimationFrame(loop);
-}
+  }
 
 /* =========================== bootstrap =========================== */
 function init() {

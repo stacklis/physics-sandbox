@@ -39,23 +39,16 @@ body {
   flex-direction: column;
 }
 
-/* Animated background */
+/* Subtle ambient background */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 1200px 800px at 10% 0%, rgba(0, 229, 160, 0.08), transparent 60%),
-    radial-gradient(ellipse 1000px 600px at 90% 100%, rgba(255, 107, 157, 0.06), transparent 60%),
-    radial-gradient(ellipse 800px 500px at 50% 50%, rgba(107, 139, 255, 0.04), transparent 50%);
+    radial-gradient(ellipse 1000px 600px at 5% 0%, rgba(0, 229, 160, 0.04), transparent 50%),
+    radial-gradient(ellipse 800px 500px at 95% 100%, rgba(107, 139, 255, 0.03), transparent 50%);
   pointer-events: none;
   z-index: 0;
-  animation: bgPulse 20s ease-in-out infinite alternate;
-}
-
-@keyframes bgPulse {
-  0% { opacity: 0.8; }
-  100% { opacity: 1; }
 }
 
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -65,11 +58,12 @@ input, button { font: inherit; }
 .topbar {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 12px 20px;
   padding: 12px 20px;
   padding-right: 60px;
-  background: linear-gradient(180deg, rgba(15, 15, 22, 0.95), rgba(10, 10, 15, 0.98));
+  background: linear-gradient(180deg, rgba(18, 20, 28, 0.97), rgba(12, 14, 20, 0.98));
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(20px);
   z-index: 10;
@@ -125,8 +119,10 @@ input, button { font: inherit; }
 
 .bar-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
+  min-width: 0;
 }
 
 .bar-group label {
@@ -137,12 +133,16 @@ input, button { font: inherit; }
 }
 
 .bar-group input[type=range] {
-  width: 120px;
+  width: 100px;
+  min-width: 60px;
+  flex: 1 1 auto;
+  max-width: 140px;
 }
 
 .bar-group.btns {
   margin-left: auto;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .seg-label {
@@ -153,6 +153,7 @@ input, button { font: inherit; }
 
 .segment {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   padding: 3px;
   background: var(--bg-2);
@@ -164,11 +165,12 @@ input, button { font: inherit; }
   background: transparent;
   border: 0;
   color: var(--muted);
-  padding: 7px 12px;
-  font-size: 12px;
+  padding: 6px 10px;
+  font-size: 11px;
   font-weight: 500;
   border-radius: 7px;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .seg:hover {
@@ -250,10 +252,14 @@ input, button { font: inherit; }
 
 .panel-toggle {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   z-index: 3;
+  font-size: 12px;
 }
+
+.panel-toggle::before { content: '\25B8'; }
+.layout.panel-collapsed .panel-toggle::before { content: '\25C2'; }
 
 /* ======================= RANGE INPUTS ======================= */
 input[type=range] {
@@ -357,8 +363,7 @@ input[type=range]::-moz-range-thumb {
 .card.collapsed .card-title { margin-bottom: 0; }
 .level-badge { margin-left: auto; }
 
-.panel-toggle::before { content: '▸'; }
-.layout.panel-collapsed .panel-toggle::before { content: '◂'; }
+
 .layout.panel-collapsed .panel > .card { display: none; }
 .layout.panel-collapsed .panel { padding: 8px; gap: 0; }
 .layout.panel-collapsed { grid-template-columns: var(--tools-size, 220px) 1fr 48px; }
@@ -380,20 +385,39 @@ input[type=range]::-moz-range-thumb {
 .tools {
   background: linear-gradient(180deg, var(--bg-1), var(--bg));
   border-right: 1px solid var(--line);
-  padding: 16px 14px;
+  padding: 12px 10px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .tool-section {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Tool grid container - wraps when narrow with smooth settling */
+.tool-section .tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  transition: gap 0.2s ease;
+}
+
+/* Smooth settling animation for all tool items */
+.tool-grid > * {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .section-title {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -408,40 +432,31 @@ input[type=range]::-moz-range-thumb {
 }
 
 .tool {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 65px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
-  margin-bottom: 6px;
-  transition: all 0.15s ease;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
 }
 
-.tool::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--accent), var(--secondary));
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
 .tool:hover {
   background: var(--bg-3);
-  border-color: var(--line-2);
-  transform: translateX(4px);
+  border-color: var(--accent);
 }
 
 .tool:active {
-  transform: translateX(2px) scale(0.98);
+  transform: scale(0.97);
 }
 
 .tool.active {
@@ -496,18 +511,18 @@ input[type=range]::-moz-range-thumb {
 }
 
 .preset {
-  display: block;
-  width: 100%;
-  text-align: left;
+  flex: 1 1 auto;
+  min-width: 75px;
+  text-align: center;
   background: transparent;
   border: 1px dashed var(--line);
   color: var(--muted);
-  padding: 9px 12px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
-  margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .preset:hover {
@@ -515,29 +530,33 @@ input[type=range]::-moz-range-thumb {
   border-color: var(--accent);
   border-style: solid;
   background: rgba(0, 229, 160, 0.08);
-  transform: translateX(4px);
 }
 
 .check {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--muted);
-  padding: 6px 0;
+  padding: 5px 8px;
+  background: var(--bg-2);
+  border-radius: 6px;
   user-select: none;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: all 0.15s;
+  flex: 1 1 auto;
+  min-width: fit-content;
 }
 
 .check:hover {
   color: var(--text);
+  background: var(--bg-3);
 }
 
 .check input {
   accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .slider-row {
@@ -700,15 +719,15 @@ input[type=range]::-moz-range-thumb {
 
 .readout-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+  gap: 8px;
 }
 
 .metric {
   background: var(--bg-3);
   border: 1px solid var(--line);
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   transition: all 0.2s ease;
 }
 
@@ -740,22 +759,30 @@ input[type=range]::-moz-range-thumb {
 }
 
 .totals {
-  margin-top: 12px;
+  margin-top: 10px;
   border-top: 1px dashed var(--line);
   padding-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 14px;
-  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 11px;
   color: var(--muted);
-}
+  }
+  
+.totals > div {
+  flex: 1 1 auto;
+  min-width: 80px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  }
 
 .totals b {
   color: var(--text);
-  float: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
+  white-space: nowrap;
+  }
 
 .lesson-body {
   margin: 0;
@@ -1103,6 +1130,179 @@ input[type=range]::-moz-range-thumb {
   .readout-grid {
     grid-template-columns: 1fr 1fr 1fr;
   }
+}
+
+/* ======================= FLOATING OVERLAYS ======================= */
+.floating-overlay {
+  position: fixed;
+  z-index: 100;
+  background: rgba(18, 20, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 320px;
+  min-width: 200px;
+  cursor: move;
+  user-select: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.floating-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95) translateY(5px);
+}
+
+.floating-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.floating-overlay-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.floating-overlay-close {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.floating-overlay-close:hover {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--bg);
+}
+
+.floating-overlay .readout-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.floating-overlay .metric {
+  padding: 6px 8px;
+  background: rgba(30, 34, 48, 0.7);
+}
+
+.floating-overlay .metric-label {
+  font-size: 8px;
+}
+
+.floating-overlay .metric-val {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Opacity control row */
+.floating-overlay .opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.floating-overlay .opacity-row input[type=range] {
+  flex: 1;
+  height: 3px;
+}
+
+/* Toggle button for overlays */
+.overlay-toggle {
+  position: fixed;
+  z-index: 99;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 20, 28, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-toggle:hover {
+  background: var(--bg-3);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+.overlay-toggle.active {
+  background: rgba(0, 229, 160, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Info overlay - bottom right */
+#infoOverlayToggle {
+  bottom: 16px;
+  right: 16px;
+}
+
+/* Lesson overlay - bottom right, above info */
+#lessonOverlayToggle {
+  bottom: 60px;
+  right: 16px;
+  font-size: 12px;
+}
+
+/* Lesson overlay content */
+.lesson-overlay .lesson-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+
+.lesson-overlay .formula {
+  background: var(--bg-3);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-2);
+}
+
+.lesson-overlay .lesson-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.lesson-overlay .concept-pill {
+  font-size: 9px;
+  padding: 3px 8px;
+  background: var(--bg-3);
+  border-radius: 10px;
+  color: var(--muted);
 }
 
 /* Focus states for accessibility */
