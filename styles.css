@@ -1220,11 +1220,13 @@ input[type=range]::-moz-range-thumb {
   .topbar-divider {
     display: none;
   }
+  
   .layout {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--tools-size, 56px) 1fr;
+    grid-template-rows: auto auto 1fr;
   }
   
+  /* Replace vertical divider with horizontal swipe indicator */
   .tools-divider {
     display: none;
   }
@@ -1234,55 +1236,107 @@ input[type=range]::-moz-range-thumb {
   }
   
   .bar-toggle {
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
-    background: rgba(0, 229, 160, 0.15);
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    background: rgba(0, 229, 160, 0.12);
     color: var(--accent);
-    border-color: rgba(0, 229, 160, 0.4);
+    border-color: rgba(0, 229, 160, 0.3);
+    flex-shrink: 0;
   }
   
   .topbar {
-    padding-right: 62px;
+    padding: 10px 14px;
+    gap: 10px;
+    flex-wrap: nowrap;
+    min-height: auto;
+    position: relative;
   }
   
-  .topbar.collapsed { gap: 0; }
-  .topbar { position: relative; }
-  .bar-toggle { margin-left: auto; }
-  .stage { min-height: 60vh; }
-  .topbar { flex-wrap: wrap; gap: 12px; }
+  .topbar.collapsed { 
+    gap: 8px; 
+    padding: 8px 14px;
+  }
   
+  .topbar.collapsed > :not(.brand):not(.bar-toggle) { 
+    display: none; 
+  }
+  
+  .brand {
+    font-size: 15px;
+    gap: 8px;
+  }
+  
+  .brand svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .bar-toggle { 
+    margin-left: auto; 
+  }
+  
+  .stage { 
+    min-height: 50vh; 
+    touch-action: manipulation;
+  }
+  
+  /* Tools horizontal scrolling strip */
   .tools {
     display: flex;
     flex-wrap: nowrap;
+    flex-direction: row;
     overflow-x: auto;
-    padding: 8px 10px;
-    gap: 6px;
+    overflow-y: hidden;
+    padding: 10px 12px;
+    gap: 8px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    position: relative;
+    background: var(--bg-1);
+  }
+  
+  .tools::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Horizontal scroll indicator gradient */
+  .tools::after {
+    content: '';
+    position: sticky;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    flex-shrink: 0;
+    background: linear-gradient(90deg, transparent, var(--bg-1) 80%);
+    pointer-events: none;
   }
   
   .tools.collapsed {
-    --tools-size: 56px !important;
-    width: auto;
-    min-width: auto;
-    padding: 8px 10px;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+    border-bottom: none;
   }
   
   .tool-section {
     margin: 0;
     display: flex;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
     flex: 0 0 auto;
     border-right: 1px solid var(--line);
-    padding-right: 8px;
+    padding-right: 10px;
+    margin-right: 2px;
   }
   
   .tool-section:last-child {
     border-right: 0;
+    padding-right: 40px; /* Space for fade gradient */
   }
   
   .section-title {
@@ -1293,45 +1347,195 @@ input[type=range]::-moz-range-thumb {
     display: none;
   }
   
-  .tool, .preset {
+  /* Mobile tool/preset buttons */
+  .tool, .preset, .material {
     width: auto;
     flex: 0 0 auto;
-    padding: 8px 12px;
+    padding: 10px 14px;
     margin: 0;
+    min-width: auto;
+    font-size: 12px;
   }
   
-  .tool span, .preset {
+  .tool {
+    min-width: 60px;
+  }
+  
+  .tool svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .tool span {
     font-size: 11px;
   }
   
-  .check {
-    padding: 6px 10px;
-    white-space: nowrap;
+  .preset, .material {
+    font-size: 11px;
+    padding: 8px 12px;
   }
   
+  .check {
+    padding: 8px 12px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  
+  .check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Slider rows in mobile */
+  .slider-row {
+    padding: 6px 10px;
+    min-width: 120px;
+  }
+  
+  .slider-row span {
+    font-size: 10px;
+  }
+  
+  /* Overlay toggles repositioned */
   .overlay-toggles {
     top: auto;
-    bottom: 16px;
-    right: 16px;
+    bottom: 12px;
+    right: 12px;
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
   }
   
   .overlay-toggle {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
   }
   
   .overlay-toggle svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+  }
+  
+  /* Floating overlays on mobile */
+  .floating-overlay {
+    max-width: calc(100vw - 24px);
+    max-height: 55vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 13px;
+  }
+  
+  .floating-overlay .metric {
+    padding: 6px 8px;
+  }
+  
+  .floating-overlay .metric-val {
+    font-size: 14px;
+  }
+  
+  .readout-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  
+  /* Info overlay header */
+  .floating-overlay .overlay-header h3 {
+    font-size: 11px;
+  }
+  
+  /* Lesson panel mobile */
+  .lesson-body {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  
+  .formula {
+    font-size: 11px;
+    padding: 10px 12px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 480px) {
+  .topbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  
+  .brand {
+    font-size: 14px;
+    gap: 6px;
+  }
+  
+  .brand svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .bar-toggle {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  
+  .tools {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .tool, .preset, .material {
+    padding: 8px 10px;
+  }
+  
+  .tool {
+    min-width: 54px;
+  }
+  
+  .tool svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .tool span {
+    font-size: 10px;
+  }
+  
+  .overlay-toggles {
+    bottom: 10px;
+    right: 10px;
+    gap: 6px;
+  }
+  
+  .overlay-toggle {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .overlay-toggle svg {
+    width: 16px;
+    height: 16px;
   }
   
   .floating-overlay {
-    max-width: calc(100vw - 32px);
-    max-height: 60vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    max-width: calc(100vw - 20px);
+    max-height: 50vh;
+    padding: 10px;
+  }
+  
+  .readout-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  
+  .floating-overlay .metric {
+    padding: 5px 6px;
+  }
+  
+  .floating-overlay .metric-val {
+    font-size: 13px;
+  }
+  
+  .floating-overlay .metric-label {
+    font-size: 8px;
   }
 }
 
