@@ -207,6 +207,11 @@ world.on(ev => {
       const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
       const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
       
+      // Temporary debug: log velocities for tuning threshold
+      if (effectiveVelA > 0.1 || effectiveVelB > 0.1) {
+        console.log('[v0] Collision velocities - relVel:', ev.relVelocity.toFixed(3), 'velA:', velA.toFixed(3), 'velB:', velB.toFixed(3), 'effectiveA:', effectiveVelA.toFixed(3), 'effectiveB:', effectiveVelB.toFixed(3));
+      }
+      
       const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
       const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
       
