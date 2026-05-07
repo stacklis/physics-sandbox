@@ -39,17 +39,7 @@ body {
   flex-direction: column;
 }
 
-/* Subtle ambient background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 1000px 600px at 5% 0%, rgba(0, 229, 160, 0.04), transparent 50%),
-    radial-gradient(ellipse 800px 500px at 95% 100%, rgba(107, 139, 255, 0.03), transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* Removed ambient background gradients to prevent compositing flicker */
 
 button { font: inherit; color: inherit; cursor: pointer; }
 input, button { font: inherit; }
@@ -63,10 +53,11 @@ input, button { font: inherit; }
   gap: 12px 20px;
   padding: 12px 20px;
   padding-right: 60px;
-  background: linear-gradient(180deg, rgba(18, 20, 28, 0.97), rgba(12, 14, 20, 0.98));
+  background: var(--bg-1);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(20px);
   z-index: 10;
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .bar-toggle {
@@ -97,14 +88,6 @@ input, button { font: inherit; }
     0 0 0 1px rgba(255,255,255,0.1),
     0 4px 20px var(--accent-glow),
     inset 0 1px 0 rgba(255,255,255,0.2);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
-}
-
-.logo:hover {
-  transform: scale(1.08) rotate(-2deg);
-  box-shadow: 
-    0 0 0 1px rgba(255,255,255,0.15),
-    0 8px 30px var(--accent-glow);
 }
 
 .title {
@@ -262,12 +245,12 @@ input, button { font: inherit; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  contain: layout style;
+  contain: strict;
+  isolation: isolate;
 }
 
 .topbar-divider:hover {
   background: var(--bg-2);
-  height: 10px;
 }
 
 .divider-handle-h {
@@ -297,11 +280,6 @@ input[type=range] {
   background: var(--bg-4);
   border-radius: 6px;
   outline: none;
-  transition: background 0.15s;
-}
-
-input[type=range]:hover {
-  background: var(--line);
 }
 
 input[type=range]::-webkit-slider-thumb {
@@ -314,14 +292,6 @@ input[type=range]::-webkit-slider-thumb {
     0 0 0 3px rgba(0, 229, 160, 0.2),
     0 2px 10px rgba(0, 229, 160, 0.3);
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-input[type=range]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 
-    0 0 0 5px rgba(0, 229, 160, 0.25),
-    0 4px 15px rgba(0, 229, 160, 0.4);
 }
 
 input[type=range]::-moz-range-thumb {
@@ -348,7 +318,8 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  contain: layout style;
+  contain: strict;
+  isolation: isolate;
 }
 
 .tools-divider:hover {
@@ -509,6 +480,7 @@ input[type=range]::-moz-range-thumb {
   grid-template-columns: var(--tools-size, 200px) auto 1fr;
   min-height: 0;
   contain: layout style;
+  isolation: isolate;
 }
 
 /* Disable ALL transitions during resize/interaction to prevent flicker */
@@ -867,15 +839,7 @@ body.interacting * {
   isolation: isolate;
 }
 
-.stage::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 600px 400px at 30% 30%, rgba(0, 229, 160, 0.03), transparent 60%),
-    radial-gradient(ellipse 500px 300px at 70% 70%, rgba(255, 107, 157, 0.02), transparent 60%);
-  pointer-events: none;
-}
+/* Removed stage gradient overlay to prevent compositing flicker */
 
 #canvas {
   display: block;
