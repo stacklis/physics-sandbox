@@ -261,13 +261,12 @@ input, button { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, height 0.15s;
+  transition: background 0.15s ease;
   flex-shrink: 0;
 }
 
 .topbar-divider:hover {
   background: var(--bg-2);
-  height: 10px;
 }
 
 .divider-handle-h {
@@ -276,14 +275,13 @@ input, button { font: inherit; }
   background: linear-gradient(90deg, var(--accent), var(--secondary));
   border-radius: 2px;
   opacity: 0.35;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
 .topbar-divider:hover .divider-handle-h,
 .topbar-divider.dragging .divider-handle-h {
   opacity: 1;
-  width: 80px;
-  box-shadow: 0 0 16px var(--accent-glow);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .topbar-divider.dragging {
@@ -350,13 +348,11 @@ input[type=range]::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, width 0.2s;
+  transition: background 0.15s ease;
 }
 
 .tools-divider:hover {
   background: var(--bg-2);
-  width: 14px;
-  min-width: 14px;
 }
 
 .divider-handle {
@@ -364,15 +360,14 @@ input[type=range]::-moz-range-thumb {
   height: 60px;
   background: linear-gradient(180deg, var(--accent), var(--secondary));
   border-radius: 3px;
-  opacity: 0.5;
-  transition: all 0.2s ease;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tools-divider:hover .divider-handle,
 .tools-divider.dragging .divider-handle {
   opacity: 1;
-  height: 70px;
-  box-shadow: 0 0 20px var(--accent-glow);
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .tools-divider.dragging {
