@@ -516,6 +516,54 @@ input[type=range]::-moz-range-thumb {
   min-height: 0;
 }
 
+/* Disable ALL transitions during resize/interaction to prevent flicker */
+.layout.resizing,
+.layout.resizing *,
+.layout.resizing .tools,
+.layout.resizing .tool-section,
+.layout.resizing .tool-grid,
+.layout.resizing .tool-grid > *,
+.layout.resizing .stage {
+  transition: none !important;
+}
+
+.topbar.resizing,
+.topbar.resizing * {
+  transition: none !important;
+}
+
+/* Global interaction class - disables all transitions during pointer activity */
+body.interacting *,
+body.interacting .tools,
+body.interacting .tool-section,
+body.interacting .tool-grid,
+body.interacting .tool-grid > *,
+body.interacting .stage,
+body.interacting .topbar,
+body.interacting .layout,
+body.interacting .divider,
+body.interacting .tools-divider,
+body.interacting .topbar-divider {
+  transition: none !important;
+}
+
+/* Destruction mode toggle - special styling */
+.destruction-toggle {
+  background: var(--bg-2);
+  border-color: var(--line);
+}
+
+.destruction-toggle:has(input:checked) {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.5);
+  color: #ff6b6b;
+}
+
+.destruction-toggle input:checked + *::before,
+.destruction-toggle:has(input:checked)::after {
+  color: #ff6b6b;
+}
+
 /* ======================= TOOLS ======================= */
 .tools {
   position: relative;
