@@ -67,6 +67,7 @@ const ui = {
   showHeatmap: document.getElementById('showHeatmap'),
   showFPS: document.getElementById('showFPS'),
   destructionMode: document.getElementById('destructionMode'),
+  grabStrength: document.getElementById('grabStrength'),
   audioOn: document.getElementById('audioOn'),
   audioVol: document.getElementById('audioVol'),
   hint: document.getElementById('hint'),
@@ -149,15 +150,16 @@ const AudioFx = (() => {
       if (masterGain) masterGain.gain.setValueAtTime(v, actx.currentTime);
     },
     collision(relV, now) {
-      // Dedupe: cap to ~one impact sound per 25 ms across all contacts.
-      if (now - lastCollisionT < 25) return;
+      // Dedupe: cap to ~one impact sound per 30 ms across all contacts.
+      if (now - lastCollisionT < 30) return;
       lastCollisionT = now;
-      const v = Math.min(Math.max(relV || 0, 0.5), 30);
-      const pitch = 90 + v * 12;          // soft thud → sharp clack
-      const gain = Math.min(0.45, 0.04 + v * 0.018);
-      noise({ dur: 0.04 + v * 0.004, filter: pitch * 6, gain });
-      // tiny sub-thud for low-velocity hits to give body
-      if (v < 8) tone({ freq: 80, dur: 0.06, type: 'sine', gain: gain * 0.3 });
+      const v = Math.min(Math.max(relV || 0, 0.5), 20);
+      const pitch = 60 + v * 8;          // softer thud
+      const gain = Math.min(0.25, 0.02 + v * 0.01);
+      // Use lower filter for softer sound
+      noise({ dur: 0.03 + v * 0.003, filter: pitch * 4, gain });
+      // Sub-thud for body
+      if (v < 10) tone({ freq: 60, dur: 0.05, type: 'sine', gain: gain * 0.2 });
     },
     spring() {
       tone({ freq: 320, dur: 0.18, type: 'triangle', gain: 0.12, slideTo: 180 });
@@ -187,15 +189,21 @@ world.on(ev => {
   if (ev.type === 'collision') {
     AudioFx.collision(ev.relVelocity, performance.now());
     
-    // Destruction mode: break objects on high-velocity impacts
-    if (state.destructionMode && ev.relVelocity > DESTRUCTION_THRESHOLD) {
+    // Destruction mode: break objects on high-velocity impacts or marked for destruction
+    if (state.destructionMode) {
       const { bodyA, bodyB, point } = ev;
-      // Only destroy non-static, non-wall, non-fragment bodies
-      if (bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed) {
-        setTimeout(() => destroyBody(bodyA, point, ev.relVelocity), 0);
+      const effectiveVelA = bodyA?._thrownVelocity || ev.relVelocity;
+      const effectiveVelB = bodyB?._thrownVelocity || ev.relVelocity;
+      const shouldDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed &&
+        (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
+      const shouldDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed &&
+        (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
+      
+      if (shouldDestroyA) {
+        setTimeout(() => destroyBody(bodyA, point, Math.max(ev.relVelocity, effectiveVelA)), 0);
       }
-      if (bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed) {
-        setTimeout(() => destroyBody(bodyB, point, ev.relVelocity), 0);
+      if (shouldDestroyB) {
+        setTimeout(() => destroyBody(bodyB, point, Math.max(ev.relVelocity, effectiveVelB)), 0);
       }
     }
   }
@@ -232,6 +240,10 @@ const state = {
   activeMaterial: null, // currently selected material for application
   // destruction mode
   destructionMode: false,
+  // grab strength multiplier (1 = normal, higher = more forceful)
+  grabStrength: 1.0,
+  // track grabbed body velocity for throw detection
+  grabVelocityHistory: [],
   };
 
 /* =========================== DESTRUCTION SYSTEM =========================== */
@@ -556,27 +568,53 @@ function startGrab(body, worldPoint) {
   // Mass-aware critical-damping tuning (Box2D mouse-joint style):
   // k = m·ω², c = 2·m·ω·ζ. Picking ω from a target frequency makes the grab
   // track at the same visual speed regardless of body mass.
-  const f = 3;       // Hz — target oscillation frequency
-  const zeta = 0.9;  // damping ratio (slightly under critical for snappy feel)
+  // Apply grab strength multiplier (1-5 range)
+  const strength = state.grabStrength;
+  const f = 3 * strength;       // Hz — target oscillation frequency (scales with strength)
+  const zeta = 0.7 + strength * 0.1;  // damping ratio
   const omega = 2 * Math.PI * f;
-  const k = body.mass * omega * omega;
+  const k = body.mass * omega * omega * strength;
   const c = 2 * body.mass * omega * zeta;
-  // Cap force so a fast cursor flick can't dump enough momentum to tunnel
-  // through walls or produce extreme velocities. ~50 g of acceleration max.
-  const maxForce = body.mass * 500;
+  // Scale max force with strength - allows more forceful throws
+  const maxForce = body.mass * 500 * strength;
   state.grabConstraint = new DistanceConstraint(body, state.grabAnchor, localBody, new Vec2(0, 0), {
     isSpring: true, springK: k, damping: c, length: 0, dampAllAxes: true, maxForce
   });
   world.constraints.push(state.grabConstraint);
+  state.grabVelocityHistory = []; // Reset velocity tracking
 }
 function endGrab() {
+  const releasedBody = state.grabBody;
+  let releaseVelocity = 0;
+  
   if (state.grabConstraint) {
     const i = world.constraints.indexOf(state.grabConstraint);
     if (i >= 0) world.constraints.splice(i, 1);
   }
-  if (state.grabBody) state.grabBody.gravityScale = state.grabPrevGravityScale ?? 1;
+  
+  // Calculate release velocity from history
+  if (releasedBody && state.grabVelocityHistory.length > 1) {
+    releaseVelocity = releasedBody.velocity.length();
+    // Also check velocity history for peak velocity during drag
+    const maxHistoryVel = Math.max(...state.grabVelocityHistory);
+    releaseVelocity = Math.max(releaseVelocity, maxHistoryVel * 0.8);
+  }
+  
+  if (releasedBody) releasedBody.gravityScale = state.grabPrevGravityScale ?? 1;
+  
+  // Check for high-velocity throw destruction
+  if (state.destructionMode && releasedBody && releaseVelocity > DESTRUCTION_THRESHOLD * 0.7) {
+    // Mark for destruction on next collision, or destroy immediately if thrown very fast
+    releasedBody._thrownVelocity = releaseVelocity;
+    if (releaseVelocity > DESTRUCTION_THRESHOLD * 1.5) {
+      // Very fast throw - destroy on any collision
+      releasedBody._destroyOnImpact = true;
+    }
+  }
+  
   state.grabBody = null; state.grabAnchor = null; state.grabConstraint = null;
   state.grabPrevGravityScale = null;
+  state.grabVelocityHistory = [];
 }
 
 /* =========================== pin / slice =========================== */
@@ -1235,11 +1273,29 @@ document.querySelectorAll('.material').forEach(el => {
 
 // Destruction mode toggle
 if (ui.destructionMode) {
-  ui.destructionMode.addEventListener('change', () => {
+ui.destructionMode.addEventListener('change', () => {
     state.destructionMode = ui.destructionMode.checked;
     triggerHaptic(state.destructionMode ? 'medium' : 'light');
     if (state.destructionMode) {
       AudioFx.slice();
+    }
+  });
+}
+
+// Grab strength slider
+if (ui.grabStrength) {
+  ui.grabStrength.addEventListener('input', () => {
+    state.grabStrength = parseFloat(ui.grabStrength.value);
+    // Update existing grab constraint if one exists
+    if (state.grabConstraint && state.grabBody) {
+      const body = state.grabBody;
+      const strength = state.grabStrength;
+      const f = 3 * strength;
+      const zeta = 0.7 + strength * 0.1;
+      const omega = 2 * Math.PI * f;
+      state.grabConstraint.springK = body.mass * omega * omega * strength;
+      state.grabConstraint.damping = 2 * body.mass * omega * zeta;
+      state.grabConstraint.maxForce = body.mass * 500 * strength;
     }
   });
 }
@@ -1307,6 +1363,17 @@ function setupDivider(divider, computeSize, varName, storeKey) {
   if (!divider) return;
   let dragging = false;
   
+  // Prevent flicker on hover by adding interacting class
+  divider.addEventListener('pointerenter', () => {
+    document.body.classList.add('interacting');
+  });
+  
+  divider.addEventListener('pointerleave', () => {
+    if (!dragging) {
+      document.body.classList.remove('interacting');
+    }
+  });
+  
   divider.addEventListener('pointerdown', (e) => {
     // Un-collapse tools when starting to drag
     if (toolsPanel.classList.contains('collapsed')) {
@@ -1351,7 +1418,6 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 
 // Tools divider setup
 const toolsDividerEl = document.getElementById('toolsDivider');
-console.log('[v0] Tools divider element:', toolsDividerEl);
 setupDivider(
   toolsDividerEl,
   (e, r, mobile) => {
@@ -2132,11 +2198,17 @@ function loop(now) {
     state.fpsEMA = state.fpsEMA * 0.92 + inst * 0.08;
   }
   if (!state.paused) {
-    if (state.grabBody && !state.grabBody.isStatic) {
+if (state.grabBody && !state.grabBody.isStatic) {
       // Off-center grab forces produce torque; strongly damp angular velocity
       // while held so the body doesn't spiral out of control.
       const dampedDt = rawDt * state.timeScale;
       state.grabBody.angularVelocity *= Math.exp(-9 * dampedDt);
+      
+      // Track velocity for throw detection
+      const vel = state.grabBody.velocity.length();
+      state.grabVelocityHistory.push(vel);
+      // Keep only last 10 samples
+      if (state.grabVelocityHistory.length > 10) state.grabVelocityHistory.shift();
     }
     world.step(rawDt * state.timeScale);
     sampleEnvironment(now);

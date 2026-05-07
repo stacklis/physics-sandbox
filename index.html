@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=39" />
+<link rel="stylesheet" href="styles.css?v=41" />
 </head>
 <body>
 <header class="topbar">
@@ -139,6 +139,10 @@
       <div class="section-title">Physics</div>
       <div class="tool-grid">
         <label class="check destruction-toggle"><input type="checkbox" id="destructionMode"/> Destruction</label>
+        <label class="slider-row grab-strength">
+          <span>Grab</span>
+          <input id="grabStrength" type="range" min="0.5" max="5" step="0.1" value="1" />
+        </label>
       </div>
     </div>
     <div class="tool-section">
@@ -277,8 +281,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=39"></script>
-<script src="education.js?v=39"></script>
-<script src="app.js?v=39"></script>
+<script src="engine.js?v=41"></script>
+<script src="education.js?v=41"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>
