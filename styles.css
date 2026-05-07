@@ -511,6 +511,22 @@ input[type=range]::-moz-range-thumb {
   min-height: 0;
 }
 
+/* Disable ALL transitions during resize to prevent flicker */
+.layout.resizing,
+.layout.resizing *,
+.layout.resizing .tools,
+.layout.resizing .tool-section,
+.layout.resizing .tool-grid,
+.layout.resizing .tool-grid > *,
+.layout.resizing .stage {
+  transition: none !important;
+}
+
+.topbar.resizing,
+.topbar.resizing * {
+  transition: none !important;
+}
+
 /* ======================= TOOLS ======================= */
 .tools {
   position: relative;

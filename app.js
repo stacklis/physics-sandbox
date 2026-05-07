@@ -1273,6 +1273,7 @@ function setupTopbarDivider() {
     e.preventDefault();
     try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
     topbarDivider.classList.add('dragging');
+    topbar.classList.add('resizing');
     dragging = true;
     startY = e.clientY;
     startHeight = topbar.offsetHeight;
@@ -1290,6 +1291,7 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
     triggerHaptic('medium');
     try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
   });
@@ -1298,6 +1300,7 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
   });
   
   // Double-click to reset
