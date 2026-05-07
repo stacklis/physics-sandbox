@@ -1223,9 +1223,35 @@ input[type=range]::-moz-range-thumb {
   transform-origin: center center;
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
               transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.2s ease,
+              box-shadow 0.2s ease,
               max-width 0.15s ease-out,
               min-width 0.15s ease-out;
   touch-action: none;
+}
+
+/* Glass/transparent mode - no background */
+.floating-overlay.glass-mode {
+  --overlay-opacity: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.floating-overlay.glass-mode .metric,
+.floating-overlay.glass-mode .formula {
+  background: rgba(15, 17, 24, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.floating-overlay.glass-mode .floating-overlay-header {
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Focused/active overlay gets higher z-index */
+.floating-overlay.focused {
+  z-index: 110;
 }
 
 .floating-overlay.visible {
@@ -1326,24 +1352,56 @@ input[type=range]::-moz-range-thumb {
   font-weight: 600;
 }
 
-/* Opacity slider row */
-.floating-overlay .opacity-row {
+/* Overlay controls row (opacity + glass toggle) */
+.floating-overlay .overlay-controls {
   display: flex;
   align-items: center;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
-.floating-overlay .opacity-row input[type=range] {
+.floating-overlay .overlay-controls input[type=range] {
   flex: 1;
   height: 3px;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: opacity 0.15s;
+  cursor: pointer;
 }
 
-.floating-overlay .opacity-row input[type=range]:hover {
+.floating-overlay .overlay-controls input[type=range]:hover {
   opacity: 1;
+}
+
+.floating-overlay .glass-toggle {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.floating-overlay .glass-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.floating-overlay .glass-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.floating-overlay.glass-mode .glass-toggle {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
 }
 
 /* Overlay toggle buttons cluster */

@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=10" />
+<link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
 <header class="topbar">
@@ -182,8 +182,11 @@
         <span>System: <b id="ov-total">0</b> J</span>
         <span>Bodies: <b id="ov-count">0</b></span>
       </div>
-      <div class="opacity-row">
-        <input id="infoOpacity" type="range" min="0.4" max="1" step="0.05" value="0.9" />
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
       </div>
     </div>
 
@@ -197,8 +200,11 @@
       <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This overlay explains the physics behind what you see.</p>
       <div class="formula" id="ov-lessonFormula" hidden></div>
       <div class="lesson-tags" id="ov-lessonTags"></div>
-      <div class="opacity-row">
-        <input id="lessonOpacity" type="range" min="0.4" max="1" step="0.05" value="0.9" />
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
       </div>
     </div>
 
@@ -222,8 +228,11 @@
           <span class="concept-pill empty">Interact to learn</span>
         </div>
       </div>
-      <div class="opacity-row">
-        <input id="tipsOpacity" type="range" min="0.4" max="1" step="0.05" value="0.9" />
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
       </div>
     </div>
   </section>
@@ -244,8 +253,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=9"></script>
-<script src="education.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="engine.js?v=10"></script>
+<script src="education.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

@@ -1151,6 +1151,9 @@ try {
 
 // ======================= MODULAR OVERLAY SYSTEM =======================
 // Reusable overlay manager with fluid touch dragging and inertia
+// Track all overlay instances for z-index management
+const overlayInstances = [];
+
 class FloatingOverlay {
   constructor(id, toggleId, storageKey) {
     this.el = document.getElementById(id);
@@ -1173,14 +1176,17 @@ class FloatingOverlay {
       pointers: new Map()
     };
     this.scale = 1;
-    this.opacity = 0.92;
+    this.opacity = 0.9;
+    this.glassMode = false;
     this.inertiaRAF = null;
     
     if (!this.el || !this.toggle) return;
     
     this.closeBtn = this.el.querySelector('.floating-overlay-close');
-    this.opacitySlider = this.el.querySelector('input[type=range]');
+    this.opacitySlider = this.el.querySelector('.overlay-controls input[type=range]');
+    this.glassToggle = this.el.querySelector('.glass-toggle');
     
+    overlayInstances.push(this);
     this.init();
   }
   
@@ -1199,8 +1205,21 @@ class FloatingOverlay {
     
     // Opacity slider
     if (this.opacitySlider) {
-      this.opacitySlider.addEventListener('input', () => this.setOpacity(parseFloat(this.opacitySlider.value)));
+      this.opacitySlider.addEventListener('input', () => {
+        this.setOpacity(parseFloat(this.opacitySlider.value));
+      });
     }
+    
+    // Glass mode toggle
+    if (this.glassToggle) {
+      this.glassToggle.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.toggleGlassMode();
+      });
+    }
+    
+    // Bring to front on any interaction
+    this.el.addEventListener('pointerdown', () => this.bringToFront(), { capture: true });
     
     // Multi-touch support for pinch and drag
     this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
@@ -1221,6 +1240,26 @@ class FloatingOverlay {
     
     // Restore state
     this.restoreState();
+  }
+  
+  bringToFront() {
+    // Remove focused from all overlays
+    overlayInstances.forEach(ov => {
+      if (ov.el) ov.el.classList.remove('focused');
+    });
+    // Add focused to this one
+    this.el.classList.add('focused');
+  }
+  
+  toggleGlassMode() {
+    this.glassMode = !this.glassMode;
+    this.el.classList.toggle('glass-mode', this.glassMode);
+    this.saveState();
+  }
+  
+  setGlassMode(enabled) {
+    this.glassMode = enabled;
+    this.el.classList.toggle('glass-mode', this.glassMode);
   }
   
   // Pinch gesture helpers
@@ -1315,6 +1354,10 @@ class FloatingOverlay {
     this.opacity = val;
     // Apply to both background and backdrop-filter area
     this.el.style.setProperty('--overlay-opacity', val);
+    // Adjust backdrop blur based on opacity for better see-through
+    const blurAmount = Math.max(4, 16 * val);
+    this.el.style.backdropFilter = `blur(${blurAmount}px)`;
+    this.el.style.webkitBackdropFilter = `blur(${blurAmount}px)`;
     if (this.opacitySlider) this.opacitySlider.value = val;
     this.saveState();
   }
@@ -1422,7 +1465,8 @@ class FloatingOverlay {
         x: parseInt(this.el.style.left) || 0,
         y: parseInt(this.el.style.top) || 0,
         opacity: this.opacity,
-        scale: this.scale
+        scale: this.scale,
+        glassMode: this.glassMode
       }));
     } catch (e) {}
   }
@@ -1439,6 +1483,7 @@ class FloatingOverlay {
         if (data.y !== undefined) this.el.style.top = data.y + 'px';
         if (data.opacity !== undefined) this.setOpacity(data.opacity);
         if (data.scale !== undefined) this.setScale(data.scale);
+        if (data.glassMode !== undefined) this.setGlassMode(data.glassMode);
         if (data.visible) this.show();
       }
     } catch (e) {}
