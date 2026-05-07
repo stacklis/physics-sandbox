@@ -172,102 +172,18 @@ const AudioFx = (() => {
     },
     pin() {
       tone({ freq: 880, dur: 0.05, type: 'square', gain: 0.07 });
-    },
-    // ======================= UI SOUNDS =======================
-    // Soft hover tick - subtle high frequency blip
-    hover() {
-      tone({ freq: 2200, dur: 0.025, type: 'sine', gain: 0.04 });
-    },
-    // Click/select sound - satisfying pop
-    click() {
-      tone({ freq: 660, dur: 0.04, type: 'triangle', gain: 0.08 });
-      tone({ freq: 1320, dur: 0.02, type: 'sine', gain: 0.04 });
-    },
-    // Tool selection - distinctive chirp
-    toolSelect() {
-      tone({ freq: 880, dur: 0.05, type: 'triangle', gain: 0.10, slideTo: 1100 });
-    },
-    // Toggle on - rising tone
-    toggleOn() {
-      tone({ freq: 440, dur: 0.06, type: 'sine', gain: 0.08, slideTo: 880 });
-    },
-    // Toggle off - falling tone
-    toggleOff() {
-      tone({ freq: 660, dur: 0.06, type: 'sine', gain: 0.06, slideTo: 330 });
-    },
-    // Slider tick - tiny click for each step
-    sliderTick() {
-      noise({ dur: 0.015, filter: 3000, type: 'highpass', gain: 0.03 });
-    },
-    // Overlay open - whoosh up
-    overlayOpen() {
-      noise({ dur: 0.12, filter: 2000, type: 'bandpass', gain: 0.08 });
-      tone({ freq: 400, dur: 0.10, type: 'sine', gain: 0.06, slideTo: 600 });
-    },
-    // Overlay close - whoosh down
-    overlayClose() {
-      noise({ dur: 0.10, filter: 1500, type: 'bandpass', gain: 0.06 });
-      tone({ freq: 500, dur: 0.08, type: 'sine', gain: 0.05, slideTo: 300 });
-    },
-    // Preset load - musical flourish
-    presetLoad() {
-      tone({ freq: 523, dur: 0.08, type: 'triangle', gain: 0.10 }); // C5
-      setTimeout(() => tone({ freq: 659, dur: 0.08, type: 'triangle', gain: 0.10 }), 60); // E5
-      setTimeout(() => tone({ freq: 784, dur: 0.12, type: 'triangle', gain: 0.12 }), 120); // G5
-    },
-    // Reset/clear sound - descending sweep
-    reset() {
-      tone({ freq: 800, dur: 0.15, type: 'sawtooth', gain: 0.08, slideTo: 200 });
-      noise({ dur: 0.12, filter: 800, type: 'lowpass', gain: 0.10 });
-    },
-    // Error/invalid action
-    error() {
-      tone({ freq: 200, dur: 0.12, type: 'square', gain: 0.08 });
-      tone({ freq: 180, dur: 0.12, type: 'square', gain: 0.06 });
-    },
-    // Drag start
-    dragStart() {
-      noise({ dur: 0.05, filter: 2500, type: 'bandpass', gain: 0.06 });
-    },
-    // Drag end/drop
-    dragEnd() {
-      tone({ freq: 440, dur: 0.04, type: 'sine', gain: 0.06 });
-      noise({ dur: 0.03, filter: 1800, type: 'lowpass', gain: 0.05 });
     }
   };
 })();
 
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
-// Pipe simulation events into AudioFx and particle system. Educator already listens separately.
-let lastCollisionParticleT = 0;
+// Pipe simulation events into AudioFx. Educator already listens separately.
 world.on(ev => {
-  if (ev.type === 'collision') {
-    AudioFx.collision(ev.relVelocity, performance.now());
-    // Spawn impact particles for strong collisions (throttled)
-    const now = performance.now();
-    if (ev.relVelocity > 3 && now - lastCollisionParticleT > 50 && ev.point) {
-      lastCollisionParticleT = now;
-      const screenPt = worldToScreen(ev.point.x, ev.point.y);
-      const count = Math.min(12, Math.floor(2 + ev.relVelocity * 0.5));
-      spawnParticles(screenPt.x, screenPt.y, count, {
-        color: '#ffffff',
-        speed: 1.5 + ev.relVelocity * 0.3,
-        spread: Math.PI,
-        life: 0.3
-      });
-    }
-  }
+  if (ev.type === 'collision') AudioFx.collision(ev.relVelocity, performance.now());
   else if (ev.type === 'spring') AudioFx.spring();
   else if (ev.type === 'push') AudioFx.push();
-  else if (ev.type === 'spawn') {
-    AudioFx.spawn();
-    // Spawn particles at new body
-    if (ev.body) {
-      const pt = worldToScreen(ev.body.position.x, ev.body.position.y);
-      spawnParticles(pt.x, pt.y, 8, { color: ev.body.color || '#00e5a0', speed: 2, life: 0.4 });
-    }
-  }
+  else if (ev.type === 'spawn') AudioFx.spawn();
   else if (ev.type === 'slice') AudioFx.slice();
   else if (ev.type === 'pin') AudioFx.pin();
 });
@@ -294,33 +210,26 @@ const state = {
   selected: null,
   // trails
   trails: new Map(), // body.id -> array of recent positions (world)
-  // mouse velocity tracking for dynamic force
-  mouseVelocity: { x: 0, y: 0, speed: 0 },
-  lastMousePos: null,
-  lastMouseTime: 0,
-  // particles
-  particles: [],
-  particlesEnabled: true,
-  // current material preset
-  material: 'default',
+  // material applicator
+  activeMaterial: null, // currently selected material for application
 };
 
-/* =========================== MATERIALS PRESETS =========================== */
+/* =========================== MATERIALS SYSTEM =========================== */
 const MATERIALS = {
-  default: { density: 1, friction: 0.3, restitution: 0.4, color: null },
-  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d' },
-  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff' },
-  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0' },
-  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c' },
-  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0' },
-  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e' },
-  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7' },
+  default: { density: 1, friction: 0.3, restitution: 0.4, color: null, name: 'Default' },
+  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d', name: 'Rubber' },
+  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff', name: 'Ice' },
+  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0', name: 'Metal' },
+  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c', name: 'Wood' },
+  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0', name: 'Bouncy' },
+  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e', name: 'Heavy' },
+  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7', name: 'Light' },
 };
 
 // Apply material to an existing body
-function applyMaterialToBody(body, materialName) {
+function applyMaterialToBody(body, materialKey) {
   if (!body || body.isStatic) return false;
-  const mat = MATERIALS[materialName];
+  const mat = MATERIALS[materialKey];
   if (!mat) return false;
   
   // Store original area for mass recalculation
@@ -338,404 +247,15 @@ function applyMaterialToBody(body, materialName) {
     body.color = mat.color;
   }
   
-  // Store material name on body for readout display
-  body.materialName = materialName;
+  // Store material name on body
+  body.materialName = materialKey;
   
   return true;
 }
 
-/* =========================== PREFAB STRUCTURES =========================== */
-function spawnPrefab(type, cx, cy) {
-  const bodies = [];
-  const matProps = getMaterialProps();
-  
-  switch (type) {
-    case 'pyramid': {
-      // 3-layer pyramid
-      const baseW = 1.0, baseH = 0.4;
-      for (let row = 0; row < 3; row++) {
-        const count = 3 - row;
-        const y = cy - row * (baseH + 0.02);
-        const startX = cx - (count - 1) * baseW / 2;
-        for (let i = 0; i < count; i++) {
-          const b = world.add(makeBox(startX + i * baseW, y, baseW * 0.95, baseH, matProps));
-          bodies.push(b);
-        }
-      }
-      break;
-    }
-    case 'bridge': {
-      // Plank bridge with supports
-      const plankW = 0.6, plankH = 0.15;
-      const segs = [];
-      for (let i = 0; i < 6; i++) {
-        const x = cx - 2 + i * 0.7;
-        const seg = world.add(makeBox(x, cy, plankW, plankH, { ...matProps, color: '#c49a6c' }));
-        segs.push(seg);
-        bodies.push(seg);
-      }
-      // Link planks
-      for (let i = 0; i < segs.length - 1; i++) {
-        world.addConstraint(new DistanceConstraint(
-          segs[i], segs[i + 1],
-          new Vec2(plankW / 2, 0), new Vec2(-plankW / 2, 0),
-          { isSpring: false }
-        ));
-      }
-      break;
-    }
-    case 'car': {
-      // Simple car: body + 2 wheels
-      const body = world.add(makeBox(cx, cy, 1.5, 0.4, { ...matProps, color: '#6b8bff' }));
-      const wheelL = world.add(makeCircle(cx - 0.5, cy + 0.4, 0.25, { ...matProps, friction: 0.9, color: '#4a5068' }));
-      const wheelR = world.add(makeCircle(cx + 0.5, cy + 0.4, 0.25, { ...matProps, friction: 0.9, color: '#4a5068' }));
-      // Pin wheels to body
-      world.addConstraint(new DistanceConstraint(body, wheelL, new Vec2(-0.5, 0.4), new Vec2(0, 0), { isSpring: true, springK: 800, damping: 20 }));
-      world.addConstraint(new DistanceConstraint(body, wheelR, new Vec2(0.5, 0.4), new Vec2(0, 0), { isSpring: true, springK: 800, damping: 20 }));
-      bodies.push(body, wheelL, wheelR);
-      break;
-    }
-    case 'ragdoll': {
-      // Simple ragdoll figure
-      const head = world.add(makeCircle(cx, cy - 1.2, 0.25, { ...matProps, color: '#ffeaa7' }));
-      const torso = world.add(makeBox(cx, cy - 0.5, 0.5, 0.8, { ...matProps, color: '#6b8bff' }));
-      const armL = world.add(makeBox(cx - 0.6, cy - 0.6, 0.5, 0.15, { ...matProps, color: '#ffeaa7' }));
-      const armR = world.add(makeBox(cx + 0.6, cy - 0.6, 0.5, 0.15, { ...matProps, color: '#ffeaa7' }));
-      const legL = world.add(makeBox(cx - 0.15, cy + 0.3, 0.18, 0.6, { ...matProps, color: '#4a5068' }));
-      const legR = world.add(makeBox(cx + 0.15, cy + 0.3, 0.18, 0.6, { ...matProps, color: '#4a5068' }));
-      // Joints
-      world.addConstraint(new DistanceConstraint(head, torso, new Vec2(0, 0.25), new Vec2(0, -0.4), { isSpring: true, springK: 600, damping: 15 }));
-      world.addConstraint(new DistanceConstraint(torso, armL, new Vec2(-0.25, -0.3), new Vec2(0.25, 0), { isSpring: true, springK: 400, damping: 10 }));
-      world.addConstraint(new DistanceConstraint(torso, armR, new Vec2(0.25, -0.3), new Vec2(-0.25, 0), { isSpring: true, springK: 400, damping: 10 }));
-      world.addConstraint(new DistanceConstraint(torso, legL, new Vec2(-0.1, 0.4), new Vec2(0, -0.3), { isSpring: true, springK: 500, damping: 12 }));
-      world.addConstraint(new DistanceConstraint(torso, legR, new Vec2(0.1, 0.4), new Vec2(0, -0.3), { isSpring: true, springK: 500, damping: 12 }));
-      bodies.push(head, torso, armL, armR, legL, legR);
-      break;
-    }
-    case 'catapult': {
-      // Base + arm
-      const base = world.add(makeBox(cx, cy, 1.2, 0.3, { isStatic: true, color: '#4a5068' }));
-      const arm = world.add(makeBox(cx, cy - 0.5, 0.15, 1.2, { ...matProps, color: '#c49a6c' }));
-      const bucket = world.add(makeBox(cx, cy - 1.1, 0.4, 0.15, matProps));
-      // Pin arm to base, spring it back
-      world.addConstraint(new DistanceConstraint(base, arm, new Vec2(0, -0.15), new Vec2(0, 0.5), { isSpring: false }));
-      world.addConstraint(new DistanceConstraint(arm, bucket, new Vec2(0, -0.6), new Vec2(0, 0), { isSpring: false }));
-      bodies.push(base, arm, bucket);
-      break;
-    }
-    case 'seesaw': {
-      // Fulcrum + plank
-      const fulcrum = world.add(makePolygon(cx, cy + 0.3, 3, 0.4, { isStatic: true, color: '#4a5068' }));
-      const plank = world.add(makeBox(cx, cy, 3, 0.15, { ...matProps, color: '#c49a6c' }));
-      // Pin plank to fulcrum top
-      world.addConstraint(new DistanceConstraint(fulcrum, plank, new Vec2(0, -0.35), new Vec2(0, 0.08), { isSpring: false }));
-      bodies.push(fulcrum, plank);
-      break;
-    }
-  }
-  
-  // Emit spawn events
-  bodies.forEach(b => world.emit({ type: 'spawn', body: b }));
-  if (bodies.length > 0) state.selected = bodies[0];
-  return bodies;
-}
-
-/* =========================== FLUID SYSTEM =========================== */
-const fluidParticles = [];
-const FLUID_SETTINGS = {
-  enabled: false,
-  pouring: false, // true while mouse held down
-  pourPos: null,  // current pour position
-  type: 'water',
-  maxParticles: 400,
-  colors: {
-    water: ['#2277ee', '#44aaff', '#66ccff'],
-    oil: ['#2a2a2a', '#3a3a3a', '#4a4a4a'],
-    lava: ['#ff2200', '#ff6600', '#ffaa00'],
-    sand: ['#c49a6c', '#daa520', '#e6be8a']
-  },
-  // Physics properties per type
-  props: {
-    water: { gravity: 0.25, viscosity: 0.985, spread: 1.2, density: 1.0, radius: 4, pushForce: 0.008 },
-    oil:   { gravity: 0.12, viscosity: 0.96, spread: 0.6, density: 0.8, radius: 5, pushForce: 0.004 },
-    lava:  { gravity: 0.35, viscosity: 0.92, spread: 0.8, density: 2.5, radius: 6, pushForce: 0.015 },
-    sand:  { gravity: 0.45, viscosity: 0.88, spread: 0.3, density: 1.6, radius: 3, pushForce: 0.012 }
-  }
-};
-
-// Spatial hash for fluid particle lookups (performance)
-const fluidGrid = { cells: new Map(), cellSize: 16 };
-
-function fluidGridKey(x, y) {
-  return `${Math.floor(x / fluidGrid.cellSize)},${Math.floor(y / fluidGrid.cellSize)}`;
-}
-
-function rebuildFluidGrid() {
-  fluidGrid.cells.clear();
-  for (let i = 0; i < fluidParticles.length; i++) {
-    const p = fluidParticles[i];
-    const key = fluidGridKey(p.x, p.y);
-    if (!fluidGrid.cells.has(key)) fluidGrid.cells.set(key, []);
-    fluidGrid.cells.get(key).push(i);
-  }
-}
-
-function getFluidNeighbors(x, y) {
-  const neighbors = [];
-  const cx = Math.floor(x / fluidGrid.cellSize);
-  const cy = Math.floor(y / fluidGrid.cellSize);
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      const key = `${cx + dx},${cy + dy}`;
-      const cell = fluidGrid.cells.get(key);
-      if (cell) neighbors.push(...cell);
-    }
-  }
-  return neighbors;
-}
-
-function spawnFluid(x, y, count = 5) {
-  if (!FLUID_SETTINGS.enabled) return;
-  const type = FLUID_SETTINGS.type;
-  const colors = FLUID_SETTINGS.colors[type];
-  const props = FLUID_SETTINGS.props[type];
-  
-  for (let i = 0; i < count; i++) {
-    if (fluidParticles.length >= FLUID_SETTINGS.maxParticles) {
-      fluidParticles.shift(); // Remove oldest
-    }
-    const angle = Math.random() * Math.PI * 2;
-    const spd = Math.random() * props.spread * 2;
-    fluidParticles.push({
-      x: x + (Math.random() - 0.5) * 8,
-      y: y + (Math.random() - 0.5) * 8,
-      vx: Math.cos(angle) * spd + (state.mouseVelocity.x || 0) * 0.01,
-      vy: Math.sin(angle) * spd + Math.random() * 1.5,
-      radius: props.radius * (0.8 + Math.random() * 0.4),
-      color: colors[Math.floor(Math.random() * colors.length)],
-      type,
-      life: 1.0
-    });
-  }
-}
-
-function updateFluid() {
-  const len = fluidParticles.length;
-  if (len === 0) return;
-  
-  // Rebuild spatial grid
-  rebuildFluidGrid();
-  
-  const props = FLUID_SETTINGS.props[FLUID_SETTINGS.type];
-  const gravity = props.gravity;
-  const viscosity = props.viscosity;
-  const pushForce = props.pushForce;
-  const interactDist = 14;
-  const interactDistSq = interactDist * interactDist;
-  
-  // Get all physics bodies for collision
-  const bodies = world.bodies.filter(b => !b.isStatic);
-  
-  for (let i = len - 1; i >= 0; i--) {
-    const p = fluidParticles[i];
-    const pProps = FLUID_SETTINGS.props[p.type];
-    
-    // Apply gravity
-    p.vy += pProps.gravity;
-    
-    // Particle-particle interaction (pressure + viscosity)
-    const neighbors = getFluidNeighbors(p.x, p.y);
-    for (const j of neighbors) {
-      if (j <= i) continue;
-      const q = fluidParticles[j];
-      const dx = p.x - q.x;
-      const dy = p.y - q.y;
-      const distSq = dx * dx + dy * dy;
-      
-      if (distSq < interactDistSq && distSq > 0.01) {
-        const dist = Math.sqrt(distSq);
-        const overlap = interactDist - dist;
-        const nx = dx / dist, ny = dy / dist;
-        
-        // Pressure force (repulsion)
-        const pressure = overlap * 0.15;
-        p.vx += nx * pressure;
-        p.vy += ny * pressure;
-        q.vx -= nx * pressure;
-        q.vy -= ny * pressure;
-        
-        // Viscosity (velocity averaging)
-        const avgVx = (p.vx + q.vx) * 0.5;
-        const avgVy = (p.vy + q.vy) * 0.5;
-        p.vx += (avgVx - p.vx) * 0.02;
-        p.vy += (avgVy - p.vy) * 0.02;
-        q.vx += (avgVx - q.vx) * 0.02;
-        q.vy += (avgVy - q.vy) * 0.02;
-      }
-    }
-    
-    // Collision with physics bodies - apply force to bodies
-    for (const body of bodies) {
-      const bx = body.position.x * PX_PER_M;
-      const by = body.position.y * PX_PER_M;
-      const dx = p.x - bx;
-      const dy = p.y - by;
-      const dist = Math.hypot(dx, dy);
-      const bodyRadius = (body.shape?.radius || 0.5) * PX_PER_M;
-      const collisionDist = bodyRadius + p.radius + 5;
-      
-      if (dist < collisionDist && dist > 0.1) {
-        const nx = dx / dist, ny = dy / dist;
-        const overlap = collisionDist - dist;
-        
-        // Push particle away from body
-        p.x += nx * overlap * 0.5;
-        p.y += ny * overlap * 0.5;
-        
-        // Reflect velocity
-        const dot = p.vx * nx + p.vy * ny;
-        if (dot < 0) {
-          p.vx -= 1.5 * dot * nx;
-          p.vy -= 1.5 * dot * ny;
-          p.vx *= 0.7;
-          p.vy *= 0.7;
-        }
-        
-        // Apply force to body (buoyancy + drag)
-        const forceMag = pProps.pushForce * pProps.density * (1 + Math.hypot(p.vx, p.vy) * 0.1);
-        body.applyForce(new Vec2(-nx * forceMag, -ny * forceMag - pProps.density * 0.002));
-      }
-    }
-    
-    // Apply damping
-    p.vx *= pProps.viscosity;
-    p.vy *= pProps.viscosity;
-    
-    // Clamp velocity
-    const speed = Math.hypot(p.vx, p.vy);
-    if (speed > 12) {
-      p.vx = (p.vx / speed) * 12;
-      p.vy = (p.vy / speed) * 12;
-    }
-    
-    // Move
-    p.x += p.vx;
-    p.y += p.vy;
-    
-    // Bounce off screen walls
-    if (p.x < p.radius) { p.x = p.radius; p.vx *= -0.4; }
-    if (p.x > canvas.width - p.radius) { p.x = canvas.width - p.radius; p.vx *= -0.4; }
-    if (p.y > canvas.height - p.radius) { 
-      p.y = canvas.height - p.radius; 
-      p.vy *= -0.2; 
-      p.vx *= 0.92;
-      // Sand and lava settle faster
-      if (p.type === 'sand' || p.type === 'lava') p.life -= 0.002;
-    }
-    
-    // Decay life slowly
-    p.life -= 0.0003;
-    
-    // Remove dead or escaped particles
-    if (p.life <= 0 || p.y < -50 || p.x < -50 || p.x > canvas.width + 50) {
-      fluidParticles.splice(i, 1);
-    }
-  }
-}
-
-function drawFluid() {
-  const len = fluidParticles.length;
-  if (len === 0) return;
-  
-  // Sort by y for depth effect (optional, skip for performance)
-  // fluidParticles.sort((a, b) => a.y - b.y);
-  
-  for (let i = 0; i < len; i++) {
-    const p = fluidParticles[i];
-    const alpha = Math.min(0.85, p.life);
-    
-    // Draw drop shadow for depth
-    ctx.globalAlpha = alpha * 0.3;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(p.x + 1, p.y + 2, p.radius * 0.9, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw main particle
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Highlight for liquid effect
-    if (p.type === 'water' || p.type === 'oil') {
-      ctx.globalAlpha = alpha * 0.4;
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(p.x - p.radius * 0.3, p.y - p.radius * 0.3, p.radius * 0.35, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (p.type === 'lava') {
-      // Glowing core for lava
-      ctx.globalAlpha = alpha * 0.6;
-      ctx.fillStyle = '#ffff00';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius * 0.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
-/* =========================== PARTICLE SYSTEM =========================== */
-function spawnParticles(x, y, count, options = {}) {
-  if (!state.particlesEnabled) return;
-  const {
-    color = '#00e5a0',
-    speed = 3,
-    spread = Math.PI * 2,
-    baseAngle = -Math.PI / 2,
-    life = 0.6,
-    size = 3,
-    gravity = 0.15
-  } = options;
-  for (let i = 0; i < count; i++) {
-    const angle = baseAngle + (Math.random() - 0.5) * spread;
-    const v = speed * (0.5 + Math.random() * 0.5);
-    state.particles.push({
-      x, y,
-      vx: Math.cos(angle) * v,
-      vy: Math.sin(angle) * v,
-      life,
-      maxLife: life,
-      size: size * (0.5 + Math.random() * 0.5),
-      color,
-      gravity
-    });
-  }
-}
-
-function updateParticles(dt) {
-  for (let i = state.particles.length - 1; i >= 0; i--) {
-    const p = state.particles[i];
-    p.vy += p.gravity;
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life -= dt;
-    if (p.life <= 0) state.particles.splice(i, 1);
-  }
-}
-
-function drawParticles() {
-  for (const p of state.particles) {
-    const alpha = Math.max(0, p.life / p.maxLife);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
+// Reset body to default material
+function resetBodyMaterial(body) {
+  return applyMaterialToBody(body, 'default');
 }
 
 /* =========================== world events → educator =========================== */
@@ -767,14 +287,39 @@ function canvasPos(ev) {
   return new Vec2(ev.clientX - r.left, ev.clientY - r.top);
 }
 
+// Prevent context menu on canvas for right-click material reset
+canvas.addEventListener('contextmenu', (ev) => {
+  if (state.activeMaterial) ev.preventDefault();
+});
+
 canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
   
+  // Material applicator mode - apply on left click, reset on right click
+  if (state.activeMaterial && body && !body.isStatic && !walls.includes(body)) {
+    if (ev.pointerType === 'mouse' && ev.button === 2) {
+      // Right-click: reset to default and deselect material
+      resetBodyMaterial(body);
+      state.activeMaterial = null;
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      AudioFx.toggleOff();
+      triggerHaptic('medium');
+      return;
+    } else if (ev.pointerType !== 'mouse' || ev.button === 0) {
+      // Left-click: apply selected material
+      applyMaterialToBody(body, state.activeMaterial);
+      AudioFx.spawn();
+      triggerHaptic('light');
+      return;
+    }
+  }
+  
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+
   switch (state.tool) {
     case 'box': case 'circle': case 'polygon': case 'wall': case 'triangle': case 'rope':
       state.dragStart = cp;
@@ -815,46 +360,16 @@ canvas.addEventListener('pointerdown', (ev) => {
     case 'slice':
       state.slicePath = [{ x: cp.x, y: cp.y }];
       break;
-    case 'fluid':
-      // Start pouring fluid when fluid tool is selected and mouse is held
-      if (FLUID_SETTINGS.enabled) {
-        FLUID_SETTINGS.pouring = true;
-        FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
-      }
-      break;
   }
 });
 
 canvas.addEventListener('pointermove', (ev) => {
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
-  const now = performance.now();
-  
-  // Track mouse velocity for dynamic force scaling
-  if (state.lastMousePos) {
-    const dt = Math.max(1, now - state.lastMouseTime) / 1000;
-    const dx = cp.x - state.lastMousePos.x;
-    const dy = cp.y - state.lastMousePos.y;
-    // Smooth velocity with EMA
-    const newVx = dx / dt;
-    const newVy = dy / dt;
-    state.mouseVelocity.x = state.mouseVelocity.x * 0.7 + newVx * 0.3;
-    state.mouseVelocity.y = state.mouseVelocity.y * 0.7 + newVy * 0.3;
-    state.mouseVelocity.speed = Math.hypot(state.mouseVelocity.x, state.mouseVelocity.y);
-  }
-  state.lastMousePos = { x: cp.x, y: cp.y };
-  state.lastMouseTime = now;
-  
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
-    // move grab anchor - apply velocity-based force boost
+    // move grab anchor
     state.grabAnchor.position = wp;
-    // Higher mouse speed = stiffer grab for more responsive throwing
-    const speedFactor = Math.min(3, 1 + state.mouseVelocity.speed / 800);
-    if (state.grabConstraint.springK) {
-      state.grabConstraint.springK = 2000 * speedFactor;
-      state.grabConstraint.damping = 70 * speedFactor;
-    }
   }
   if (state.springStart) state.dragCurrent = cp;
   if (state.impulseBody) state.impulseEnd = cp;
@@ -862,11 +377,6 @@ canvas.addEventListener('pointermove', (ev) => {
     const prev = state.slicePath[state.slicePath.length - 1];
     state.slicePath.push({ x: cp.x, y: cp.y });
     sliceAlong(prev, cp);
-  }
-
-  // Update pour position while holding
-  if (FLUID_SETTINGS.pouring) {
-    FLUID_SETTINGS.pourPos = { x: cp.x, y: cp.y };
   }
 
   // hover-select for readouts when no other selection
@@ -882,10 +392,6 @@ canvas.addEventListener('pointerup', (ev) => {
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
-  
-  // Stop pouring fluid
-  FLUID_SETTINGS.pouring = false;
-  FLUID_SETTINGS.pourPos = null;
 
   if (state.dragStart) {
     finishSpawn(state.dragStart, cp);
@@ -917,18 +423,8 @@ canvas.addEventListener('pointerup', (ev) => {
   if (state.impulseBody) {
     const dx = (state.impulseEnd.x - state.impulseStart.x) / camera.scale;
     const dy = (state.impulseEnd.y - state.impulseStart.y) / camera.scale;
-    // Velocity-based force multiplier - faster mouse = stronger push
-    const speedBoost = Math.min(4, 1 + state.mouseVelocity.speed / 400);
-    const j = new Vec2(dx, dy).mul(state.impulseBody.mass * 6 * speedBoost);
+    const j = new Vec2(dx, dy).mul(state.impulseBody.mass * 6);
     state.impulseBody.applyImpulse(j, screenToWorld(state.impulseStart.x, state.impulseStart.y));
-    // Spawn impact particles
-    const impactPt = state.impulseEnd;
-    spawnParticles(impactPt.x, impactPt.y, Math.floor(8 + speedBoost * 4), {
-      color: '#ffc46a',
-      speed: 4 * speedBoost,
-      spread: Math.PI * 0.8,
-      baseAngle: Math.atan2(dy, dx)
-    });
     world.emit({ type: 'push', body: state.impulseBody });
     state.impulseBody = null; state.impulseStart = null; state.impulseEnd = null;
   }
@@ -1044,32 +540,19 @@ function getMaxObjectSize() {
   };
 }
 
-// Get material properties for spawned objects
-function getMaterialProps() {
-  const mat = MATERIALS[state.material] || MATERIALS.default;
-  return {
-    density: mat.density,
-    friction: mat.friction,
-    restitution: mat.restitution,
-    color: mat.color || pickSpawnColor(),
-    materialName: state.material // Store material name for readouts
-  };
-}
-
 function finishSpawn(start, end) {
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
   const dragLen = Math.hypot(dx, dy);
   const maxSize = getMaxObjectSize();
-  const matProps = getMaterialProps();
 
   switch (state.tool) {
     case 'box': {
       const w = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1.0));
       const h = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1.0));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makeBox(cx, cy, w, h, matProps));
+      const b = world.add(makeBox(cx, cy, w, h, { color: pickSpawnColor() }));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -1077,7 +560,7 @@ function finishSpawn(start, end) {
     case 'circle': {
       const r = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makeCircle(cx, cy, r, matProps));
+      const b = world.add(makeCircle(cx, cy, r, { color: pickSpawnColor() }));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -1086,7 +569,7 @@ function finishSpawn(start, end) {
       const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const sides = 5 + ((Math.random() * 4) | 0);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makePolygon(cx, cy, sides, r, matProps));
+      const b = world.add(makePolygon(cx, cy, sides, r, { color: pickSpawnColor() }));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -1101,7 +584,7 @@ function finishSpawn(start, end) {
     case 'triangle': {
       const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makePolygon(cx, cy, 3, r, matProps));
+      const b = world.add(makePolygon(cx, cy, 3, r, { color: pickSpawnColor() }));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -1597,177 +1080,77 @@ function triggerHaptic(type = 'light') {
 }
 
 /* =========================== UI wiring =========================== */
-// Slider sound throttle to prevent spam
-let lastSliderSoundT = 0;
-const sliderSoundThrottle = 40; // ms between slider ticks
-
 ui.gravity.addEventListener('input', () => {
   world.gravity = parseFloat(ui.gravity.value);
   ui.gravityVal.textContent = world.gravity.toFixed(2);
-  const now = performance.now();
-  if (now - lastSliderSoundT > sliderSoundThrottle) {
-    AudioFx.sliderTick();
-    lastSliderSoundT = now;
-  }
 });
 ui.timeScale.addEventListener('input', () => {
   state.timeScale = parseFloat(ui.timeScale.value);
   ui.timeVal.textContent = state.timeScale.toFixed(2);
-  const now = performance.now();
-  if (now - lastSliderSoundT > sliderSoundThrottle) {
-    AudioFx.sliderTick();
-    lastSliderSoundT = now;
-  }
 });
 ui.pauseBtn.addEventListener('click', () => {
   state.paused = !state.paused;
   ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
-  if (state.paused) AudioFx.toggleOff(); else AudioFx.toggleOn();
 });
-ui.resetBtn.addEventListener('click', () => {
-  loadPreset('default');
-  AudioFx.reset();
-});
+ui.resetBtn.addEventListener('click', () => loadPreset('default'));
 ui.clearBtn.addEventListener('click', () => {
   world.clear(); rebuildBoundaries(); state.selected = null; state.trails.clear();
   world.gravity = parseFloat(ui.gravity.value);
   world.preSubstep = null;
-  AudioFx.reset();
 });
 
-// tool buttons with haptic and sound
+// tool buttons with haptic feedback
 document.querySelectorAll('.tool').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
-    // Auto-enable fluid when fluid tool is selected
-    if (el.dataset.tool === 'fluid') {
-      FLUID_SETTINGS.enabled = true;
-      const fluidCheck = document.getElementById('fluidEnabled');
-      if (fluidCheck) fluidCheck.checked = true;
-    }
+    // Deselect material applicator when switching tools
+    state.activeMaterial = null;
+    document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
     triggerHaptic('light');
-    AudioFx.toolSelect();
   });
 });
 
-// presets with haptic and sound
+// Material applicator - click to select, click again to deselect
+document.querySelectorAll('.material').forEach(el => {
+  el.addEventListener('click', () => {
+    const matKey = el.dataset.material;
+    
+    // Toggle: if same material clicked, deselect
+    if (state.activeMaterial === matKey) {
+      state.activeMaterial = null;
+      el.classList.remove('active');
+      AudioFx.toggleOff();
+    } else {
+      // Deselect previous and select new
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      state.activeMaterial = matKey;
+      AudioFx.toolSelect();
+    }
+    triggerHaptic('light');
+  });
+});
+
+// presets with haptic
 document.querySelectorAll('.preset').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     loadPreset(el.dataset.preset);
     world.emit({ type: 'preset', name: el.dataset.preset });
     triggerHaptic('double');
-    AudioFx.presetLoad();
   });
 });
 
-// level selection with haptic and sound
+// level selection with haptic
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
   el.addEventListener('click', () => {
     document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     educator.setLevel(parseInt(el.dataset.level, 10));
     triggerHaptic('light');
-    AudioFx.click();
   });
 });
-
-// Add hover sounds to all interactive elements
-document.querySelectorAll('.bar-group button, .overlay-toggle, .check, .bar-toggle').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
-});
-
-// Checkbox toggle sounds
-document.querySelectorAll('.check input[type=checkbox]').forEach(el => {
-  el.addEventListener('change', () => {
-    if (el.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
-  });
-});
-
-// Material selection - applies to selected body if one exists, otherwise sets default for new spawns
-document.querySelectorAll('.material').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
-  el.addEventListener('click', () => {
-    document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
-    el.classList.add('active');
-    const materialName = el.dataset.material;
-    state.material = materialName;
-    
-    // Apply to selected body if one exists
-    if (state.selected && !state.selected.isStatic && !walls.includes(state.selected)) {
-      const applied = applyMaterialToBody(state.selected, materialName);
-      if (applied) {
-        // Spawn particles at body position for visual feedback
-        const pt = worldToScreen(state.selected.position.x, state.selected.position.y);
-        const matColor = MATERIALS[materialName]?.color || '#00e5a0';
-        spawnParticles(pt.x, pt.y, 12, { color: matColor, speed: 3, life: 0.5 });
-        triggerHaptic('medium');
-        AudioFx.presetLoad();
-      } else {
-        triggerHaptic('light');
-        AudioFx.click();
-      }
-    } else {
-      triggerHaptic('light');
-      AudioFx.click();
-    }
-  });
-});
-
-// Prefab spawning - spawn at center of canvas
-document.querySelectorAll('.prefab').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
-  el.addEventListener('click', () => {
-    const cx = cssW / 2 / PX_PER_M;
-    const cy = cssH / 2 / PX_PER_M;
-    spawnPrefab(el.dataset.prefab, cx, cy);
-    triggerHaptic('double');
-    AudioFx.presetLoad();
-  });
-});
-
-// Fluid controls
-const fluidEnabledCheck = document.getElementById('fluidEnabled');
-const clearFluidBtn = document.getElementById('clearFluid');
-
-if (fluidEnabledCheck) {
-  fluidEnabledCheck.addEventListener('change', () => {
-    FLUID_SETTINGS.enabled = fluidEnabledCheck.checked;
-    if (fluidEnabledCheck.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
-  });
-}
-
-if (clearFluidBtn) {
-  clearFluidBtn.addEventListener('click', () => {
-    fluidParticles.length = 0;
-    AudioFx.reset();
-    triggerHaptic('medium');
-  });
-}
-
-document.querySelectorAll('.fluid-type').forEach(el => {
-  el.addEventListener('mouseenter', () => AudioFx.hover());
-  el.addEventListener('click', () => {
-    document.querySelectorAll('.fluid-type').forEach(e => e.classList.remove('active'));
-    el.classList.add('active');
-    FLUID_SETTINGS.type = el.dataset.fluid;
-    triggerHaptic('light');
-    AudioFx.click();
-  });
-});
-
-// Particles toggle
-const showParticlesCheck = document.getElementById('showParticles');
-if (showParticlesCheck) {
-  showParticlesCheck.addEventListener('change', () => {
-    state.particlesEnabled = showParticlesCheck.checked;
-    if (showParticlesCheck.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
-  });
-}
 
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
@@ -1853,8 +1236,10 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 }
 
 // Tools divider setup
+const toolsDividerEl = document.getElementById('toolsDivider');
+console.log('[v0] Tools divider element:', toolsDividerEl);
 setupDivider(
-  document.getElementById('toolsDivider'),
+  toolsDividerEl,
   (e, r, mobile) => {
     const minSize = mobile ? 36 : 80;
     const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
@@ -1887,7 +1272,6 @@ function setupTopbarDivider() {
     e.preventDefault();
     try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
     topbarDivider.classList.add('dragging');
-    topbar.classList.add('resizing');
     dragging = true;
     startY = e.clientY;
     startHeight = topbar.offsetHeight;
@@ -1905,7 +1289,6 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
     triggerHaptic('medium');
     try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
   });
@@ -1914,7 +1297,6 @@ function setupTopbarDivider() {
     if (!dragging) return;
     dragging = false;
     topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
   });
   
   // Double-click to reset
@@ -1975,40 +1357,30 @@ class FloatingOverlay {
   }
   
   init() {
-    // Toggle button with haptic and sound
-    this.toggle.addEventListener('mouseenter', () => AudioFx.hover());
+    // Toggle button with haptic
     this.toggle.addEventListener('click', () => {
       triggerHaptic('light');
       this.toggleVisibility();
     });
     if (this.closeBtn) {
-      this.closeBtn.addEventListener('mouseenter', () => AudioFx.hover());
       this.closeBtn.addEventListener('click', () => {
         triggerHaptic('light');
         this.hide();
       });
     }
     
-    // Opacity slider with sound
+    // Opacity slider
     if (this.opacitySlider) {
-      let lastOpacitySoundT = 0;
       this.opacitySlider.addEventListener('input', () => {
         this.setOpacity(parseFloat(this.opacitySlider.value));
-        const now = performance.now();
-        if (now - lastOpacitySoundT > 50) {
-          AudioFx.sliderTick();
-          lastOpacitySoundT = now;
-        }
       });
     }
     
-    // Glass mode toggle with sound
+    // Glass mode toggle
     if (this.glassToggle) {
-      this.glassToggle.addEventListener('mouseenter', () => AudioFx.hover());
       this.glassToggle.addEventListener('click', () => {
         triggerHaptic('light');
         this.toggleGlassMode();
-        if (this.glassMode) AudioFx.toggleOn(); else AudioFx.toggleOff();
       });
     }
     
@@ -2123,7 +1495,6 @@ class FloatingOverlay {
     }
     this.el.classList.add('visible');
     this.toggle.classList.add('active');
-    AudioFx.overlayOpen();
     this.saveState();
   }
   
@@ -2131,7 +1502,6 @@ class FloatingOverlay {
     if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
     this.el.classList.remove('visible');
     this.toggle.classList.remove('active');
-    AudioFx.overlayClose();
     this.saveState();
   }
   
@@ -2173,7 +1543,6 @@ class FloatingOverlay {
     
     this.el.classList.add('dragging');
     this.drag.active = true;
-    AudioFx.dragStart();
     
     const rect = this.el.getBoundingClientRect();
     this.drag.offsetX = e.clientX - rect.left;
@@ -2215,7 +1584,6 @@ class FloatingOverlay {
     if (!this.drag.active) return;
     this.drag.active = false;
     this.el.classList.remove('dragging');
-    AudioFx.dragEnd();
     
     // Apply inertia if velocity is significant
     const speed = Math.sqrt(this.drag.velocityX ** 2 + this.drag.velocityY ** 2);
@@ -2241,10 +1609,10 @@ class FloatingOverlay {
       const maxX = window.innerWidth - this.el.offsetWidth;
       const maxY = window.innerHeight - this.el.offsetHeight;
       
-      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); AudioFx.click(); }
-      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); AudioFx.click(); }
-      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); AudioFx.click(); }
-      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); AudioFx.click(); }
+      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
       
       this.el.style.left = x + 'px';
       this.el.style.top = y + 'px';
@@ -2316,12 +1684,6 @@ const ovLessonFormula = document.getElementById('ov-lessonFormula');
 const ovLevelBadge = document.getElementById('ov-levelBadge');
 const ovConceptList = document.getElementById('ov-conceptList');
 
-// Overlay elements for material properties
-const ovMaterial = document.getElementById('ov-material');
-const ovMass = document.getElementById('ov-mass');
-const ovFriction = document.getElementById('ov-friction');
-const ovBounce = document.getElementById('ov-bounce');
-
 // Update info overlay readings
 function updateInfoOverlay() {
   const infoEl = document.getElementById('infoOverlay');
@@ -2342,10 +1704,6 @@ function updateInfoOverlay() {
   
   if (!b || walls.includes(b)) {
     if (ovSelected) ovSelected.textContent = '—';
-    if (ovMaterial) ovMaterial.textContent = '—';
-    if (ovMass) ovMass.textContent = '0';
-    if (ovFriction) ovFriction.textContent = '0';
-    if (ovBounce) ovBounce.textContent = '0';
     if (ovSpeed) ovSpeed.textContent = '0';
     if (ovKe) ovKe.textContent = '0';
     if (ovPe) ovPe.textContent = '0';
@@ -2359,26 +1717,7 @@ function updateInfoOverlay() {
   const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
   const momentum = b.mass * speed;
   
-  // Determine shape name
-  let shapeName = 'Box';
-  if (b.shape === SHAPE.CIRCLE) shapeName = 'Ball';
-  else if (b.shape === SHAPE.POLYGON && b.vertices?.length === 3) shapeName = 'Triangle';
-  else if (b.shape === SHAPE.POLYGON) shapeName = 'Polygon';
-  
-  // Get material name (capitalize first letter)
-  const matName = b.materialName || 'default';
-  const displayMatName = matName.charAt(0).toUpperCase() + matName.slice(1);
-  
-  if (ovSelected) ovSelected.textContent = shapeName;
-  if (ovMaterial) {
-    ovMaterial.textContent = displayMatName;
-    // Color the material name based on its type
-    const matColor = MATERIALS[matName]?.color;
-    ovMaterial.style.color = matColor || 'inherit';
-  }
-  if (ovMass) ovMass.textContent = b.mass.toFixed(2);
-  if (ovFriction) ovFriction.textContent = (b.friction || 0).toFixed(2);
-  if (ovBounce) ovBounce.textContent = (b.restitution || 0).toFixed(2);
+  if (ovSelected) ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
   if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
   if (ovKe) ovKe.textContent = ke.toFixed(1);
   if (ovPe) ovPe.textContent = pe.toFixed(1);
@@ -2663,18 +2002,7 @@ function loop(now) {
     sampleEnvironment(now);
     updateTrails();
   }
-  // Continuous fluid pouring while mouse held
-  if (FLUID_SETTINGS.pouring && FLUID_SETTINGS.pourPos) {
-    const speedBoost = Math.min(2.5, 1 + (state.mouseVelocity.speed || 0) / 600);
-    spawnFluid(FLUID_SETTINGS.pourPos.x, FLUID_SETTINGS.pourPos.y, Math.floor(3 * speedBoost));
-  }
-  
-  // Always update particles and fluid (even when paused for visual effect)
-  updateParticles(rawDt);
-  updateFluid();
 render();
-  drawFluid();
-  drawParticles();
   updateReadouts();
   updateInfoOverlay();
   updateLessonOverlay();
