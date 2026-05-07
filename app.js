@@ -182,28 +182,39 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
-// Destruction threshold for breaking objects
-const DESTRUCTION_THRESHOLD = 8;
+// Destruction threshold for breaking objects (lowered to 4 for easier breaking)
+const DESTRUCTION_THRESHOLD = 4;
 
 world.on(ev => {
   if (ev.type === 'collision') {
     AudioFx.collision(ev.relVelocity, performance.now());
     
-    // Destruction mode: break objects on high-velocity impacts or marked for destruction
-    if (state.destructionMode) {
-      const { bodyA, bodyB, point } = ev;
-      const effectiveVelA = bodyA?._thrownVelocity || ev.relVelocity;
-      const effectiveVelB = bodyB?._thrownVelocity || ev.relVelocity;
-      const shouldDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed &&
-        (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
-      const shouldDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed &&
-        (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
+    // Destruction mode: break objects on impacts
+    if (state.destructionMode && ev.relVelocity > 0.5) {
+      const { bodyA, bodyB } = ev;
+      // Use body positions as impact point if ev.point is missing
+      const impactPoint = ev.point || (bodyA && bodyB ? {
+        x: (bodyA.position.x + bodyB.position.x) / 2,
+        y: (bodyA.position.y + bodyB.position.y) / 2
+      } : null);
+      
+      // Check velocities - use body velocity magnitude if relVelocity seems low
+      const velA = bodyA ? bodyA.velocity.length() : 0;
+      const velB = bodyB ? bodyB.velocity.length() : 0;
+      const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
+      const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
+      
+      const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
+      const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
+      
+      const shouldDestroyA = canDestroyA && (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
+      const shouldDestroyB = canDestroyB && (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
       
       if (shouldDestroyA) {
-        setTimeout(() => destroyBody(bodyA, point, Math.max(ev.relVelocity, effectiveVelA)), 0);
+        setTimeout(() => destroyBody(bodyA, impactPoint, effectiveVelA), 0);
       }
       if (shouldDestroyB) {
-        setTimeout(() => destroyBody(bodyB, point, Math.max(ev.relVelocity, effectiveVelB)), 0);
+        setTimeout(() => destroyBody(bodyB, impactPoint, effectiveVelB), 0);
       }
     }
   }
