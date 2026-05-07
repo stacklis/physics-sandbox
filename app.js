@@ -239,12 +239,35 @@ const AudioFx = (() => {
 
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
-// Pipe simulation events into AudioFx. Educator already listens separately.
+// Pipe simulation events into AudioFx and particle system. Educator already listens separately.
+let lastCollisionParticleT = 0;
 world.on(ev => {
-  if (ev.type === 'collision') AudioFx.collision(ev.relVelocity, performance.now());
+  if (ev.type === 'collision') {
+    AudioFx.collision(ev.relVelocity, performance.now());
+    // Spawn impact particles for strong collisions (throttled)
+    const now = performance.now();
+    if (ev.relVelocity > 3 && now - lastCollisionParticleT > 50 && ev.point) {
+      lastCollisionParticleT = now;
+      const screenPt = worldToScreen(ev.point.x, ev.point.y);
+      const count = Math.min(12, Math.floor(2 + ev.relVelocity * 0.5));
+      spawnParticles(screenPt.x, screenPt.y, count, {
+        color: '#ffffff',
+        speed: 1.5 + ev.relVelocity * 0.3,
+        spread: Math.PI,
+        life: 0.3
+      });
+    }
+  }
   else if (ev.type === 'spring') AudioFx.spring();
   else if (ev.type === 'push') AudioFx.push();
-  else if (ev.type === 'spawn') AudioFx.spawn();
+  else if (ev.type === 'spawn') {
+    AudioFx.spawn();
+    // Spawn particles at new body
+    if (ev.body) {
+      const pt = worldToScreen(ev.body.position.x, ev.body.position.y);
+      spawnParticles(pt.x, pt.y, 8, { color: ev.body.color || '#00e5a0', speed: 2, life: 0.4 });
+    }
+  }
   else if (ev.type === 'slice') AudioFx.slice();
   else if (ev.type === 'pin') AudioFx.pin();
 });
@@ -271,7 +294,274 @@ const state = {
   selected: null,
   // trails
   trails: new Map(), // body.id -> array of recent positions (world)
+  // mouse velocity tracking for dynamic force
+  mouseVelocity: { x: 0, y: 0, speed: 0 },
+  lastMousePos: null,
+  lastMouseTime: 0,
+  // particles
+  particles: [],
+  particlesEnabled: true,
+  // current material preset
+  material: 'default',
 };
+
+/* =========================== MATERIALS PRESETS =========================== */
+const MATERIALS = {
+  default: { density: 1, friction: 0.3, restitution: 0.4, color: null },
+  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d' },
+  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff' },
+  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0' },
+  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c' },
+  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0' },
+  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e' },
+  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7' },
+};
+
+/* =========================== PREFAB STRUCTURES =========================== */
+function spawnPrefab(type, cx, cy) {
+  const bodies = [];
+  const matProps = getMaterialProps();
+  
+  switch (type) {
+    case 'pyramid': {
+      // 3-layer pyramid
+      const baseW = 1.0, baseH = 0.4;
+      for (let row = 0; row < 3; row++) {
+        const count = 3 - row;
+        const y = cy - row * (baseH + 0.02);
+        const startX = cx - (count - 1) * baseW / 2;
+        for (let i = 0; i < count; i++) {
+          const b = world.add(makeBox(startX + i * baseW, y, baseW * 0.95, baseH, matProps));
+          bodies.push(b);
+        }
+      }
+      break;
+    }
+    case 'bridge': {
+      // Plank bridge with supports
+      const plankW = 0.6, plankH = 0.15;
+      const segs = [];
+      for (let i = 0; i < 6; i++) {
+        const x = cx - 2 + i * 0.7;
+        const seg = world.add(makeBox(x, cy, plankW, plankH, { ...matProps, color: '#c49a6c' }));
+        segs.push(seg);
+        bodies.push(seg);
+      }
+      // Link planks
+      for (let i = 0; i < segs.length - 1; i++) {
+        world.addConstraint(new DistanceConstraint(
+          segs[i], segs[i + 1],
+          new Vec2(plankW / 2, 0), new Vec2(-plankW / 2, 0),
+          { isSpring: false }
+        ));
+      }
+      break;
+    }
+    case 'car': {
+      // Simple car: body + 2 wheels
+      const body = world.add(makeBox(cx, cy, 1.5, 0.4, { ...matProps, color: '#6b8bff' }));
+      const wheelL = world.add(makeCircle(cx - 0.5, cy + 0.4, 0.25, { ...matProps, friction: 0.9, color: '#4a5068' }));
+      const wheelR = world.add(makeCircle(cx + 0.5, cy + 0.4, 0.25, { ...matProps, friction: 0.9, color: '#4a5068' }));
+      // Pin wheels to body
+      world.addConstraint(new DistanceConstraint(body, wheelL, new Vec2(-0.5, 0.4), new Vec2(0, 0), { isSpring: true, springK: 800, damping: 20 }));
+      world.addConstraint(new DistanceConstraint(body, wheelR, new Vec2(0.5, 0.4), new Vec2(0, 0), { isSpring: true, springK: 800, damping: 20 }));
+      bodies.push(body, wheelL, wheelR);
+      break;
+    }
+    case 'ragdoll': {
+      // Simple ragdoll figure
+      const head = world.add(makeCircle(cx, cy - 1.2, 0.25, { ...matProps, color: '#ffeaa7' }));
+      const torso = world.add(makeBox(cx, cy - 0.5, 0.5, 0.8, { ...matProps, color: '#6b8bff' }));
+      const armL = world.add(makeBox(cx - 0.6, cy - 0.6, 0.5, 0.15, { ...matProps, color: '#ffeaa7' }));
+      const armR = world.add(makeBox(cx + 0.6, cy - 0.6, 0.5, 0.15, { ...matProps, color: '#ffeaa7' }));
+      const legL = world.add(makeBox(cx - 0.15, cy + 0.3, 0.18, 0.6, { ...matProps, color: '#4a5068' }));
+      const legR = world.add(makeBox(cx + 0.15, cy + 0.3, 0.18, 0.6, { ...matProps, color: '#4a5068' }));
+      // Joints
+      world.addConstraint(new DistanceConstraint(head, torso, new Vec2(0, 0.25), new Vec2(0, -0.4), { isSpring: true, springK: 600, damping: 15 }));
+      world.addConstraint(new DistanceConstraint(torso, armL, new Vec2(-0.25, -0.3), new Vec2(0.25, 0), { isSpring: true, springK: 400, damping: 10 }));
+      world.addConstraint(new DistanceConstraint(torso, armR, new Vec2(0.25, -0.3), new Vec2(-0.25, 0), { isSpring: true, springK: 400, damping: 10 }));
+      world.addConstraint(new DistanceConstraint(torso, legL, new Vec2(-0.1, 0.4), new Vec2(0, -0.3), { isSpring: true, springK: 500, damping: 12 }));
+      world.addConstraint(new DistanceConstraint(torso, legR, new Vec2(0.1, 0.4), new Vec2(0, -0.3), { isSpring: true, springK: 500, damping: 12 }));
+      bodies.push(head, torso, armL, armR, legL, legR);
+      break;
+    }
+    case 'catapult': {
+      // Base + arm
+      const base = world.add(makeBox(cx, cy, 1.2, 0.3, { isStatic: true, color: '#4a5068' }));
+      const arm = world.add(makeBox(cx, cy - 0.5, 0.15, 1.2, { ...matProps, color: '#c49a6c' }));
+      const bucket = world.add(makeBox(cx, cy - 1.1, 0.4, 0.15, matProps));
+      // Pin arm to base, spring it back
+      world.addConstraint(new DistanceConstraint(base, arm, new Vec2(0, -0.15), new Vec2(0, 0.5), { isSpring: false }));
+      world.addConstraint(new DistanceConstraint(arm, bucket, new Vec2(0, -0.6), new Vec2(0, 0), { isSpring: false }));
+      bodies.push(base, arm, bucket);
+      break;
+    }
+    case 'seesaw': {
+      // Fulcrum + plank
+      const fulcrum = world.add(makePolygon(cx, cy + 0.3, 3, 0.4, { isStatic: true, color: '#4a5068' }));
+      const plank = world.add(makeBox(cx, cy, 3, 0.15, { ...matProps, color: '#c49a6c' }));
+      // Pin plank to fulcrum top
+      world.addConstraint(new DistanceConstraint(fulcrum, plank, new Vec2(0, -0.35), new Vec2(0, 0.08), { isSpring: false }));
+      bodies.push(fulcrum, plank);
+      break;
+    }
+  }
+  
+  // Emit spawn events
+  bodies.forEach(b => world.emit({ type: 'spawn', body: b }));
+  if (bodies.length > 0) state.selected = bodies[0];
+  return bodies;
+}
+
+/* =========================== FLUID SYSTEM =========================== */
+const fluidParticles = [];
+const FLUID_SETTINGS = {
+  enabled: false,
+  type: 'water', // water, oil, lava, sand
+  colors: {
+    water: '#4488ff',
+    oil: '#3a3a3a',
+    lava: '#ff4400',
+    sand: '#daa520'
+  },
+  gravity: { water: 0.3, oil: 0.15, lava: 0.4, sand: 0.5 },
+  viscosity: { water: 0.98, oil: 0.95, lava: 0.9, sand: 0.85 },
+  spread: { water: 0.8, oil: 0.5, lava: 0.6, sand: 0.3 }
+};
+
+function spawnFluid(x, y, count = 10) {
+  if (!FLUID_SETTINGS.enabled) return;
+  const type = FLUID_SETTINGS.type;
+  const color = FLUID_SETTINGS.colors[type];
+  const spread = FLUID_SETTINGS.spread[type];
+  
+  for (let i = 0; i < count; i++) {
+    fluidParticles.push({
+      x: x + (Math.random() - 0.5) * 20,
+      y: y + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * spread * 3,
+      vy: Math.random() * 2,
+      radius: 4 + Math.random() * 3,
+      color,
+      type
+    });
+  }
+  // Limit total fluid particles
+  while (fluidParticles.length > 500) fluidParticles.shift();
+}
+
+function updateFluid() {
+  if (!FLUID_SETTINGS.enabled || fluidParticles.length === 0) return;
+  
+  const type = FLUID_SETTINGS.type;
+  const gravity = FLUID_SETTINGS.gravity[type];
+  const viscosity = FLUID_SETTINGS.viscosity[type];
+  
+  for (let i = fluidParticles.length - 1; i >= 0; i--) {
+    const p = fluidParticles[i];
+    
+    // Apply gravity
+    p.vy += gravity;
+    
+    // Apply viscosity (damping)
+    p.vx *= viscosity;
+    p.vy *= viscosity;
+    
+    // Move
+    p.x += p.vx;
+    p.y += p.vy;
+    
+    // Simple particle-particle repulsion
+    for (let j = i - 1; j >= Math.max(0, i - 20); j--) {
+      const q = fluidParticles[j];
+      const dx = p.x - q.x;
+      const dy = p.y - q.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 12 && dist > 0.1) {
+        const force = (12 - dist) / 12 * 0.5;
+        const nx = dx / dist, ny = dy / dist;
+        p.vx += nx * force;
+        p.vy += ny * force;
+        q.vx -= nx * force;
+        q.vy -= ny * force;
+      }
+    }
+    
+    // Bounce off walls
+    if (p.x < p.radius) { p.x = p.radius; p.vx *= -0.5; }
+    if (p.x > canvas.width - p.radius) { p.x = canvas.width - p.radius; p.vx *= -0.5; }
+    if (p.y > canvas.height - p.radius) { p.y = canvas.height - p.radius; p.vy *= -0.3; p.vx *= 0.95; }
+    
+    // Remove particles that escape
+    if (p.y < -100 || p.x < -100 || p.x > canvas.width + 100) {
+      fluidParticles.splice(i, 1);
+    }
+  }
+}
+
+function drawFluid() {
+  if (fluidParticles.length === 0) return;
+  
+  ctx.globalAlpha = 0.7;
+  for (const p of fluidParticles) {
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* =========================== PARTICLE SYSTEM =========================== */
+function spawnParticles(x, y, count, options = {}) {
+  if (!state.particlesEnabled) return;
+  const {
+    color = '#00e5a0',
+    speed = 3,
+    spread = Math.PI * 2,
+    baseAngle = -Math.PI / 2,
+    life = 0.6,
+    size = 3,
+    gravity = 0.15
+  } = options;
+  for (let i = 0; i < count; i++) {
+    const angle = baseAngle + (Math.random() - 0.5) * spread;
+    const v = speed * (0.5 + Math.random() * 0.5);
+    state.particles.push({
+      x, y,
+      vx: Math.cos(angle) * v,
+      vy: Math.sin(angle) * v,
+      life,
+      maxLife: life,
+      size: size * (0.5 + Math.random() * 0.5),
+      color,
+      gravity
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.vy += p.gravity;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of state.particles) {
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
 
 /* =========================== world events → educator =========================== */
 let lastFallSampled = 0;
@@ -309,6 +599,12 @@ canvas.addEventListener('pointerdown', (ev) => {
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
+  
+  // Spawn fluid if enabled and clicking empty space
+  if (FLUID_SETTINGS.enabled && !body) {
+    const speedBoost = Math.min(3, 1 + state.mouseVelocity.speed / 500);
+    spawnFluid(cp.x, cp.y, Math.floor(8 * speedBoost));
+  }
 
   switch (state.tool) {
     case 'box': case 'circle': case 'polygon': case 'wall': case 'triangle': case 'rope':
@@ -356,10 +652,33 @@ canvas.addEventListener('pointerdown', (ev) => {
 canvas.addEventListener('pointermove', (ev) => {
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
+  const now = performance.now();
+  
+  // Track mouse velocity for dynamic force scaling
+  if (state.lastMousePos) {
+    const dt = Math.max(1, now - state.lastMouseTime) / 1000;
+    const dx = cp.x - state.lastMousePos.x;
+    const dy = cp.y - state.lastMousePos.y;
+    // Smooth velocity with EMA
+    const newVx = dx / dt;
+    const newVy = dy / dt;
+    state.mouseVelocity.x = state.mouseVelocity.x * 0.7 + newVx * 0.3;
+    state.mouseVelocity.y = state.mouseVelocity.y * 0.7 + newVy * 0.3;
+    state.mouseVelocity.speed = Math.hypot(state.mouseVelocity.x, state.mouseVelocity.y);
+  }
+  state.lastMousePos = { x: cp.x, y: cp.y };
+  state.lastMouseTime = now;
+  
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
-    // move grab anchor
+    // move grab anchor - apply velocity-based force boost
     state.grabAnchor.position = wp;
+    // Higher mouse speed = stiffer grab for more responsive throwing
+    const speedFactor = Math.min(3, 1 + state.mouseVelocity.speed / 800);
+    if (state.grabConstraint.springK) {
+      state.grabConstraint.springK = 2000 * speedFactor;
+      state.grabConstraint.damping = 70 * speedFactor;
+    }
   }
   if (state.springStart) state.dragCurrent = cp;
   if (state.impulseBody) state.impulseEnd = cp;
@@ -367,6 +686,12 @@ canvas.addEventListener('pointermove', (ev) => {
     const prev = state.slicePath[state.slicePath.length - 1];
     state.slicePath.push({ x: cp.x, y: cp.y });
     sliceAlong(prev, cp);
+  }
+
+  // Continuous fluid spawn while dragging
+  if (FLUID_SETTINGS.enabled && state.mouseVelocity.speed > 50) {
+    const speedBoost = Math.min(2, 1 + state.mouseVelocity.speed / 800);
+    spawnFluid(cp.x, cp.y, Math.floor(3 * speedBoost));
   }
 
   // hover-select for readouts when no other selection
@@ -413,8 +738,18 @@ canvas.addEventListener('pointerup', (ev) => {
   if (state.impulseBody) {
     const dx = (state.impulseEnd.x - state.impulseStart.x) / camera.scale;
     const dy = (state.impulseEnd.y - state.impulseStart.y) / camera.scale;
-    const j = new Vec2(dx, dy).mul(state.impulseBody.mass * 6);
+    // Velocity-based force multiplier - faster mouse = stronger push
+    const speedBoost = Math.min(4, 1 + state.mouseVelocity.speed / 400);
+    const j = new Vec2(dx, dy).mul(state.impulseBody.mass * 6 * speedBoost);
     state.impulseBody.applyImpulse(j, screenToWorld(state.impulseStart.x, state.impulseStart.y));
+    // Spawn impact particles
+    const impactPt = state.impulseEnd;
+    spawnParticles(impactPt.x, impactPt.y, Math.floor(8 + speedBoost * 4), {
+      color: '#ffc46a',
+      speed: 4 * speedBoost,
+      spread: Math.PI * 0.8,
+      baseAngle: Math.atan2(dy, dx)
+    });
     world.emit({ type: 'push', body: state.impulseBody });
     state.impulseBody = null; state.impulseStart = null; state.impulseEnd = null;
   }
@@ -530,19 +865,31 @@ function getMaxObjectSize() {
   };
 }
 
+// Get material properties for spawned objects
+function getMaterialProps() {
+  const mat = MATERIALS[state.material] || MATERIALS.default;
+  return {
+    density: mat.density,
+    friction: mat.friction,
+    restitution: mat.restitution,
+    color: mat.color || pickSpawnColor()
+  };
+}
+
 function finishSpawn(start, end) {
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
   const dragLen = Math.hypot(dx, dy);
   const maxSize = getMaxObjectSize();
+  const matProps = getMaterialProps();
 
   switch (state.tool) {
     case 'box': {
       const w = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1.0));
       const h = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1.0));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makeBox(cx, cy, w, h, { color: pickSpawnColor() }));
+      const b = world.add(makeBox(cx, cy, w, h, matProps));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -550,7 +897,7 @@ function finishSpawn(start, end) {
     case 'circle': {
       const r = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makeCircle(cx, cy, r, { color: pickSpawnColor() }));
+      const b = world.add(makeCircle(cx, cy, r, matProps));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -559,7 +906,7 @@ function finishSpawn(start, end) {
       const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const sides = 5 + ((Math.random() * 4) | 0);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makePolygon(cx, cy, sides, r, { color: pickSpawnColor() }));
+      const b = world.add(makePolygon(cx, cy, sides, r, matProps));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -574,7 +921,7 @@ function finishSpawn(start, end) {
     case 'triangle': {
       const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      const b = world.add(makePolygon(cx, cy, 3, r, { color: pickSpawnColor() }));
+      const b = world.add(makePolygon(cx, cy, 3, r, matProps));
       state.selected = b;
       world.emit({ type: 'spawn', body: b });
       break;
@@ -1154,6 +1501,69 @@ document.querySelectorAll('.check input[type=checkbox]').forEach(el => {
     if (el.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
   });
 });
+
+// Material selection
+document.querySelectorAll('.material').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    state.material = el.dataset.material;
+    triggerHaptic('light');
+    AudioFx.click();
+  });
+});
+
+// Prefab spawning - spawn at center of canvas
+document.querySelectorAll('.prefab').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
+  el.addEventListener('click', () => {
+    const cx = cssW / 2 / PX_PER_M;
+    const cy = cssH / 2 / PX_PER_M;
+    spawnPrefab(el.dataset.prefab, cx, cy);
+    triggerHaptic('double');
+    AudioFx.presetLoad();
+  });
+});
+
+// Fluid controls
+const fluidEnabledCheck = document.getElementById('fluidEnabled');
+const clearFluidBtn = document.getElementById('clearFluid');
+
+if (fluidEnabledCheck) {
+  fluidEnabledCheck.addEventListener('change', () => {
+    FLUID_SETTINGS.enabled = fluidEnabledCheck.checked;
+    if (fluidEnabledCheck.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
+  });
+}
+
+if (clearFluidBtn) {
+  clearFluidBtn.addEventListener('click', () => {
+    fluidParticles.length = 0;
+    AudioFx.reset();
+    triggerHaptic('medium');
+  });
+}
+
+document.querySelectorAll('.fluid-type').forEach(el => {
+  el.addEventListener('mouseenter', () => AudioFx.hover());
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.fluid-type').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    FLUID_SETTINGS.type = el.dataset.fluid;
+    triggerHaptic('light');
+    AudioFx.click();
+  });
+});
+
+// Particles toggle
+const showParticlesCheck = document.getElementById('showParticles');
+if (showParticlesCheck) {
+  showParticlesCheck.addEventListener('change', () => {
+    state.particlesEnabled = showParticlesCheck.checked;
+    if (showParticlesCheck.checked) AudioFx.toggleOn(); else AudioFx.toggleOff();
+  });
+}
 
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
@@ -2020,7 +2430,12 @@ function loop(now) {
     sampleEnvironment(now);
     updateTrails();
   }
+  // Always update particles and fluid (even when paused for visual effect)
+  updateParticles(rawDt);
+  updateFluid();
 render();
+  drawFluid();
+  drawParticles();
   updateReadouts();
   updateInfoOverlay();
   updateLessonOverlay();

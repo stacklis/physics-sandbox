@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=17" />
+<link rel="stylesheet" href="styles.css?v=18" />
 </head>
 <body>
 <header class="topbar">
@@ -110,6 +110,41 @@
       </div>
     </div>
     <div class="tool-section">
+      <div class="section-title">Materials</div>
+      <div class="tool-grid material-grid">
+        <button class="material active" data-material="default">Default</button>
+        <button class="material" data-material="rubber">Rubber</button>
+        <button class="material" data-material="ice">Ice</button>
+        <button class="material" data-material="metal">Metal</button>
+        <button class="material" data-material="wood">Wood</button>
+        <button class="material" data-material="bouncy">Bouncy</button>
+        <button class="material" data-material="heavy">Heavy</button>
+        <button class="material" data-material="light">Light</button>
+      </div>
+    </div>
+    <div class="tool-section">
+      <div class="section-title">Prefabs</div>
+      <div class="tool-grid">
+        <button class="prefab" data-prefab="pyramid">Pyramid</button>
+        <button class="prefab" data-prefab="bridge">Bridge</button>
+        <button class="prefab" data-prefab="car">Car</button>
+        <button class="prefab" data-prefab="ragdoll">Ragdoll</button>
+        <button class="prefab" data-prefab="catapult">Catapult</button>
+        <button class="prefab" data-prefab="seesaw">Seesaw</button>
+      </div>
+    </div>
+    <div class="tool-section">
+      <div class="section-title">Fluids</div>
+      <div class="tool-grid">
+        <label class="check"><input type="checkbox" id="fluidEnabled"/> Enable</label>
+        <button class="fluid-type active" data-fluid="water">Water</button>
+        <button class="fluid-type" data-fluid="oil">Oil</button>
+        <button class="fluid-type" data-fluid="lava">Lava</button>
+        <button class="fluid-type" data-fluid="sand">Sand</button>
+      </div>
+      <button class="preset" id="clearFluid">Clear Fluid</button>
+    </div>
+    <div class="tool-section">
       <div class="section-title">Presets</div>
       <div class="tool-grid">
         <button class="preset" data-preset="stack">Stack</button>
@@ -131,6 +166,7 @@
         <label class="check"><input type="checkbox" id="showAABB"/> AABB</label>
         <label class="check"><input type="checkbox" id="showHeatmap"/> Heatmap</label>
         <label class="check"><input type="checkbox" id="showFPS"/> FPS</label>
+        <label class="check"><input type="checkbox" id="showParticles" checked/> Particles</label>
       </div>
     </div>
     <div class="tool-section">
@@ -256,8 +292,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=17"></script>
-<script src="education.js?v=17"></script>
-<script src="app.js?v=17"></script>
+<script src="engine.js?v=18"></script>
+<script src="education.js?v=18"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>
