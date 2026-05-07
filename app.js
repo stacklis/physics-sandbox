@@ -69,24 +69,13 @@ const ui = {
   audioOn: document.getElementById('audioOn'),
   audioVol: document.getElementById('audioVol'),
   hint: document.getElementById('hint'),
-  // panel
-  selected: document.getElementById('m-selected'),
-  speed: document.getElementById('m-speed'),
-  momentum: document.getElementById('m-momentum'),
-  ke: document.getElementById('m-ke'),
-  pe: document.getElementById('m-pe'),
-  ang: document.getElementById('m-ang'),
-  tke: document.getElementById('m-tke'),
-  tpe: document.getElementById('m-tpe'),
-  tot: document.getElementById('m-tot'),
-  count: document.getElementById('m-count'),
-  // educator targets
-  lessonTitle: document.getElementById('lessonTitle'),
-  lessonBody: document.getElementById('lessonBody'),
-  lessonFormula: document.getElementById('lessonFormula'),
-  lessonTags: document.getElementById('lessonTags'),
-  levelBadge: document.getElementById('levelBadge'),
-  conceptList: document.getElementById('conceptList'),
+  // educator targets (now in floating overlays)
+  lessonTitle: document.getElementById('ov-lessonTitle'),
+  lessonBody: document.getElementById('ov-lessonBody'),
+  lessonFormula: document.getElementById('ov-lessonFormula'),
+  lessonTags: document.getElementById('ov-lessonTags'),
+  levelBadge: document.getElementById('ov-levelBadge'),
+  conceptList: document.getElementById('ov-conceptList'),
 };
 
 const educator = new Educator(world, ui);
@@ -973,38 +962,9 @@ function bodyHeightAboveFloor(body) {
   return h > 0 ? h : 0;
 }
 
+// Readouts are now handled by the floating info overlay
 function updateReadouts() {
-  const b = state.selected;
-  if (b && !walls.includes(b)) {
-    const v = b.velocity.length();
-    ui.selected.textContent = b.shape === SHAPE.CIRCLE ? `Ball (m=${b.mass.toFixed(2)})` : `Polygon (m=${b.mass.toFixed(2)})`;
-    ui.speed.textContent = fmtNum(v);
-    ui.momentum.textContent = fmtNum(b.mass * v);
-    ui.ke.textContent = fmtNum(0.5 * b.mass * v * v + 0.5 * b.inertia * b.angularVelocity * b.angularVelocity);
-    ui.pe.textContent = fmtNum(b.mass * world.gravity * bodyHeightAboveFloor(b));
-    ui.ang.textContent = fmtNum(b.angularVelocity);
-  } else {
-    ui.selected.textContent = '—';
-    ui.speed.textContent = '0';
-    ui.momentum.textContent = '0';
-    ui.ke.textContent = '0';
-    ui.pe.textContent = '0';
-    ui.ang.textContent = '0';
-  }
-
-  // System totals
-  let tke = 0, tpe = 0, n = 0;
-  for (const body of world.bodies) {
-    if (body.isStatic) continue;
-    n++;
-    const v2 = body.velocity.lengthSq();
-    tke += 0.5 * body.mass * v2 + 0.5 * body.inertia * body.angularVelocity * body.angularVelocity;
-    tpe += body.mass * world.gravity * bodyHeightAboveFloor(body);
-  }
-  ui.tke.textContent = fmtNum(tke) + ' J';
-  ui.tpe.textContent = fmtNum(tpe) + ' J';
-  ui.tot.textContent = fmtNum(tke + tpe) + ' J';
-  ui.count.textContent = String(n);
+  // No-op - readings moved to floating overlay
 }
 
 /* =========================== trails update =========================== */
@@ -1020,6 +980,20 @@ function updateTrails() {
   // prune for removed bodies
   for (const id of [...state.trails.keys()]) {
     if (!world.bodies.find(b => b.id === id)) state.trails.delete(id);
+  }
+}
+
+// ======================= HAPTIC FEEDBACK =======================
+function triggerHaptic(type = 'light') {
+  if ('vibrate' in navigator) {
+    const patterns = {
+      light: [8],
+      medium: [15],
+      heavy: [25],
+      double: [10, 30, 10],
+      success: [10, 50, 20]
+    };
+    navigator.vibrate(patterns[type] || patterns.light);
   }
 }
 
@@ -1043,29 +1017,32 @@ ui.clearBtn.addEventListener('click', () => {
   world.preSubstep = null;
 });
 
-// tool buttons
+// tool buttons with haptic feedback
 document.querySelectorAll('.tool').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
+    triggerHaptic('light');
   });
 });
 
-// presets
+// presets with haptic
 document.querySelectorAll('.preset').forEach(el => {
   el.addEventListener('click', () => {
     loadPreset(el.dataset.preset);
     world.emit({ type: 'preset', name: el.dataset.preset });
+    triggerHaptic('double');
   });
 });
 
-// level selection
+// level selection with haptic
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     educator.setLevel(parseInt(el.dataset.level, 10));
+    triggerHaptic('light');
   });
 });
 
@@ -1078,10 +1055,7 @@ document.getElementById('topbarToggle').addEventListener('click', () => {
   // ResizeObserver picks this up, but call resize() directly so canvas redraws this frame.
   requestAnimationFrame(resize);
 });
-document.getElementById('panelToggle').addEventListener('click', () => {
-  layoutEl.classList.toggle('panel-collapsed');
-  requestAnimationFrame(resize);
-});
+
 document.getElementById('hintClose').addEventListener('click', () => {
   hintEl.classList.add('dismissed');
   try { localStorage.setItem('ps.hintDismissed', '1'); } catch (e) { /* private mode */ }
@@ -1090,16 +1064,45 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
-// Draggable dividers — pointer events handle mouse + touch uniformly.
+// ======================= TOOLS PANEL COLLAPSE =======================
+const toolsPanel = document.getElementById('toolsPanel');
+const toolsCollapseBtn = document.getElementById('toolsCollapseBtn');
+
+function toggleToolsCollapse() {
+  triggerHaptic('light');
+  toolsPanel.classList.toggle('collapsed');
+  const isCollapsed = toolsPanel.classList.contains('collapsed');
+  try { localStorage.setItem('ps.toolsCollapsed', isCollapsed ? '1' : '0'); } catch (e) {}
+  requestAnimationFrame(resize);
+}
+
+toolsCollapseBtn.addEventListener('click', toggleToolsCollapse);
+
+// Restore collapsed state
+try {
+  if (localStorage.getItem('ps.toolsCollapsed') === '1') {
+    toolsPanel.classList.add('collapsed');
+  }
+} catch (e) {}
+
+// ======================= DRAGGABLE DIVIDERS =======================
 function setupDivider(divider, computeSize, varName, storeKey) {
+  if (!divider) return;
   let dragging = false;
+  
   divider.addEventListener('pointerdown', (e) => {
+    // Un-collapse tools when starting to drag
+    if (toolsPanel.classList.contains('collapsed')) {
+      toolsPanel.classList.remove('collapsed');
+    }
     e.preventDefault();
-    divider.setPointerCapture(e.pointerId);
+    try { divider.setPointerCapture(e.pointerId); } catch (err) {}
     divider.classList.add('dragging');
     layoutEl.classList.add('resizing');
     dragging = true;
+    triggerHaptic('light');
   });
+  
   divider.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const isMobile = window.matchMedia('(max-width: 860px)').matches;
@@ -1107,229 +1110,488 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     const size = computeSize(e, r, isMobile);
     layoutEl.style.setProperty(varName, size + 'px');
   });
+  
   divider.addEventListener('pointerup', () => {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
     layoutEl.classList.remove('resizing');
     resize();
+    triggerHaptic('medium');
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
+  
+  divider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
+  });
 }
-// Panel divider - right side
-setupDivider(
-  document.getElementById('panelDivider'),
-  (e, r, mobile) => {
-    const minSize = mobile ? 50 : 120;
-    const maxSize = mobile ? r.height * 0.7 : r.width * 0.55;
-    const rawSize = mobile ? r.bottom - e.clientY : r.right - e.clientX;
-    return Math.max(minSize, Math.min(maxSize, rawSize));
-  },
-  '--panel-size', 'ps.panelSize'
-);
-// Tools divider - left side
+
+// Tools divider setup
 setupDivider(
   document.getElementById('toolsDivider'),
   (e, r, mobile) => {
     const minSize = mobile ? 36 : 80;
-    const maxSize = mobile ? r.height * 0.4 : r.width * 0.35;
+    const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
     const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
     return Math.max(minSize, Math.min(maxSize, rawSize));
   },
   '--tools-size', 'ps.toolsSize'
 );
+
+// Restore tools size
 try {
-  const ps = localStorage.getItem('ps.panelSize');
-  if (ps) layoutEl.style.setProperty('--panel-size', ps);
   const ts = localStorage.getItem('ps.toolsSize');
-  if (ts) layoutEl.style.setProperty('--tools-size', ts);
+  if (ts && !toolsPanel.classList.contains('collapsed')) {
+    layoutEl.style.setProperty('--tools-size', ts);
+  }
 } catch (e) {}
 
-// Info overlay — toggleable, draggable, transparent
-const infoOverlay = document.getElementById('infoOverlay');
-const infoOverlayToggle = document.getElementById('infoOverlayToggle');
-const infoOverlayClose = document.getElementById('infoOverlayClose');
-const overlayOpacity = document.getElementById('overlayOpacity');
+// ======================= MODULAR OVERLAY SYSTEM =======================
+// Reusable overlay manager with fluid touch dragging and inertia
+// Track all overlay instances for z-index management
+const overlayInstances = [];
+
+class FloatingOverlay {
+  constructor(id, toggleId, storageKey) {
+    this.el = document.getElementById(id);
+    this.toggle = document.getElementById(toggleId);
+    this.storageKey = storageKey;
+    this.drag = { 
+      active: false, 
+      offsetX: 0, 
+      offsetY: 0, 
+      velocityX: 0, 
+      velocityY: 0,
+      lastX: 0,
+      lastY: 0,
+      lastTime: 0
+    };
+    this.pinch = {
+      active: false,
+      initialDistance: 0,
+      initialScale: 1,
+      pointers: new Map()
+    };
+    this.scale = 1;
+    this.opacity = 0.9;
+    this.glassMode = false;
+    this.inertiaRAF = null;
+    
+    if (!this.el || !this.toggle) return;
+    
+    this.closeBtn = this.el.querySelector('.floating-overlay-close');
+    this.opacitySlider = this.el.querySelector('.overlay-controls input[type=range]');
+    this.glassToggle = this.el.querySelector('.glass-toggle');
+    
+    overlayInstances.push(this);
+    this.init();
+  }
+  
+  init() {
+    // Toggle button with haptic
+    this.toggle.addEventListener('click', () => {
+      triggerHaptic('light');
+      this.toggleVisibility();
+    });
+    if (this.closeBtn) {
+      this.closeBtn.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.hide();
+      });
+    }
+    
+    // Opacity slider
+    if (this.opacitySlider) {
+      this.opacitySlider.addEventListener('input', () => {
+        this.setOpacity(parseFloat(this.opacitySlider.value));
+      });
+    }
+    
+    // Glass mode toggle
+    if (this.glassToggle) {
+      this.glassToggle.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.toggleGlassMode();
+      });
+    }
+    
+    // Bring to front on any interaction
+    this.el.addEventListener('pointerdown', () => this.bringToFront(), { capture: true });
+    
+    // Multi-touch support for pinch and drag
+    this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
+    this.el.addEventListener('pointermove', (e) => this.onPointerMove(e), { passive: false });
+    this.el.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    this.el.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+    this.el.addEventListener('lostpointercapture', (e) => this.onPointerUp(e));
+    
+    // Touch events for better pinch detection
+    this.el.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+    this.el.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+    this.el.addEventListener('touchend', (e) => this.onTouchEnd(e));
+    
+    // Prevent context menu on long press
+    this.el.addEventListener('contextmenu', (e) => {
+      if (this.drag.active || this.pinch.active) e.preventDefault();
+    });
+    
+    // Restore state
+    this.restoreState();
+  }
+  
+  bringToFront() {
+    // Remove focused from all overlays
+    overlayInstances.forEach(ov => {
+      if (ov.el) ov.el.classList.remove('focused');
+    });
+    // Add focused to this one
+    this.el.classList.add('focused');
+  }
+  
+  toggleGlassMode() {
+    this.glassMode = !this.glassMode;
+    this.el.classList.toggle('glass-mode', this.glassMode);
+    this.saveState();
+  }
+  
+  setGlassMode(enabled) {
+    this.glassMode = enabled;
+    this.el.classList.toggle('glass-mode', this.glassMode);
+  }
+  
+  // Pinch gesture helpers
+  getTouchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  onTouchStart(e) {
+    if (e.target.matches('input, button, a')) return;
+    
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      this.pinch.active = true;
+      this.drag.active = false;
+      this.pinch.initialDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      this.pinch.initialScale = this.scale;
+      this.el.classList.add('pinching');
+      this.el.classList.remove('dragging');
+      triggerHaptic('light');
+    }
+  }
+  
+  onTouchMove(e) {
+    if (this.pinch.active && e.touches.length === 2) {
+      e.preventDefault();
+      const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      const scaleRatio = currentDistance / this.pinch.initialDistance;
+      const newScale = Math.max(0.6, Math.min(1.5, this.pinch.initialScale * scaleRatio));
+      this.setScale(newScale);
+    }
+  }
+  
+  onTouchEnd(e) {
+    if (this.pinch.active && e.touches.length < 2) {
+      this.pinch.active = false;
+      this.el.classList.remove('pinching');
+      triggerHaptic('medium');
+      this.saveState();
+    }
+  }
+  
+  setScale(val) {
+    this.scale = val;
+    this.el.style.setProperty('--overlay-scale', val);
+    // Also scale font sizes proportionally
+    this.el.style.fontSize = (12 * val) + 'px';
+  }
+  
+  toggleVisibility() {
+    if (this.el.classList.contains('visible')) {
+      this.hide();
+    } else {
+      this.show();
+    }
+  }
+  
+  show() {
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    if (!this.el.style.left && !this.el.style.right) {
+      this.setDefaultPosition();
+    }
+    this.el.classList.add('visible');
+    this.toggle.classList.add('active');
+    this.saveState();
+  }
+  
+  hide() {
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    this.el.classList.remove('visible');
+    this.toggle.classList.remove('active');
+    this.saveState();
+  }
+  
+  setDefaultPosition() {
+    const defaultX = this.el.dataset.defaultX || '16';
+    const defaultY = this.el.dataset.defaultY || '70';
+    
+    if (defaultX === 'right') {
+      this.el.style.right = '70px';
+      this.el.style.left = 'auto';
+    } else if (defaultX === 'center') {
+      this.el.style.left = Math.max(16, (window.innerWidth - 320) / 2) + 'px';
+    } else {
+      this.el.style.left = defaultX + 'px';
+    }
+    this.el.style.top = defaultY + 'px';
+  }
+  
+  setOpacity(val) {
+    this.opacity = val;
+    // Direct opacity control - no blur, clean transparency
+    this.el.style.setProperty('--overlay-opacity', val);
+    // Remove backdrop blur entirely for clean see-through
+    this.el.style.backdropFilter = 'none';
+    this.el.style.webkitBackdropFilter = 'none';
+    if (this.opacitySlider) this.opacitySlider.value = val;
+    this.saveState();
+  }
+  
+  onPointerDown(e) {
+    if (e.target.matches('input, button, a, .floating-overlay-close')) return;
+    e.preventDefault();
+    
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    
+    this.el.classList.add('dragging');
+    this.drag.active = true;
+    
+    const rect = this.el.getBoundingClientRect();
+    this.drag.offsetX = e.clientX - rect.left;
+    this.drag.offsetY = e.clientY - rect.top;
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = performance.now();
+    this.drag.velocityX = 0;
+    this.drag.velocityY = 0;
+    
+    triggerHaptic('light');
+  }
+  
+  onPointerMove(e) {
+    if (!this.drag.active) return;
+    e.preventDefault();
+    
+    const now = performance.now();
+    const dt = Math.max(1, now - this.drag.lastTime);
+    
+    // Calculate velocity for inertia
+    this.drag.velocityX = (e.clientX - this.drag.lastX) / dt * 16;
+    this.drag.velocityY = (e.clientY - this.drag.lastY) / dt * 16;
+    
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = now;
+    
+    // Clamp position
+    const x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, e.clientX - this.drag.offsetX));
+    const y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, e.clientY - this.drag.offsetY));
+    
+    this.el.style.left = x + 'px';
+    this.el.style.right = 'auto';
+    this.el.style.top = y + 'px';
+  }
+  
+  onPointerUp(e) {
+    if (!this.drag.active) return;
+    this.drag.active = false;
+    this.el.classList.remove('dragging');
+    
+    // Apply inertia if velocity is significant
+    const speed = Math.sqrt(this.drag.velocityX ** 2 + this.drag.velocityY ** 2);
+    if (speed > 0.5) {
+      this.applyInertia();
+    } else {
+      this.saveState();
+    }
+  }
+  
+  applyInertia() {
+    const friction = 0.92;
+    const minVelocity = 0.1;
+    
+    const animate = () => {
+      this.drag.velocityX *= friction;
+      this.drag.velocityY *= friction;
+      
+      let x = parseFloat(this.el.style.left) + this.drag.velocityX;
+      let y = parseFloat(this.el.style.top) + this.drag.velocityY;
+      
+      // Bounce off edges with damping
+      const maxX = window.innerWidth - this.el.offsetWidth;
+      const maxY = window.innerHeight - this.el.offsetHeight;
+      
+      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      
+      this.el.style.left = x + 'px';
+      this.el.style.top = y + 'px';
+      
+      if (Math.abs(this.drag.velocityX) > minVelocity || Math.abs(this.drag.velocityY) > minVelocity) {
+        this.inertiaRAF = requestAnimationFrame(animate);
+      } else {
+        this.saveState();
+      }
+    };
+    
+    this.inertiaRAF = requestAnimationFrame(animate);
+  }
+  
+  saveState() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify({
+        visible: this.el.classList.contains('visible'),
+        x: parseInt(this.el.style.left) || 0,
+        y: parseInt(this.el.style.top) || 0,
+        opacity: this.opacity,
+        scale: this.scale,
+        glassMode: this.glassMode
+      }));
+    } catch (e) {}
+  }
+  
+  restoreState() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.x !== undefined) {
+          this.el.style.left = data.x + 'px';
+          this.el.style.right = 'auto';
+        }
+        if (data.y !== undefined) this.el.style.top = data.y + 'px';
+        if (data.opacity !== undefined) this.setOpacity(data.opacity);
+        if (data.scale !== undefined) this.setScale(data.scale);
+        if (data.glassMode !== undefined) this.setGlassMode(data.glassMode);
+        if (data.visible) this.show();
+      }
+    } catch (e) {}
+  }
+}
+
+// Create overlay instances
+const infoOverlayManager = new FloatingOverlay('infoOverlay', 'infoOverlayToggle', 'ps.infoOverlay');
+const lessonOverlayManager = new FloatingOverlay('lessonOverlay', 'lessonOverlayToggle', 'ps.lessonOverlay');
+const tipsOverlayManager = new FloatingOverlay('tipsOverlay', 'tipsOverlayToggle', 'ps.tipsOverlay');
+
+// Toggle functions for keyboard shortcuts
+function toggleInfoOverlay() { infoOverlayManager.toggleVisibility(); }
+function toggleLessonOverlay() { lessonOverlayManager.toggleVisibility(); }
+function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
+
+// Element refs for updates
 const ovSelected = document.getElementById('ov-selected');
 const ovSpeed = document.getElementById('ov-speed');
 const ovKe = document.getElementById('ov-ke');
 const ovPe = document.getElementById('ov-pe');
-
-// Toggle visibility
-function toggleInfoOverlay() {
-  infoOverlay.classList.toggle('hidden');
-  infoOverlayToggle.classList.toggle('active', !infoOverlay.classList.contains('hidden'));
-  try { localStorage.setItem('ps.infoOverlay', infoOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
-}
-infoOverlayToggle.addEventListener('click', toggleInfoOverlay);
-infoOverlayClose.addEventListener('click', toggleInfoOverlay);
-
-// Restore overlay state
-try {
-  if (localStorage.getItem('ps.infoOverlay') === '1') {
-    infoOverlay.classList.remove('hidden');
-    infoOverlayToggle.classList.add('active');
-  }
-  const savedPos = localStorage.getItem('ps.infoOverlayPos');
-  if (savedPos) {
-    const [x, y] = savedPos.split(',').map(Number);
-    infoOverlay.style.left = x + 'px';
-    infoOverlay.style.top = y + 'px';
-  }
-  const savedOpacity = localStorage.getItem('ps.infoOverlayOpacity');
-  if (savedOpacity) {
-    overlayOpacity.value = savedOpacity;
-    infoOverlay.style.background = `rgba(18, 20, 28, ${savedOpacity})`;
-  }
-} catch (e) {}
-
-// Opacity control
-overlayOpacity.addEventListener('input', () => {
-  const val = parseFloat(overlayOpacity.value);
-  infoOverlay.style.background = `rgba(18, 20, 28, ${val})`;
-  try { localStorage.setItem('ps.infoOverlayOpacity', val); } catch (e) {}
-});
-
-// Draggable overlay
-let overlayDrag = { active: false, offsetX: 0, offsetY: 0 };
-infoOverlay.addEventListener('pointerdown', (e) => {
-  if (e.target.matches('input, button')) return;
-  e.preventDefault();
-  infoOverlay.setPointerCapture(e.pointerId);
-  overlayDrag.active = true;
-  const rect = infoOverlay.getBoundingClientRect();
-  overlayDrag.offsetX = e.clientX - rect.left;
-  overlayDrag.offsetY = e.clientY - rect.top;
-});
-infoOverlay.addEventListener('pointermove', (e) => {
-  if (!overlayDrag.active) return;
-  const x = Math.max(0, Math.min(window.innerWidth - infoOverlay.offsetWidth, e.clientX - overlayDrag.offsetX));
-  const y = Math.max(0, Math.min(window.innerHeight - infoOverlay.offsetHeight, e.clientY - overlayDrag.offsetY));
-  infoOverlay.style.left = x + 'px';
-  infoOverlay.style.top = y + 'px';
-});
-infoOverlay.addEventListener('pointerup', () => {
-  if (!overlayDrag.active) return;
-  overlayDrag.active = false;
-  try { localStorage.setItem('ps.infoOverlayPos', `${parseInt(infoOverlay.style.left)},${parseInt(infoOverlay.style.top)}`); } catch (e) {}
-});
-
-// Update overlay readings each frame
-function updateInfoOverlay() {
-  if (infoOverlay.classList.contains('hidden')) return;
-  const b = state.selected;
-  if (!b || walls.includes(b)) {
-    ovSelected.textContent = '—';
-    ovSpeed.textContent = '0';
-    ovKe.textContent = '0';
-    ovPe.textContent = '0';
-    return;
-  }
-  ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
-  ovSpeed.textContent = b.velocity.length().toFixed(2);
-  const ke = 0.5 * b.mass * b.velocity.lengthSq();
-  ovKe.textContent = ke.toFixed(1);
-  const h = bodyHeightAboveFloor(b);
-  const pe = b.mass * Math.abs(world.gravity) * h;
-  ovPe.textContent = pe.toFixed(1);
-}
-
-// Lesson overlay — toggleable, draggable, transparent
-const lessonOverlay = document.getElementById('lessonOverlay');
-const lessonOverlayToggle = document.getElementById('lessonOverlayToggle');
-const lessonOverlayClose = document.getElementById('lessonOverlayClose');
-const lessonOverlayOpacity = document.getElementById('lessonOverlayOpacity');
+const ovMomentum = document.getElementById('ov-momentum');
+const ovAngular = document.getElementById('ov-angular');
+const ovTotal = document.getElementById('ov-total');
+const ovCount = document.getElementById('ov-count');
 const ovLessonTitle = document.getElementById('ov-lessonTitle');
 const ovLessonBody = document.getElementById('ov-lessonBody');
 const ovLessonFormula = document.getElementById('ov-lessonFormula');
-const ovLessonTags = document.getElementById('ov-lessonTags');
+const ovLevelBadge = document.getElementById('ov-levelBadge');
+const ovConceptList = document.getElementById('ov-conceptList');
 
-function toggleLessonOverlay() {
-  lessonOverlay.classList.toggle('hidden');
-  lessonOverlayToggle.classList.toggle('active', !lessonOverlay.classList.contains('hidden'));
-  try { localStorage.setItem('ps.lessonOverlay', lessonOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+// Update info overlay readings
+function updateInfoOverlay() {
+  const infoEl = document.getElementById('infoOverlay');
+  if (!infoEl || !infoEl.classList.contains('visible')) return;
+  
+  const b = state.selected;
+  const dynamicBodies = world.bodies.filter(x => !x.isStatic && !walls.includes(x));
+  
+  // System totals
+  let totalKE = 0, totalPE = 0;
+  dynamicBodies.forEach(body => {
+    totalKE += 0.5 * body.mass * body.velocity.lengthSq();
+    totalPE += body.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(body);
+  });
+  
+  if (ovTotal) ovTotal.textContent = (totalKE + totalPE).toFixed(1);
+  if (ovCount) ovCount.textContent = dynamicBodies.length;
+  
+  if (!b || walls.includes(b)) {
+    if (ovSelected) ovSelected.textContent = '—';
+    if (ovSpeed) ovSpeed.textContent = '0';
+    if (ovKe) ovKe.textContent = '0';
+    if (ovPe) ovPe.textContent = '0';
+    if (ovMomentum) ovMomentum.textContent = '0';
+    if (ovAngular) ovAngular.textContent = '0';
+    return;
+  }
+  
+  const speed = b.velocity.length();
+  const ke = 0.5 * b.mass * b.velocity.lengthSq();
+  const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
+  const momentum = b.mass * speed;
+  
+  if (ovSelected) ovSelected.textContent = b.shape === SHAPE.CIRCLE ? 'Ball' : 'Box';
+  if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
+  if (ovKe) ovKe.textContent = ke.toFixed(1);
+  if (ovPe) ovPe.textContent = pe.toFixed(1);
+  if (ovMomentum) ovMomentum.textContent = momentum.toFixed(2);
+  if (ovAngular) ovAngular.textContent = Math.abs(b.angularVelocity || 0).toFixed(2);
 }
-lessonOverlayToggle.addEventListener('click', toggleLessonOverlay);
-lessonOverlayClose.addEventListener('click', toggleLessonOverlay);
 
-// Restore lesson overlay state
-try {
-  if (localStorage.getItem('ps.lessonOverlay') === '1') {
-    lessonOverlay.classList.remove('hidden');
-    lessonOverlayToggle.classList.add('active');
-  }
-  const savedLessonPos = localStorage.getItem('ps.lessonOverlayPos');
-  if (savedLessonPos) {
-    const [x, y] = savedLessonPos.split(',').map(Number);
-    lessonOverlay.style.left = x + 'px';
-    lessonOverlay.style.right = 'auto';
-    lessonOverlay.style.top = y + 'px';
-  }
-  const savedLessonOpacity = localStorage.getItem('ps.lessonOverlayOpacity');
-  if (savedLessonOpacity) {
-    lessonOverlayOpacity.value = savedLessonOpacity;
-    lessonOverlay.style.background = `rgba(18, 20, 28, ${savedLessonOpacity})`;
-  }
-} catch (e) {}
-
-lessonOverlayOpacity.addEventListener('input', () => {
-  const val = parseFloat(lessonOverlayOpacity.value);
-  lessonOverlay.style.background = `rgba(18, 20, 28, ${val})`;
-  try { localStorage.setItem('ps.lessonOverlayOpacity', val); } catch (e) {}
-});
-
-// Draggable lesson overlay
-let lessonDrag = { active: false, offsetX: 0, offsetY: 0 };
-lessonOverlay.addEventListener('pointerdown', (e) => {
-  if (e.target.matches('input, button')) return;
-  e.preventDefault();
-  lessonOverlay.setPointerCapture(e.pointerId);
-  lessonDrag.active = true;
-  const rect = lessonOverlay.getBoundingClientRect();
-  lessonDrag.offsetX = e.clientX - rect.left;
-  lessonDrag.offsetY = e.clientY - rect.top;
-});
-lessonOverlay.addEventListener('pointermove', (e) => {
-  if (!lessonDrag.active) return;
-  const x = Math.max(0, Math.min(window.innerWidth - lessonOverlay.offsetWidth, e.clientX - lessonDrag.offsetX));
-  const y = Math.max(0, Math.min(window.innerHeight - lessonOverlay.offsetHeight, e.clientY - lessonDrag.offsetY));
-  lessonOverlay.style.left = x + 'px';
-  lessonOverlay.style.right = 'auto';
-  lessonOverlay.style.top = y + 'px';
-});
-lessonOverlay.addEventListener('pointerup', () => {
-  if (!lessonDrag.active) return;
-  lessonDrag.active = false;
-  try { localStorage.setItem('ps.lessonOverlayPos', `${parseInt(lessonOverlay.style.left)},${parseInt(lessonOverlay.style.top)}`); } catch (e) {}
-});
-
-// Sync lesson overlay with education system
+// Update lesson overlay from education system
 function updateLessonOverlay() {
-  if (lessonOverlay.classList.contains('hidden')) return;
-  // Mirror the panel lesson content
-  const panelTitle = document.getElementById('lessonTitle');
-  const panelBody = document.getElementById('lessonBody');
-  const panelFormula = document.getElementById('lessonFormula');
-  if (panelTitle) ovLessonTitle.textContent = panelTitle.textContent;
-  if (panelBody) ovLessonBody.textContent = panelBody.textContent;
-  if (panelFormula && !panelFormula.hidden) {
-    ovLessonFormula.innerHTML = panelFormula.innerHTML;
-    ovLessonFormula.hidden = false;
-  } else {
-    ovLessonFormula.hidden = true;
+  const lessonEl = document.getElementById('lessonOverlay');
+  if (!lessonEl || !lessonEl.classList.contains('visible')) return;
+  
+  // Sync with education.js if available
+  if (typeof currentLesson !== 'undefined' && currentLesson) {
+    if (ovLessonTitle) ovLessonTitle.textContent = currentLesson.title || 'Physics Concepts';
+    if (ovLessonBody) ovLessonBody.textContent = currentLesson.body || '';
+    if (ovLessonFormula && currentLesson.formula) {
+      ovLessonFormula.textContent = currentLesson.formula;
+      ovLessonFormula.hidden = false;
+    } else if (ovLessonFormula) {
+      ovLessonFormula.hidden = true;
+    }
+  }
+  
+  // Update level badge
+  if (ovLevelBadge) {
+    const levelNames = ['Curious', 'Student', 'University', 'Expert'];
+    const currentLevel = parseInt(document.querySelector('#levelSegment .seg.active')?.dataset.level) || 1;
+    ovLevelBadge.textContent = levelNames[currentLevel - 1];
   }
 }
 
-// Per-card collapse — click any card title to hide its body.
-document.querySelectorAll('.panel .card').forEach(card => {
-  const title = card.querySelector('.card-title');
-  if (!title) return;
-  const chev = document.createElement('span');
-  chev.className = 'card-chevron';
-  chev.textContent = '▾';
-  title.appendChild(chev);
-  title.addEventListener('click', () => card.classList.toggle('collapsed'));
-});
+// Update tips overlay concepts
+function updateTipsOverlay() {
+  if (!ovConceptList) return;
+  const tipsEl = document.getElementById('tipsOverlay');
+  if (!tipsEl || !tipsEl.classList.contains('visible')) return;
+  
+  // Sync with education.js concept list if available
+  const panelConcepts = document.getElementById('conceptList');
+  if (panelConcepts) {
+    ovConceptList.innerHTML = panelConcepts.innerHTML;
+  }
+}
 
 // keyboard
 window.addEventListener('keydown', (ev) => {
@@ -1359,6 +1621,8 @@ window.addEventListener('keydown', (ev) => {
     toggleInfoOverlay();
   } else if (ev.key === 'l' || ev.key === 'L') {
     toggleLessonOverlay();
+  } else if (ev.key === 't' || ev.key === 'T') {
+    toggleTipsOverlay();
   }
 });
 
@@ -1572,6 +1836,7 @@ render();
   updateReadouts();
   updateInfoOverlay();
   updateLessonOverlay();
+  updateTipsOverlay();
   requestAnimationFrame(loop);
   }
 
