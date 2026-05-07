@@ -58,11 +58,12 @@ input, button { font: inherit; }
 .topbar {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 12px 20px;
   padding: 12px 20px;
   padding-right: 60px;
-  background: linear-gradient(180deg, rgba(15, 15, 22, 0.95), rgba(10, 10, 15, 0.98));
+  background: linear-gradient(180deg, rgba(18, 20, 28, 0.97), rgba(12, 14, 20, 0.98));
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(20px);
   z-index: 10;
@@ -118,8 +119,10 @@ input, button { font: inherit; }
 
 .bar-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
+  min-width: 0;
 }
 
 .bar-group label {
@@ -130,12 +133,16 @@ input, button { font: inherit; }
 }
 
 .bar-group input[type=range] {
-  width: 120px;
+  width: 100px;
+  min-width: 60px;
+  flex: 1 1 auto;
+  max-width: 140px;
 }
 
 .bar-group.btns {
   margin-left: auto;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .seg-label {
@@ -146,6 +153,7 @@ input, button { font: inherit; }
 
 .segment {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   padding: 3px;
   background: var(--bg-2);
@@ -157,11 +165,12 @@ input, button { font: inherit; }
   background: transparent;
   border: 0;
   color: var(--muted);
-  padding: 7px 12px;
-  font-size: 12px;
+  padding: 6px 10px;
+  font-size: 11px;
   font-weight: 500;
   border-radius: 7px;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .seg:hover {
@@ -376,20 +385,33 @@ input[type=range]::-moz-range-thumb {
 .tools {
   background: linear-gradient(180deg, var(--bg-1), var(--bg));
   border-right: 1px solid var(--line);
-  padding: 16px 14px;
+  padding: 12px 10px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .tool-section {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Tool grid container - wraps when narrow */
+.tool-section .tool-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .section-title {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -404,18 +426,18 @@ input[type=range]::-moz-range-thumb {
 }
 
 .tool {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 70px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  margin-bottom: 6px;
   transition: all 0.15s ease;
   position: relative;
   overflow: hidden;
@@ -492,18 +514,18 @@ input[type=range]::-moz-range-thumb {
 }
 
 .preset {
-  display: block;
-  width: 100%;
-  text-align: left;
+  flex: 1 1 auto;
+  min-width: 75px;
+  text-align: center;
   background: transparent;
   border: 1px dashed var(--line);
   color: var(--muted);
-  padding: 9px 12px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
-  margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .preset:hover {
@@ -511,29 +533,33 @@ input[type=range]::-moz-range-thumb {
   border-color: var(--accent);
   border-style: solid;
   background: rgba(0, 229, 160, 0.08);
-  transform: translateX(4px);
 }
 
 .check {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--muted);
-  padding: 6px 0;
+  padding: 5px 8px;
+  background: var(--bg-2);
+  border-radius: 6px;
   user-select: none;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: all 0.15s;
+  flex: 1 1 auto;
+  min-width: fit-content;
 }
 
 .check:hover {
   color: var(--text);
+  background: var(--bg-3);
 }
 
 .check input {
   accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .slider-row {
@@ -696,15 +722,15 @@ input[type=range]::-moz-range-thumb {
 
 .readout-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+  gap: 8px;
 }
 
 .metric {
   background: var(--bg-3);
   border: 1px solid var(--line);
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   transition: all 0.2s ease;
 }
 
@@ -736,22 +762,30 @@ input[type=range]::-moz-range-thumb {
 }
 
 .totals {
-  margin-top: 12px;
+  margin-top: 10px;
   border-top: 1px dashed var(--line);
   padding-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 14px;
-  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 11px;
   color: var(--muted);
-}
+  }
+  
+.totals > div {
+  flex: 1 1 auto;
+  min-width: 80px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  }
 
 .totals b {
   color: var(--text);
-  float: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
+  white-space: nowrap;
+  }
 
 .lesson-body {
   margin: 0;
