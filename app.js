@@ -923,31 +923,22 @@ function drawSelectionRing(b) {
   const aabb = b.aabb();
   const min = worldToScreen(aabb.minX, aabb.minY);
   const max = worldToScreen(aabb.maxX, aabb.maxY);
-  const pad = 6;
+  const pad = 4;
   const w = max.x - min.x + pad * 2;
   const h = max.y - min.y + pad * 2;
   const x = min.x - pad;
   const y = min.y - pad;
-  const r = 6; // corner radius
+  const r = 4; // corner radius
   
-  // Glow effect
-  ctx.shadowColor = 'rgba(0, 229, 160, 0.5)';
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.8)';
-  ctx.lineWidth = 2;
+  // Subtle glow
+  ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.stroke();
   ctx.shadowBlur = 0;
-  
-  // Inner dashed line
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
-  ctx.stroke();
-  ctx.setLineDash([]);
   }
 
 function withAlpha(hex, a) {
@@ -1125,18 +1116,26 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
 }
+// Panel divider - right side
 setupDivider(
   document.getElementById('panelDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(60, Math.min(r.height * 0.88, r.bottom - e.clientY))
-    : Math.max(140, Math.min(r.width * 0.75, r.right - e.clientX)),
+  (e, r, mobile) => {
+    const minSize = mobile ? 50 : 120;
+    const maxSize = mobile ? r.height * 0.7 : r.width * 0.55;
+    const rawSize = mobile ? r.bottom - e.clientY : r.right - e.clientX;
+    return Math.max(minSize, Math.min(maxSize, rawSize));
+  },
   '--panel-size', 'ps.panelSize'
 );
+// Tools divider - left side
 setupDivider(
   document.getElementById('toolsDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(40, Math.min(r.height * 0.5, e.clientY - r.top))
-    : Math.max(100, Math.min(r.width * 0.45, e.clientX - r.left)),
+  (e, r, mobile) => {
+    const minSize = mobile ? 36 : 80;
+    const maxSize = mobile ? r.height * 0.4 : r.width * 0.35;
+    const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
+    return Math.max(minSize, Math.min(maxSize, rawSize));
+  },
   '--tools-size', 'ps.toolsSize'
 );
 try {
@@ -1180,14 +1179,14 @@ try {
   const savedOpacity = localStorage.getItem('ps.infoOverlayOpacity');
   if (savedOpacity) {
     overlayOpacity.value = savedOpacity;
-    infoOverlay.style.background = `rgba(10, 10, 15, ${savedOpacity})`;
+    infoOverlay.style.background = `rgba(18, 20, 28, ${savedOpacity})`;
   }
 } catch (e) {}
 
 // Opacity control
 overlayOpacity.addEventListener('input', () => {
   const val = parseFloat(overlayOpacity.value);
-  infoOverlay.style.background = `rgba(10, 10, 15, ${val})`;
+  infoOverlay.style.background = `rgba(18, 20, 28, ${val})`;
   try { localStorage.setItem('ps.infoOverlayOpacity', val); } catch (e) {}
 });
 
@@ -1235,6 +1234,92 @@ function updateInfoOverlay() {
   ovPe.textContent = pe.toFixed(1);
 }
 
+// Lesson overlay — toggleable, draggable, transparent
+const lessonOverlay = document.getElementById('lessonOverlay');
+const lessonOverlayToggle = document.getElementById('lessonOverlayToggle');
+const lessonOverlayClose = document.getElementById('lessonOverlayClose');
+const lessonOverlayOpacity = document.getElementById('lessonOverlayOpacity');
+const ovLessonTitle = document.getElementById('ov-lessonTitle');
+const ovLessonBody = document.getElementById('ov-lessonBody');
+const ovLessonFormula = document.getElementById('ov-lessonFormula');
+const ovLessonTags = document.getElementById('ov-lessonTags');
+
+function toggleLessonOverlay() {
+  lessonOverlay.classList.toggle('hidden');
+  lessonOverlayToggle.classList.toggle('active', !lessonOverlay.classList.contains('hidden'));
+  try { localStorage.setItem('ps.lessonOverlay', lessonOverlay.classList.contains('hidden') ? '0' : '1'); } catch (e) {}
+}
+lessonOverlayToggle.addEventListener('click', toggleLessonOverlay);
+lessonOverlayClose.addEventListener('click', toggleLessonOverlay);
+
+// Restore lesson overlay state
+try {
+  if (localStorage.getItem('ps.lessonOverlay') === '1') {
+    lessonOverlay.classList.remove('hidden');
+    lessonOverlayToggle.classList.add('active');
+  }
+  const savedLessonPos = localStorage.getItem('ps.lessonOverlayPos');
+  if (savedLessonPos) {
+    const [x, y] = savedLessonPos.split(',').map(Number);
+    lessonOverlay.style.left = x + 'px';
+    lessonOverlay.style.right = 'auto';
+    lessonOverlay.style.top = y + 'px';
+  }
+  const savedLessonOpacity = localStorage.getItem('ps.lessonOverlayOpacity');
+  if (savedLessonOpacity) {
+    lessonOverlayOpacity.value = savedLessonOpacity;
+    lessonOverlay.style.background = `rgba(18, 20, 28, ${savedLessonOpacity})`;
+  }
+} catch (e) {}
+
+lessonOverlayOpacity.addEventListener('input', () => {
+  const val = parseFloat(lessonOverlayOpacity.value);
+  lessonOverlay.style.background = `rgba(18, 20, 28, ${val})`;
+  try { localStorage.setItem('ps.lessonOverlayOpacity', val); } catch (e) {}
+});
+
+// Draggable lesson overlay
+let lessonDrag = { active: false, offsetX: 0, offsetY: 0 };
+lessonOverlay.addEventListener('pointerdown', (e) => {
+  if (e.target.matches('input, button')) return;
+  e.preventDefault();
+  lessonOverlay.setPointerCapture(e.pointerId);
+  lessonDrag.active = true;
+  const rect = lessonOverlay.getBoundingClientRect();
+  lessonDrag.offsetX = e.clientX - rect.left;
+  lessonDrag.offsetY = e.clientY - rect.top;
+});
+lessonOverlay.addEventListener('pointermove', (e) => {
+  if (!lessonDrag.active) return;
+  const x = Math.max(0, Math.min(window.innerWidth - lessonOverlay.offsetWidth, e.clientX - lessonDrag.offsetX));
+  const y = Math.max(0, Math.min(window.innerHeight - lessonOverlay.offsetHeight, e.clientY - lessonDrag.offsetY));
+  lessonOverlay.style.left = x + 'px';
+  lessonOverlay.style.right = 'auto';
+  lessonOverlay.style.top = y + 'px';
+});
+lessonOverlay.addEventListener('pointerup', () => {
+  if (!lessonDrag.active) return;
+  lessonDrag.active = false;
+  try { localStorage.setItem('ps.lessonOverlayPos', `${parseInt(lessonOverlay.style.left)},${parseInt(lessonOverlay.style.top)}`); } catch (e) {}
+});
+
+// Sync lesson overlay with education system
+function updateLessonOverlay() {
+  if (lessonOverlay.classList.contains('hidden')) return;
+  // Mirror the panel lesson content
+  const panelTitle = document.getElementById('lessonTitle');
+  const panelBody = document.getElementById('lessonBody');
+  const panelFormula = document.getElementById('lessonFormula');
+  if (panelTitle) ovLessonTitle.textContent = panelTitle.textContent;
+  if (panelBody) ovLessonBody.textContent = panelBody.textContent;
+  if (panelFormula && !panelFormula.hidden) {
+    ovLessonFormula.innerHTML = panelFormula.innerHTML;
+    ovLessonFormula.hidden = false;
+  } else {
+    ovLessonFormula.hidden = true;
+  }
+}
+
 // Per-card collapse — click any card title to hide its body.
 document.querySelectorAll('.panel .card').forEach(card => {
   const title = card.querySelector('.card-title');
@@ -1272,6 +1357,8 @@ window.addEventListener('keydown', (ev) => {
     document.getElementById('helpDialog').showModal();
   } else if (ev.key === 'i' || ev.key === 'I') {
     toggleInfoOverlay();
+  } else if (ev.key === 'l' || ev.key === 'L') {
+    toggleLessonOverlay();
   }
 });
 
@@ -1484,6 +1571,7 @@ function loop(now) {
 render();
   updateReadouts();
   updateInfoOverlay();
+  updateLessonOverlay();
   requestAnimationFrame(loop);
   }
 

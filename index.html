@@ -147,12 +147,12 @@
       <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
     </div>
     
-    <!-- Toggleable info overlay -->
-    <button id="infoOverlayToggle" class="info-overlay-toggle" title="Toggle info overlay (I)" aria-label="Toggle info overlay">i</button>
-    <div id="infoOverlay" class="info-overlay hidden" style="top: 80px; left: 20px;">
-      <div class="info-overlay-header">
-        <span class="info-overlay-title">Live Info</span>
-        <button id="infoOverlayClose" class="info-overlay-close" aria-label="Close overlay">×</button>
+    <!-- Floating info overlay -->
+    <button id="infoOverlayToggle" class="overlay-toggle" title="Toggle readings (I)" aria-label="Toggle info overlay">i</button>
+    <div id="infoOverlay" class="floating-overlay hidden" style="top: 70px; left: 16px;">
+      <div class="floating-overlay-header">
+        <span class="floating-overlay-title">Live Readings</span>
+        <button id="infoOverlayClose" class="floating-overlay-close" aria-label="Close">×</button>
       </div>
       <div class="readout-grid">
         <div class="metric"><div class="metric-label">Selected</div><div class="metric-val" id="ov-selected">—</div></div>
@@ -160,9 +160,25 @@
         <div class="metric"><div class="metric-label">KE</div><div class="metric-val"><span id="ov-ke">0</span> <span class="unit">J</span></div></div>
         <div class="metric"><div class="metric-label">PE</div><div class="metric-val"><span id="ov-pe">0</span> <span class="unit">J</span></div></div>
       </div>
-      <div class="transparency-row">
+      <div class="opacity-row">
         <span>Opacity</span>
-        <input id="overlayOpacity" type="range" min="0.3" max="1" step="0.05" value="0.88" />
+        <input id="overlayOpacity" type="range" min="0.3" max="1" step="0.05" value="0.85" />
+      </div>
+    </div>
+    
+    <!-- Floating lesson overlay -->
+    <button id="lessonOverlayToggle" class="overlay-toggle" title="Toggle lesson (L)" aria-label="Toggle lesson overlay">?</button>
+    <div id="lessonOverlay" class="floating-overlay lesson-overlay hidden" style="top: 70px; right: 16px; left: auto;">
+      <div class="floating-overlay-header">
+        <span class="floating-overlay-title" id="ov-lessonTitle">What's happening</span>
+        <button id="lessonOverlayClose" class="floating-overlay-close" aria-label="Close">×</button>
+      </div>
+      <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. The overlay explains the physics.</p>
+      <div class="formula" id="ov-lessonFormula" hidden></div>
+      <div class="lesson-tags" id="ov-lessonTags"></div>
+      <div class="opacity-row">
+        <span>Opacity</span>
+        <input id="lessonOverlayOpacity" type="range" min="0.3" max="1" step="0.05" value="0.85" />
       </div>
     </div>
   </section>
@@ -212,7 +228,7 @@
     <li><kbd>1</kbd>–<kbd>6</kbd> spawn tools (box, ball, polygon, wall, triangle, rope)</li>
     <li><kbd>G</kbd> grab · <kbd>S</kbd> spring · <kbd>P</kbd> push · <kbd>X</kbd> delete · <kbd>N</kbd> pin · <kbd>K</kbd> slice</li>
     <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
-    <li><kbd>I</kbd> toggle info overlay · <kbd>1</kbd>…<kbd>4</kbd> with <kbd>Shift</kbd>: knowledge level</li>
+    <li><kbd>I</kbd> info overlay · <kbd>L</kbd> lesson overlay · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> knowledge level</li>
     <li>Drag in empty space to spawn sized objects</li>
     <li>Right-click drag to pan, scroll to zoom</li>
   </ul>

@@ -399,11 +399,17 @@ input[type=range]::-moz-range-thumb {
   gap: 4px;
 }
 
-/* Tool grid container - wraps when narrow */
+/* Tool grid container - wraps when narrow with smooth settling */
 .tool-section .tool-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
+  transition: gap 0.2s ease;
+}
+
+/* Smooth settling animation for all tool items */
+.tool-grid > * {
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .section-title {
@@ -427,39 +433,30 @@ input[type=range]::-moz-range-thumb {
 
 .tool {
   flex: 1 1 auto;
-  min-width: 70px;
+  min-width: 65px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
 }
 
-.tool::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--accent), var(--secondary));
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
 .tool:hover {
   background: var(--bg-3);
-  border-color: var(--line-2);
-  transform: translateX(4px);
+  border-color: var(--accent);
 }
 
 .tool:active {
-  transform: translateX(2px) scale(0.98);
+  transform: scale(0.97);
 }
 
 .tool.active {
@@ -1133,6 +1130,179 @@ input[type=range]::-moz-range-thumb {
   .readout-grid {
     grid-template-columns: 1fr 1fr 1fr;
   }
+}
+
+/* ======================= FLOATING OVERLAYS ======================= */
+.floating-overlay {
+  position: fixed;
+  z-index: 100;
+  background: rgba(18, 20, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  max-width: 320px;
+  min-width: 200px;
+  cursor: move;
+  user-select: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.floating-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95) translateY(5px);
+}
+
+.floating-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.floating-overlay-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.floating-overlay-close {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.floating-overlay-close:hover {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--bg);
+}
+
+.floating-overlay .readout-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.floating-overlay .metric {
+  padding: 6px 8px;
+  background: rgba(30, 34, 48, 0.7);
+}
+
+.floating-overlay .metric-label {
+  font-size: 8px;
+}
+
+.floating-overlay .metric-val {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Opacity control row */
+.floating-overlay .opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.floating-overlay .opacity-row input[type=range] {
+  flex: 1;
+  height: 3px;
+}
+
+/* Toggle button for overlays */
+.overlay-toggle {
+  position: fixed;
+  z-index: 99;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 20, 28, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-toggle:hover {
+  background: var(--bg-3);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+.overlay-toggle.active {
+  background: rgba(0, 229, 160, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Info overlay - bottom right */
+#infoOverlayToggle {
+  bottom: 16px;
+  right: 16px;
+}
+
+/* Lesson overlay - bottom right, above info */
+#lessonOverlayToggle {
+  bottom: 60px;
+  right: 16px;
+  font-size: 12px;
+}
+
+/* Lesson overlay content */
+.lesson-overlay .lesson-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+
+.lesson-overlay .formula {
+  background: var(--bg-3);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-2);
+}
+
+.lesson-overlay .lesson-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.lesson-overlay .concept-pill {
+  font-size: 9px;
+  padding: 3px 8px;
+  background: var(--bg-3);
+  border-radius: 10px;
+  color: var(--muted);
 }
 
 /* Focus states for accessibility */
