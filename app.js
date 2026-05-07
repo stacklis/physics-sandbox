@@ -182,8 +182,8 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
-// Destruction threshold for breaking objects - VERY LOW because engine reports tiny velocities
-const DESTRUCTION_THRESHOLD = 0.05;
+// Destruction threshold for breaking objects (velocity in m/s)
+const DESTRUCTION_THRESHOLD = 2;
 
 world.on(ev => {
   if (ev.type === 'collision') {
@@ -191,12 +191,9 @@ world.on(ev => {
     
     // Destruction mode: break objects on impacts
     if (state.destructionMode) {
-      console.log('[v0] Event object:', ev);
-      const { bodyA, bodyB } = ev;
-      console.log('[v0] Extracted bodyA:', bodyA, 'bodyB:', bodyB);
-      
-      // Debug: log collision info
-      console.log('[v0] Collision detected, relVelocity:', ev.relVelocity, 'threshold:', DESTRUCTION_THRESHOLD);
+      // Engine uses 'a' and 'b', not 'bodyA' and 'bodyB'
+      const bodyA = ev.a;
+      const bodyB = ev.b;
       
       // Use body positions as impact point if ev.point is missing
       const impactPoint = ev.point || (bodyA && bodyB ? {
@@ -204,30 +201,22 @@ world.on(ev => {
         y: (bodyA.position.y + bodyB.position.y) / 2
       } : null);
       
-      // Check velocities - use body velocity magnitude if relVelocity seems low
+      // Check velocities - use body velocity magnitude
       const velA = bodyA ? bodyA.velocity.length() : 0;
       const velB = bodyB ? bodyB.velocity.length() : 0;
       const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
       const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
       
-      console.log('[v0] effectiveVelA:', effectiveVelA, 'effectiveVelB:', effectiveVelB);
-      
       const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
       const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
-      
-      console.log('[v0] canDestroyA:', canDestroyA, 'canDestroyB:', canDestroyB);
       
       const shouldDestroyA = canDestroyA && (effectiveVelA > DESTRUCTION_THRESHOLD || bodyA._destroyOnImpact);
       const shouldDestroyB = canDestroyB && (effectiveVelB > DESTRUCTION_THRESHOLD || bodyB._destroyOnImpact);
       
-      console.log('[v0] shouldDestroyA:', shouldDestroyA, 'shouldDestroyB:', shouldDestroyB);
-      
       if (shouldDestroyA) {
-        console.log('[v0] Destroying body A');
         setTimeout(() => destroyBody(bodyA, impactPoint, effectiveVelA), 0);
       }
       if (shouldDestroyB) {
-        console.log('[v0] Destroying body B');
         setTimeout(() => destroyBody(bodyB, impactPoint, effectiveVelB), 0);
       }
     }
@@ -274,12 +263,7 @@ const state = {
 /* =========================== DESTRUCTION SYSTEM =========================== */
 // Breaks a body into voxel fragments on collision
 function destroyBody(body, impactPoint, impactForce) {
-  console.log('[v0] destroyBody called, body:', body, 'impactForce:', impactForce);
-  if (!body || body.isStatic || walls.includes(body) || body._destroyed) {
-    console.log('[v0] destroyBody early return - body:', !!body, 'isStatic:', body?.isStatic, 'isWall:', walls.includes(body), 'destroyed:', body?._destroyed);
-    return [];
-  }
-  console.log('[v0] Proceeding with destruction');
+  if (!body || body.isStatic || walls.includes(body) || body._destroyed) return [];
   body._destroyed = true;
   
   const fragments = [];
