@@ -183,8 +183,8 @@ ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audi
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
 // Destruction threshold for breaking objects (velocity in m/s)
-// Requires strong throws or hard impacts - gentle drops won't break objects
-const DESTRUCTION_THRESHOLD = 10;
+// Requires extremely forceful impacts - only violent collisions will break objects
+const DESTRUCTION_THRESHOLD = 100;
 
 world.on(ev => {
   if (ev.type === 'collision') {
