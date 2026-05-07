@@ -1160,6 +1160,64 @@ try {
   }
 } catch (e) {}
 
+// ======================= TOPBAR DIVIDER =======================
+const topbarDivider = document.getElementById('topbarDivider');
+const topbar = document.querySelector('.topbar');
+
+function setupTopbarDivider() {
+  if (!topbarDivider || !topbar) return;
+  
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  
+  topbarDivider.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
+    topbarDivider.classList.add('dragging');
+    dragging = true;
+    startY = e.clientY;
+    startHeight = topbar.offsetHeight;
+    triggerHaptic('light');
+  });
+  
+  topbarDivider.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const deltaY = e.clientY - startY;
+    const newHeight = Math.max(48, Math.min(200, startHeight + deltaY));
+    topbar.style.minHeight = newHeight + 'px';
+  });
+  
+  topbarDivider.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+    triggerHaptic('medium');
+    try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
+  });
+  
+  topbarDivider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+  });
+  
+  // Double-click to reset
+  topbarDivider.addEventListener('dblclick', () => {
+    topbar.style.minHeight = '';
+    triggerHaptic('double');
+    try { localStorage.removeItem('ps.topbarHeight'); } catch (e) {}
+  });
+}
+
+setupTopbarDivider();
+
+// Restore topbar height
+try {
+  const th = localStorage.getItem('ps.topbarHeight');
+  if (th && topbar) topbar.style.minHeight = th;
+} catch (e) {}
+
 // ======================= MODULAR OVERLAY SYSTEM =======================
 // Reusable overlay manager with fluid touch dragging and inertia
 // Track all overlay instances for z-index management
