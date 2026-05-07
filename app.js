@@ -459,16 +459,27 @@ function worldToLocal(body, worldP) {
 }
 
 /* =========================== spawn =========================== */
+// Mobile size limits - smaller max sizes for better viewing area
+function getMaxObjectSize() {
+  const isMobile = window.matchMedia('(max-width: 860px)').matches;
+  return {
+    radius: isMobile ? 1.8 : 4.0,      // max radius for circles/polygons
+    dimension: isMobile ? 3.0 : 6.0,   // max width/height for boxes
+    wallDim: isMobile ? 4.0 : 8.0      // max wall dimension
+  };
+}
+
 function finishSpawn(start, end) {
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
   const dragLen = Math.hypot(dx, dy);
+  const maxSize = getMaxObjectSize();
 
   switch (state.tool) {
     case 'box': {
-      const w = Math.max(0.5, Math.abs(dx) * 2 || 1.0);
-      const h = Math.max(0.5, Math.abs(dy) * 2 || 1.0);
+      const w = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1.0));
+      const h = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1.0));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makeBox(cx, cy, w, h, { color: pickSpawnColor() }));
       state.selected = b;
@@ -476,7 +487,7 @@ function finishSpawn(start, end) {
       break;
     }
     case 'circle': {
-      const r = Math.max(0.25, dragLen / 2 || 0.5);
+      const r = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makeCircle(cx, cy, r, { color: pickSpawnColor() }));
       state.selected = b;
@@ -484,7 +495,7 @@ function finishSpawn(start, end) {
       break;
     }
     case 'polygon': {
-      const r = Math.max(0.3, dragLen / 2 || 0.6);
+      const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const sides = 5 + ((Math.random() * 4) | 0);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makePolygon(cx, cy, sides, r, { color: pickSpawnColor() }));
@@ -493,14 +504,14 @@ function finishSpawn(start, end) {
       break;
     }
     case 'wall': {
-      const w = Math.max(0.5, Math.abs(dx) || 2);
-      const h = Math.max(0.2, Math.abs(dy) || 0.4);
+      const w = Math.min(maxSize.wallDim, Math.max(0.5, Math.abs(dx) || 2));
+      const h = Math.min(maxSize.wallDim, Math.max(0.2, Math.abs(dy) || 0.4));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'triangle': {
-      const r = Math.max(0.3, dragLen / 2 || 0.6);
+      const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makePolygon(cx, cy, 3, r, { color: pickSpawnColor() }));
       state.selected = b;
@@ -1130,8 +1141,10 @@ function setupDivider(divider, computeSize, varName, storeKey) {
 }
 
 // Tools divider setup
+const toolsDividerEl = document.getElementById('toolsDivider');
+console.log('[v0] Tools divider element:', toolsDividerEl);
 setupDivider(
-  document.getElementById('toolsDivider'),
+  toolsDividerEl,
   (e, r, mobile) => {
     const minSize = mobile ? 36 : 80;
     const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
@@ -1147,6 +1160,64 @@ try {
   if (ts && !toolsPanel.classList.contains('collapsed')) {
     layoutEl.style.setProperty('--tools-size', ts);
   }
+} catch (e) {}
+
+// ======================= TOPBAR DIVIDER =======================
+const topbarDivider = document.getElementById('topbarDivider');
+const topbar = document.querySelector('.topbar');
+
+function setupTopbarDivider() {
+  if (!topbarDivider || !topbar) return;
+  
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  
+  topbarDivider.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
+    topbarDivider.classList.add('dragging');
+    dragging = true;
+    startY = e.clientY;
+    startHeight = topbar.offsetHeight;
+    triggerHaptic('light');
+  });
+  
+  topbarDivider.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const deltaY = e.clientY - startY;
+    const newHeight = Math.max(48, Math.min(200, startHeight + deltaY));
+    topbar.style.minHeight = newHeight + 'px';
+  });
+  
+  topbarDivider.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+    triggerHaptic('medium');
+    try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
+  });
+  
+  topbarDivider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+  });
+  
+  // Double-click to reset
+  topbarDivider.addEventListener('dblclick', () => {
+    topbar.style.minHeight = '';
+    triggerHaptic('double');
+    try { localStorage.removeItem('ps.topbarHeight'); } catch (e) {}
+  });
+}
+
+setupTopbarDivider();
+
+// Restore topbar height
+try {
+  const th = localStorage.getItem('ps.topbarHeight');
+  if (th && topbar) topbar.style.minHeight = th;
 } catch (e) {}
 
 // ======================= MODULAR OVERLAY SYSTEM =======================
@@ -1289,7 +1360,11 @@ class FloatingOverlay {
       e.preventDefault();
       const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
       const scaleRatio = currentDistance / this.pinch.initialDistance;
-      const newScale = Math.max(0.6, Math.min(1.5, this.pinch.initialScale * scaleRatio));
+      // Smaller max scale on mobile for more viewing area
+      const isMobile = window.matchMedia('(max-width: 860px)').matches;
+      const minScale = isMobile ? 0.5 : 0.6;
+      const maxScale = isMobile ? 1.0 : 1.5;
+      const newScale = Math.max(minScale, Math.min(maxScale, this.pinch.initialScale * scaleRatio));
       this.setScale(newScale);
     }
   }
