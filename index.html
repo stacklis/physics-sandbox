@@ -92,23 +92,50 @@
   .cta.ghost { background: transparent; color: var(--muted); }
   .cta.ghost:hover { color: var(--text); border-color: var(--line); }
 
-  /* Embed frame */
-  .demo-frame {
+  /* Demo launch card (replaces embedded iframe — opens /free/ in a new tab) */
+  .demo-launch {
+    display: block;
     position: relative;
     margin: 0 auto;
     max-width: 1080px;
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 16 / 7;
     border-radius: 14px;
-    overflow: hidden;
     border: 1px solid var(--line-2);
-    background: var(--bg-1);
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(106,166,255,0.10), transparent 55%),
+      radial-gradient(ellipse at 75% 80%, rgba(0,229,160,0.08), transparent 55%),
+      linear-gradient(135deg, var(--bg-1), var(--bg));
     box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset;
+    text-decoration: none;
+    color: var(--text);
+    overflow: hidden;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   }
-  .demo-frame iframe {
+  .demo-launch:hover, .demo-launch:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(138,208,255,0.4);
+    box-shadow: 0 26px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(138,208,255,0.18) inset;
+    outline: none;
+  }
+  .demo-launch-inner {
     position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    border: 0;
-    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  .demo-play {
+    color: var(--accent-2);
+    filter: drop-shadow(0 2px 12px var(--accent-glow));
+  }
+  .demo-launch-title {
+    font-size: clamp(18px, 2.4vw, 22px);
+    font-weight: 600;
+    color: var(--text);
+  }
+  .demo-launch-sub {
+    font-size: 13px;
+    color: var(--muted);
   }
   .demo-caption {
     text-align: center;
@@ -248,14 +275,19 @@
   <h1>Learn physics by <span class="accent">playing</span>.</h1>
   <p class="lede">A 2D rigid-body sandbox that explains itself. Drag in empty space to spawn. Watch live energy and momentum readouts. Scale the explanations from "Curious" to "Expert" as you go.</p>
   <div class="cta-row">
-    <a class="cta primary" href="#try">Try it free</a>
+    <a class="cta primary" href="/free/" target="_blank" rel="noopener">Try it free →</a>
     <a class="cta" href="#pricing">Get Pro · $9 one-time</a>
   </div>
-  <div id="try" class="demo-frame">
-    <!-- Free edition embedded with ?embed=1 to strip its topbar branding. -->
-    <iframe src="/free/?embed=1" loading="lazy" title="Physics Sandbox live demo" referrerpolicy="no-referrer"></iframe>
-  </div>
-  <p class="demo-caption">Live demo — drag in empty space to spawn objects, click an object to inspect.</p>
+  <a id="try" class="demo-launch" href="/free/" target="_blank" rel="noopener" aria-label="Launch the interactive physics demo in a new tab">
+    <div class="demo-launch-inner">
+      <svg class="demo-play" viewBox="0 0 24 24" width="44" height="44" fill="currentColor" aria-hidden="true">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+      <div class="demo-launch-title">Launch interactive demo</div>
+      <div class="demo-launch-sub">Opens in a new tab — drag in empty space to spawn objects, click to inspect</div>
+    </div>
+  </a>
+  <p class="demo-caption">No install, no signup. The free demo runs entirely in your browser.</p>
 </header>
 
 <!-- FEATURE GRID --------------------------------------------------------- -->
