@@ -61,6 +61,13 @@ input, button { font: inherit; }
   box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 6px 18px rgba(106,166,255,0.35);
 }
 .title { font-weight: 600; letter-spacing: 0.2px; }
+.brand .by {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  margin-left: 2px;
+  opacity: 0.7;
+}
 
 .bar-group { display: flex; align-items: center; gap: 10px; }
 .bar-group label { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -410,6 +417,109 @@ input[type=range]::-moz-range-thumb {
 }
 .concept-pill.empty { background: transparent; border-style: dashed; color: var(--muted); }
 
+/* PRO PAYWALL ------------------------------------------------------------- */
+.pro-badge {
+  display: none;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  color: #0b0d12;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.pro-badge.inline { display: inline-block; }
+body.pro .pro-badge { display: inline-block; }
+.locked::before {
+  content: '🔒';
+  font-size: 10px;
+  margin-right: 4px;
+  opacity: 0.7;
+  vertical-align: baseline;
+}
+body.pro .locked::before { content: none; }
+
+.upgrade-dialog {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 22px 24px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: var(--shadow);
+}
+.upgrade-dialog::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+.upgrade-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: var(--text);
+}
+.upgrade-sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.upgrade-features {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.upgrade-features li { margin-bottom: 6px; }
+.upgrade-features strong { color: var(--accent-2); }
+.upgrade-price {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent-2);
+  margin: 0 0 14px;
+}
+.upgrade-price-period { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.upgrade-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.upgrade-cta {
+  background: linear-gradient(180deg, rgba(106,166,255,0.28), rgba(106,166,255,0.10));
+  border: 1px solid rgba(106,166,255,0.5);
+  color: var(--accent-2);
+  flex: 1;
+  font-weight: 600;
+}
+.upgrade-cta:hover { background: linear-gradient(180deg, rgba(106,166,255,0.36), rgba(106,166,255,0.14)); }
+.upgrade-actions .btn.ghost { flex: 0 0 auto; }
+.upgrade-redeem {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 12px;
+}
+.upgrade-redeem summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin-bottom: 8px;
+  user-select: none;
+}
+.upgrade-redeem summary:hover { color: var(--text); }
+.redeem-row { display: flex; gap: 6px; }
+.redeem-row input {
+  flex: 1;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.redeem-msg { margin-top: 8px; font-size: 11px; min-height: 14px; }
+.redeem-msg.ok { color: var(--good); }
+.redeem-msg.err { color: var(--bad); }
+
 /* HELP DIALOG ------------------------------------------------------------- */
 .help {
   background: var(--bg-2);
@@ -508,3 +618,300 @@ input[type=range]::-moz-range-thumb {
   .panel { max-height: 38vh; padding: 10px; }
   .readout-grid { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* DESKTOP DEFAULTS for mobile-only elements ------------------------------- */
+.drawer-toggle, .drawer-backdrop, .hud-toggle, .lesson-toast {
+  display: none;
+}
+
+/* PHONE LAYOUT (≤768px) — works in both portrait and landscape ----------- */
+@media (max-width: 768px) {
+  /* Topbar overlays the canvas instead of pushing it down. Without this,
+     expanding the topbar (gravity/time sliders) shrinks .layout, which
+     shrinks the canvas, which moves the floor wall up — existing bodies
+     end up below the new floor and the engine catapults them away. */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+  }
+
+  /* Layout: canvas takes full viewport. Tools and panel come out of grid flow.
+     Match BOTH .layout and .layout.panel-collapsed — the 860px block sets a
+     3-row template on .panel-collapsed with higher specificity than .layout
+     alone, so without this combined selector .stage auto-places into the
+     60px-tall first row and the canvas collapses to a thin strip at the top. */
+  .layout,
+  .layout.panel-collapsed {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
+  .stage { min-height: 0; height: 100%; grid-row: 1; grid-column: 1; }
+  .resize-divider { display: none; }
+
+  /* Belt-and-suspenders: even if .panel-collapsed slips onto .layout on phone,
+     don't let the desktop/860 rules shrink the HUD or hide its cards. */
+  .layout.panel-collapsed .panel { padding: 10px; max-height: calc(100vh - 60px); }
+  .layout.panel-collapsed .panel > .card.readout { display: block; }
+
+  /* TOOLS aside → slide-in drawer from the left.
+     Override the 860px horizontal-row layout by restoring the desktop-style
+     vertical sidebar inside a fixed off-canvas panel. */
+  .tools {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    max-width: 80vw;
+    height: 100vh;
+    background: var(--bg-1);
+    border-top: 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    padding: 14px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Cancel the 860px horizontal flex */
+    display: block;
+    flex-wrap: unset;
+    gap: 0;
+    transform: translateX(-100%);
+    transition: transform 250ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    z-index: 9;
+  }
+  .tools.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Restore desktop-style vertical sections (override 860 horizontal flex). */
+  .tools .tool-section {
+    display: block;
+    margin: 0 0 18px;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+  }
+  .tools .section-title {
+    display: block;
+    width: auto;
+    margin: 0 0 8px;
+    padding: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    position: static;
+    background: none;
+  }
+  .tools .tool, .tools .preset {
+    width: 100%;
+    margin-bottom: 6px;
+    white-space: normal;
+  }
+  .tools .check { padding: 5px 0; white-space: normal; }
+  .tools .slider-row { width: auto; }
+
+  /* DRAWER backdrop — covers canvas while drawer is open; tap to close. */
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 8;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms;
+  }
+  .drawer-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* DRAWER toggle — fixed top-left, below the topbar. */
+  .drawer-toggle {
+    display: block;
+    position: fixed;
+    top: 50px; left: 8px;
+    width: 44px; height: 36px;
+    background: rgba(15, 18, 28, 0.7);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 16px;
+    z-index: 10;
+    padding: 0;
+    cursor: pointer;
+  }
+  .drawer-toggle.active {
+    background: rgba(106, 166, 255, 0.18);
+    border-color: rgba(106, 166, 255, 0.5);
+    color: var(--accent-2);
+  }
+
+  /* PANEL aside → HUD overlay (top-right). Hidden until .hud-visible.
+     `top: 90px` sits below the HUD toggle so the toggle stays visible/tappable
+     above the panel instead of being occluded by it. */
+  .panel {
+    display: none;
+    position: fixed;
+    top: 90px; right: 8px;
+    bottom: auto; left: auto;
+    width: 220px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: rgba(15, 18, 28, 0.7);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px;
+    gap: 8px;
+    z-index: 6;
+  }
+  .panel.hud-visible { display: flex; }
+  .panel-toggle { display: none; }
+  .panel .card.lesson, .panel .card.mini { display: none; }
+  .panel .card { padding: 8px 10px; }
+  .panel .card-title { margin-bottom: 6px; font-size: 10px; }
+  .panel .readout-grid { grid-template-columns: 1fr 1fr; gap: 4px; }
+  .panel .metric { padding: 5px 7px; }
+  .panel .metric-label { font-size: 9px; }
+  .panel .metric-val { font-size: 12px; }
+  .panel .totals { font-size: 11px; gap: 4px 8px; padding-top: 6px; }
+
+  /* HUD toggle — fixed top-right, below the topbar. */
+  .hud-toggle {
+    display: block;
+    position: fixed;
+    top: 50px; right: 8px;
+    width: 44px; height: 36px;
+    background: rgba(15, 18, 28, 0.7);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 11px;
+    z-index: 10;  /* match drawer-toggle so an expanded topbar doesn't cover it */
+    padding: 0;
+    cursor: pointer;
+  }
+  .hud-toggle.active {
+    background: rgba(106, 166, 255, 0.18);
+    border-color: rgba(106, 166, 255, 0.5);
+    color: var(--accent-2);
+  }
+
+  /* LESSON TOAST — slide-down between drawer and HUD toggles. */
+  .lesson-toast {
+    display: block;
+    position: fixed;
+    top: 50px;
+    left: 60px;   /* clear of drawer toggle */
+    right: 60px;  /* clear of HUD toggle */
+    background: rgba(15, 18, 28, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 8px 60px 8px 12px;  /* right padding clears close + toggle buttons */
+    z-index: 7;
+    transform: translateY(calc(-100% - 60px));
+    transition: transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    cursor: pointer;
+  }
+  .lesson-toast.visible { transform: translateY(0); }
+  .lesson-toast .toast-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+  }
+  .lesson-toast .toast-body {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #cfd6e6;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .lesson-toast.expanded .toast-body {
+    -webkit-line-clamp: unset;
+    display: block;
+    overflow: visible;
+  }
+  .lesson-toast .toast-formula {
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 12px;
+    color: var(--accent-2);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+  }
+  .lesson-toast:not(.expanded) .toast-formula { display: none; }
+  .lesson-toast .toast-close {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .lesson-toast .toast-close:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+  .lesson-toast .toast-toggle {
+    position: absolute;
+    top: 4px; right: 30px;
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: transform 200ms;
+  }
+  .lesson-toast .toast-toggle:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+  .lesson-toast.expanded .toast-toggle { transform: rotate(180deg); }
+
+  /* Draggable overlays — touch-action:none lets pointermove drive position
+     instead of native scroll/pan. Buttons inside still receive taps because
+     the drag handler skips events whose target is a <button> or <input>. */
+  .panel.hud-visible,
+  .lesson-toast,
+  .hint {
+    touch-action: none;
+  }
+}
+
+/* EMBED MODE -------------------------------------------------------------
+   The landing page hosts the free demo in an <iframe src="/free/?embed=1">.
+   Strip branding + Pro chrome inside the iframe so the demo doesn't carry its
+   own paywall when shown above the fold of the marketing page. */
+body.embed-mode .brand .by,
+body.embed-mode .brand .pro-badge,
+body.embed-mode #saveBtn,
+body.embed-mode #derivationsBtn,
+body.embed-mode #upgradeDialog {
+  display: none !important;
+}
+body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
+
+/* Upgrade dialog footer — privacy/terms links under the redeem details. */
+.upgrade-foot {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.upgrade-foot a { color: var(--muted); text-decoration: none; }
+.upgrade-foot a:hover { color: var(--accent-2); }
+

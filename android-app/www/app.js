@@ -1,4 +1,5 @@
 // app.js — main app: renderer, input, tools, presets, UI wiring
+// no telemetry — by design (see privacy.html)
 'use strict';
 
 (function () {
@@ -873,6 +874,12 @@ function fmtNum(n) {
   if (a >= 1e6 || a < 1e-3) return n.toExponential(2);
   return n.toFixed(2);
 }
+// Display deadband for per-body readouts: solver leaves residual jitter on
+// resting bodies; below `threshold` we render '0.00' instead of fmtNum's raw
+// scientific-notation result, so a body that looks at rest reads at rest.
+function fmtNumRest(n, threshold) {
+  return Math.abs(n) < threshold ? '0.00' : fmtNum(n);
+}
 
 // PE reference: floor's top surface (matches the visual floor the user sees).
 // Measured against the body's lowest point (aabb.maxY in screen-down coords)
@@ -891,11 +898,11 @@ function updateReadouts() {
   if (b && !walls.includes(b)) {
     const v = b.velocity.length();
     ui.selected.textContent = b.shape === SHAPE.CIRCLE ? `Ball (m=${b.mass.toFixed(2)})` : `Polygon (m=${b.mass.toFixed(2)})`;
-    ui.speed.textContent = fmtNum(v);
-    ui.momentum.textContent = fmtNum(b.mass * v);
-    ui.ke.textContent = fmtNum(0.5 * b.mass * v * v + 0.5 * b.inertia * b.angularVelocity * b.angularVelocity);
+    ui.speed.textContent = fmtNumRest(v, 0.05);
+    ui.momentum.textContent = fmtNumRest(b.mass * v, 0.05);
+    ui.ke.textContent = fmtNumRest(0.5 * b.mass * v * v + 0.5 * b.inertia * b.angularVelocity * b.angularVelocity, 1e-3);
     ui.pe.textContent = fmtNum(b.mass * world.gravity * bodyHeightAboveFloor(b));
-    ui.ang.textContent = fmtNum(b.angularVelocity);
+    ui.ang.textContent = fmtNumRest(b.angularVelocity, 0.05);
   } else {
     ui.selected.textContent = '—';
     ui.speed.textContent = '0';
@@ -1003,6 +1010,221 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
+/* =========================== mobile UI =========================== */
+// All wiring runs unconditionally; the styles for these elements are gated to
+// ≤768px, so on desktop the toggles are hidden and the toast is display:none.
+// classList changes here are harmless when the elements aren't visible.
+const isPhone = () => window.matchMedia('(max-width: 768px)').matches;
+
+const drawerToggleEl = document.getElementById('drawerToggle');
+const drawerBackdropEl = document.getElementById('drawerBackdrop');
+const toolsAside = document.querySelector('.tools');
+
+function setDrawerOpen(open) {
+  if (!toolsAside) return;
+  toolsAside.classList.toggle('open', open);
+  drawerToggleEl?.classList.toggle('active', open);
+  drawerBackdropEl?.classList.toggle('visible', open);
+  drawerToggleEl?.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+if (drawerToggleEl) {
+  drawerToggleEl.addEventListener('click', () => {
+    setDrawerOpen(!toolsAside.classList.contains('open'));
+  });
+}
+if (drawerBackdropEl) {
+  drawerBackdropEl.addEventListener('click', () => setDrawerOpen(false));
+}
+// Auto-close drawer on phone after picking a Spawn/Interact tool or Preset.
+const closeDrawerOnPhone = () => {
+  if (window.matchMedia('(max-width: 768px)').matches) setDrawerOpen(false);
+};
+document.querySelectorAll('.tool[data-tool], .preset').forEach(el => {
+  el.addEventListener('click', closeDrawerOnPhone);
+});
+
+const hudToggleEl = document.getElementById('hudToggle');
+const panelAside = document.querySelector('.panel');
+if (hudToggleEl && panelAside) {
+  hudToggleEl.addEventListener('click', () => {
+    const visible = panelAside.classList.toggle('hud-visible');
+    hudToggleEl.classList.toggle('active', visible);
+    try { localStorage.setItem('ps.hudVisible', visible ? '1' : '0'); } catch (e) {}
+  });
+  try {
+    const stored = localStorage.getItem('ps.hudVisible');
+    const visible = stored === null || stored === '1';
+    if (visible) {
+      panelAside.classList.add('hud-visible');
+      hudToggleEl.classList.add('active');
+    }
+  } catch (e) {
+    panelAside.classList.add('hud-visible');
+    hudToggleEl.classList.add('active');
+  }
+}
+
+// Lesson toast — replicates the educator's lesson card on phone as a top toast.
+const lessonToastEl = document.getElementById('lessonToast');
+if (lessonToastEl && typeof educator !== 'undefined') {
+  const tTitle = lessonToastEl.querySelector('.toast-title');
+  const tBody = lessonToastEl.querySelector('.toast-body');
+  const tFormula = lessonToastEl.querySelector('.toast-formula');
+  const tClose = lessonToastEl.querySelector('.toast-close');
+  const tToggle = lessonToastEl.querySelector('.toast-toggle');
+  let toastDismissTimer = null;
+  const TOAST_AUTO_MS = 10000;
+
+  function dismissToast() {
+    lessonToastEl.classList.remove('visible', 'expanded');
+    clearTimeout(toastDismissTimer);
+  }
+  function showToast(title, body, formula) {
+    tTitle.textContent = title;
+    tBody.textContent = body;
+    if (formula) {
+      tFormula.textContent = formula;
+      tFormula.hidden = false;
+    } else {
+      tFormula.hidden = true;
+    }
+    lessonToastEl.classList.add('visible');
+    // Preserve the user's expand/collapse choice across new lessons; only run
+    // the auto-dismiss timer when collapsed (expanded = "I'm reading this").
+    clearTimeout(toastDismissTimer);
+    if (!lessonToastEl.classList.contains('expanded')) {
+      toastDismissTimer = setTimeout(dismissToast, TOAST_AUTO_MS);
+    }
+  }
+
+  if (tClose) tClose.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    dismissToast();
+  });
+  if (tToggle) tToggle.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const expanded = lessonToastEl.classList.toggle('expanded');
+    if (expanded) {
+      clearTimeout(toastDismissTimer);
+    } else {
+      toastDismissTimer = setTimeout(dismissToast, TOAST_AUTO_MS);
+    }
+  });
+
+  // Wrap educator.show so concept renders propagate to the toast on phone.
+  // Skip the 'intro' welcome — only fire for actual concept events.
+  const _origEducatorShow = educator.show.bind(educator);
+  educator.show = function (key, title, body, formula, tags) {
+    _origEducatorShow(key, title, body, formula, tags);
+    if (key !== 'intro' && isPhone()) showToast(title, body, formula);
+  };
+}
+
+/* =========================== draggable overlays (mobile) =========================== */
+// Make HUD / lesson toast / canvas hint draggable on phone, with position
+// persisted to localStorage. On desktop the CSS-default positions apply and
+// inline overrides are cleared if the user resizes back from phone.
+function makeDraggable(el, storageKey) {
+  if (!el) return;
+  const isPhoneMq = window.matchMedia('(max-width: 768px)');
+  let dragging = false, moved = false;
+  let startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+  function readSaved() {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
+    } catch (e) {}
+    return null;
+  }
+
+  function applyPosition(x, y) {
+    const rect = el.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const maxX = Math.max(4, window.innerWidth - w - 4);
+    const maxY = Math.max(4, window.innerHeight - h - 4);
+    x = Math.max(4, Math.min(maxX, x));
+    y = Math.max(4, Math.min(maxY, y));
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    if (!el.dataset.psSized) {
+      el.style.width = w + 'px';
+      el.dataset.psSized = '1';
+    }
+  }
+
+  function clearOverrides() {
+    el.style.left = '';
+    el.style.top = '';
+    el.style.right = '';
+    el.style.bottom = '';
+    el.style.width = '';
+    delete el.dataset.psSized;
+  }
+
+  function applyForMode() {
+    if (isPhoneMq.matches) {
+      const saved = readSaved();
+      if (saved) requestAnimationFrame(() => applyPosition(saved.x, saved.y));
+    } else {
+      clearOverrides();
+    }
+  }
+  applyForMode();
+  if (isPhoneMq.addEventListener) isPhoneMq.addEventListener('change', applyForMode);
+
+  el.addEventListener('pointerdown', (ev) => {
+    if (!isPhoneMq.matches) return;
+    if (ev.target.closest('button, input')) return; // let buttons/inputs work
+    try { el.setPointerCapture(ev.pointerId); } catch (e) {}
+    const rect = el.getBoundingClientRect();
+    startX = ev.clientX; startY = ev.clientY;
+    origLeft = rect.left; origTop = rect.top;
+    dragging = true; moved = false;
+  });
+
+  el.addEventListener('pointermove', (ev) => {
+    if (!dragging) return;
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) > 5) moved = true;
+    if (moved) {
+      ev.preventDefault();
+      applyPosition(origLeft + dx, origTop + dy);
+    }
+  });
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    if (moved) {
+      const rect = el.getBoundingClientRect();
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ x: rect.left, y: rect.top }));
+      } catch (e) {}
+    }
+  }
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+
+  // Capture-phase: suppress the click that fires after a drag so things like
+  // tap-to-expand toast / tap-to-collapse card don't fire from the same gesture.
+  el.addEventListener('click', (ev) => {
+    if (moved) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      moved = false;
+    }
+  }, true);
+}
+
+makeDraggable(document.querySelector('.panel'), 'ps.hudPos');
+makeDraggable(document.getElementById('lessonToast'), 'ps.toastPos');
+makeDraggable(document.getElementById('hint'), 'ps.hintPos');
+
 // Draggable dividers — pointer events handle mouse + touch uniformly.
 function setupDivider(divider, computeSize, varName, storeKey) {
   let dragging = false;
@@ -1058,6 +1280,591 @@ document.querySelectorAll('.panel .card').forEach(card => {
   title.appendChild(chev);
   title.addEventListener('click', () => card.classList.toggle('collapsed'));
 });
+
+/* =========================== Pro paywall =========================== */
+// Pro is gated client-side via localStorage 'ps.pro'. Activation paths today:
+//   1. ?pro=1 URL param (one-shot; param consumed, flag persists)
+//   2. Redeem code in the upgrade modal (e.g. STACKLIS-EARLY)
+//   3. Devtools: localStorage.setItem('ps.pro', '1'); location.reload()
+// PAYMENT PLUG-POINT: real activation will come from a server-issued token.
+// When that lands, the redeem-code branch becomes the API verification call,
+// and Pro.activate() should also store the token for revocation/expiry checks.
+//
+// STRIPE_PAYMENT_LINK: paste the real Stripe Payment Link URL here once the
+// operator has created the one-time $9 product in the Stripe dashboard.
+//   - Product:     Physics Sandbox Pro, one-time $9 USD
+//   - Success URL: https://sandbox.stacklis.com/app/?pro=1&src=stripe
+//                  (note: /app/, not /, so Pro.checkUrlParam() below runs and
+//                  flips the localStorage flag immediately)
+//   - Cancel URL:  https://sandbox.stacklis.com/app/
+// Until pasted, the upgrade button shows a placeholder alert.
+const STRIPE_PAYMENT_LINK = '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>';
+const Pro = (() => {
+  const KEY = 'ps.pro';
+  const REDEEM_CODES = new Set(['STACKLIS-EARLY']);
+  function isActive() {
+    try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
+  }
+  function activate() {
+    try { localStorage.setItem(KEY, '1'); } catch (e) {}
+    updateUI();
+  }
+  function deactivate() {
+    try { localStorage.setItem(KEY, '0'); } catch (e) {}
+    updateUI();
+  }
+  function redeem(code) {
+    const trimmed = String(code || '').trim().toUpperCase();
+    if (REDEEM_CODES.has(trimmed)) { activate(); return true; }
+    return false;
+  }
+  function checkUrlParam() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('pro') === '1') {
+        activate();
+        url.searchParams.delete('pro');
+        // Also strip the Stripe attribution token so we don't leak it.
+        url.searchParams.delete('src');
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch (e) {}
+  }
+  function updateUI() {
+    document.body.classList.toggle('pro', isActive());
+  }
+  return { isActive, activate, deactivate, redeem, checkUrlParam, updateUI };
+})();
+Pro.checkUrlParam();
+Pro.updateUI();
+window.PSandboxPro = Pro;
+
+// ?embed=1 — landing page iframe demo. Hides the brand title, the PRO badge,
+// the upgrade dialog auto-pop, and any locked Pro CTAs. The free demo embedded
+// inside the marketing page must not show its own paywall.
+const EMBED_MODE = (() => {
+  try { return new URL(window.location.href).searchParams.get('embed') === '1'; }
+  catch (e) { return false; }
+})();
+if (EMBED_MODE) {
+  document.body.classList.add('embed-mode');
+}
+
+const upgradeDialog = document.getElementById('upgradeDialog');
+const upgradeCtaBtn = document.getElementById('upgradeBtn');
+const upgradeLaterBtn = document.getElementById('upgradeLater');
+const redeemInputEl = document.getElementById('redeemInput');
+const redeemBtnEl = document.getElementById('redeemBtn');
+const redeemMsgEl = document.getElementById('redeemMsg');
+
+function openUpgradeModal() {
+  if (!upgradeDialog) return;
+  if (redeemMsgEl) { redeemMsgEl.textContent = ''; redeemMsgEl.className = 'redeem-msg'; }
+  if (redeemInputEl) redeemInputEl.value = '';
+  upgradeDialog.showModal();
+}
+function closeUpgradeModal() { upgradeDialog?.close(); }
+
+if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
+  if (STRIPE_PAYMENT_LINK && STRIPE_PAYMENT_LINK !== '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>') {
+    window.location.href = STRIPE_PAYMENT_LINK;
+    return;
+  }
+  // Stripe Payment Link not yet configured. Operator must paste the real URL
+  // into STRIPE_PAYMENT_LINK at the top of the Pro module.
+  alert('Stripe link not yet configured — operator must paste Payment Link into app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
+});
+if (upgradeLaterBtn) upgradeLaterBtn.addEventListener('click', closeUpgradeModal);
+if (redeemBtnEl) redeemBtnEl.addEventListener('click', () => {
+  if (!redeemMsgEl) return;
+  const ok = Pro.redeem(redeemInputEl?.value);
+  if (ok) {
+    redeemMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
+    redeemMsgEl.className = 'redeem-msg ok';
+    setTimeout(closeUpgradeModal, 1200);
+  } else {
+    redeemMsgEl.textContent = 'Code not recognized.';
+    redeemMsgEl.className = 'redeem-msg err';
+  }
+});
+if (redeemInputEl) redeemInputEl.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') { ev.preventDefault(); redeemBtnEl?.click(); }
+});
+// Close on backdrop click (event target is the dialog itself, not the inner box).
+if (upgradeDialog) upgradeDialog.addEventListener('click', (ev) => {
+  if (ev.target === upgradeDialog) closeUpgradeModal();
+});
+
+/* =========================== derivations export (Pro) =========================== */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+function buildDerivationsDoc() {
+  const CONCEPTS = (window.PEdu && window.PEdu.CONCEPTS) || {};
+  const encountered = [...(educator.encountered || [])].filter(k => CONCEPTS[k]);
+  const date = new Date().toISOString().slice(0, 10);
+  const articles = encountered.map(key => {
+    const c = CONCEPTS[key];
+    const l3 = (c.levels && c.levels[3]) || '';
+    const l4 = (c.levels && c.levels[4]) || '';
+    const f3 = (c.formula && c.formula[3]) || '';
+    const f4 = (c.formula && c.formula[4]) || '';
+    const tags = (c.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    return `<article class="concept">
+  <h2>${escapeHtml(c.title)}</h2>
+  ${tags ? `<div class="tags">${tags}</div>` : ''}
+  ${l3 ? `<section><h3>University</h3><p>${escapeHtml(l3)}</p>${f3 ? `<pre class="formula">${escapeHtml(f3)}</pre>` : ''}</section>` : ''}
+  ${l4 ? `<section><h3>Expert</h3><p>${escapeHtml(l4)}</p>${f4 ? `<pre class="formula">${escapeHtml(f4)}</pre>` : ''}</section>` : ''}
+</article>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Physics Sandbox — Derivations (${date})</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 24px; line-height: 1.6; color: #1a1d24; background: #fff; }
+  header { border-bottom: 2px solid #444; padding-bottom: 16px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: #6b7280; font-size: 13px; }
+  .concept { margin-bottom: 28px; page-break-inside: avoid; }
+  .concept h2 { margin: 0 0 6px; font-size: 17px; color: #2c5282; }
+  .tags { margin-bottom: 8px; font-size: 11px; color: #6b7280; }
+  .tag { display: inline-block; padding: 1px 7px; margin-right: 4px; border: 1px solid #cbd5e0; border-radius: 999px; }
+  section { margin: 8px 0; }
+  section h3 { margin: 8px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: #444; }
+  section p { margin: 4px 0; font-size: 14px; }
+  .formula { margin: 6px 0 12px; padding: 10px 12px; background: #f6f7fb; border: 1px solid #d6dae3; border-radius: 6px; font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 13px; color: #2a3a5e; white-space: pre-wrap; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
+  @media print { body { margin: 0; max-width: none; } .concept { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Physics Sandbox — Derivations</h1>
+  <p>${encountered.length} concept${encountered.length === 1 ? '' : 's'} encountered · exported ${date} · Stacklis</p>
+</header>
+${articles}
+<footer>Generated by Physics Sandbox. Print to PDF via your browser (Ctrl/Cmd + P → Save as PDF).</footer>
+</body>
+</html>`;
+}
+
+function exportDerivations() {
+  if (!educator.encountered || educator.encountered.size === 0) {
+    alert('No concepts encountered yet.\n\nSpawn objects, drop them, push them around — the educator surfaces concepts as you interact, and they will be included here.');
+    return;
+  }
+  const html = buildDerivationsDoc();
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `derivations-${new Date().toISOString().slice(0, 10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+const derivationsBtn = document.getElementById('derivationsBtn');
+if (derivationsBtn) derivationsBtn.addEventListener('click', () => {
+  if (!Pro.isActive()) { openUpgradeModal(); return; }
+  exportDerivations();
+});
+
+/* =========================== save / load =========================== */
+const SCHEMA_VERSION = 1;
+
+function migrateScene(json) {
+  // Forward-transform old scenes to the current schema. Warns; never rejects.
+  let v = json && json.version;
+  if (v == null) {
+    console.warn('[Sandbox] Scene file has no version; assuming v1.');
+    v = 1;
+    if (json) json.version = 1;
+  }
+  if (v > SCHEMA_VERSION) {
+    console.warn(`[Sandbox] Scene file is v${v}; this build supports v${SCHEMA_VERSION}. Loading best-effort.`);
+  }
+  // Future migrations chain here:
+  //   if (v === 1) { /* v1 → v2 */ json = transformV1ToV2(json); v = 2; }
+  return json;
+}
+
+function serializeBody(b, idMap, fileId) {
+  idMap.set(b, fileId);
+  const out = {
+    id: fileId,
+    shape: b.shape,
+    position: [b.position.x, b.position.y],
+    velocity: [b.velocity.x, b.velocity.y],
+    angle: b.angle,
+    angularVelocity: b.angularVelocity,
+    isStatic: b.isStatic,
+    color: b.color,
+    density: b.density,
+    restitution: b.restitution,
+    friction: b.friction,
+    linearDamping: b.linearDamping,
+    angularDamping: b.angularDamping,
+    gravityScale: b.gravityScale,
+    label: b.label,
+  };
+  if (b.shape === SHAPE.CIRCLE) {
+    out.radius = b.radius;
+  } else {
+    out.vertices = b.localVertices.map(v => [v.x, v.y]);
+  }
+  return out;
+}
+
+function serializeConstraint(c, idMap) {
+  const aId = idMap.get(c.A);
+  const bId = idMap.get(c.B);
+  if (aId == null || bId == null) return null; // body filtered out (e.g. grab anchor)
+  return {
+    type: 'distance',
+    a: aId,
+    b: bId,
+    anchorA: [c.anchorA.x, c.anchorA.y],
+    anchorB: [c.anchorB.x, c.anchorB.y],
+    length: c.length,
+    stiffness: c.stiffness,
+    damping: c.damping,
+    isSpring: !!c.isSpring,
+    springK: c.springK,
+    dampAllAxes: !!c.dampAllAxes,
+    maxForce: Number.isFinite(c.maxForce) ? c.maxForce : null,
+  };
+}
+
+function serializeScene(opts = {}) {
+  const idMap = new Map();
+  const bodies = [];
+  let i = 0;
+  for (const b of world.bodies) {
+    if (walls.includes(b)) continue; // skip auto-generated boundaries
+    bodies.push(serializeBody(b, idMap, 'b' + i));
+    i++;
+  }
+  const constraints = [];
+  for (const c of world.constraints) {
+    if (c === state.grabConstraint) continue; // skip live grab
+    const sc = serializeConstraint(c, idMap);
+    if (sc) constraints.push(sc);
+  }
+  return {
+    type: 'physics-sandbox/scene',
+    version: SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    name: opts.name || null,
+    description: opts.description || null,
+    settings: {
+      gravity: world.gravity,
+      timeScale: state.timeScale,
+      paused: true, // scenes are built artifacts; load paused so user can examine
+    },
+    view: {
+      level: educator.level,
+      showVectors: ui.showVectors.checked,
+      showContacts: ui.showContacts.checked,
+      showTrails: ui.showTrails.checked,
+      showAABB: ui.showAABB.checked,
+      showHeatmap: ui.showHeatmap.checked,
+      showFPS: ui.showFPS.checked,
+    },
+    bodies,
+    constraints,
+  };
+}
+
+function deserializeBody(b) {
+  const opts = {
+    angle: b.angle ?? 0,
+    isStatic: !!b.isStatic,
+    color: b.color,
+    density: b.density,
+    restitution: b.restitution,
+    friction: b.friction,
+    linearDamping: b.linearDamping,
+    angularDamping: b.angularDamping,
+    gravityScale: b.gravityScale,
+    label: b.label,
+  };
+  let body;
+  if (b.shape === 'circle') {
+    body = makeCircle(b.position[0], b.position[1], b.radius, opts);
+  } else if (b.shape === 'polygon') {
+    const verts = (b.vertices || []).map(v => new Vec2(v[0], v[1]));
+    if (verts.length < 3) throw new Error('polygon needs >= 3 vertices');
+    body = new Body({
+      ...opts,
+      shape: SHAPE.POLYGON,
+      position: new Vec2(b.position[0], b.position[1]),
+      vertices: verts,
+    });
+  } else {
+    throw new Error(`unknown shape: ${b.shape}`);
+  }
+  body.velocity = new Vec2(b.velocity?.[0] || 0, b.velocity?.[1] || 0);
+  body.angularVelocity = b.angularVelocity ?? 0;
+  return body;
+}
+
+function deserializeScene(json) {
+  if (!json || json.type !== 'physics-sandbox/scene') {
+    throw new Error('Not a Physics Sandbox scene file.');
+  }
+  json = migrateScene(json);
+
+  // Cancel transient state before we wipe the world.
+  if (state.grabConstraint) endGrab();
+  state.dragStart = null; state.dragCurrent = null;
+  state.springStart = null; state.springStartLocal = null;
+  state.impulseBody = null; state.impulseStart = null; state.impulseEnd = null;
+  state.slicePath = null;
+  state.selected = null;
+  state.trails.clear();
+
+  // Wipe and re-floor the world. rebuildBoundaries resets walls[] and re-adds
+  // canvas-sized boundaries; this keeps the scene framed regardless of where it was saved.
+  world.clear();
+  rebuildBoundaries();
+
+  // Bodies — collect by file id so constraints can resolve refs.
+  const idToBody = new Map();
+  for (const b of (json.bodies || [])) {
+    try {
+      const body = deserializeBody(b);
+      world.add(body);
+      if (b.id != null) idToBody.set(b.id, body);
+    } catch (err) {
+      console.warn('[Sandbox] Skipping malformed body:', b, err);
+    }
+  }
+
+  // Constraints.
+  for (const c of (json.constraints || [])) {
+    const A = idToBody.get(c.a);
+    const B = idToBody.get(c.b);
+    if (!A || !B) {
+      console.warn('[Sandbox] Skipping constraint with unresolved body refs:', c);
+      continue;
+    }
+    try {
+      const con = new DistanceConstraint(
+        A, B,
+        new Vec2(c.anchorA[0], c.anchorA[1]),
+        new Vec2(c.anchorB[0], c.anchorB[1]),
+        {
+          length: c.length,
+          stiffness: c.stiffness,
+          damping: c.damping,
+          isSpring: !!c.isSpring,
+          springK: c.springK,
+          dampAllAxes: !!c.dampAllAxes,
+          maxForce: c.maxForce == null ? Infinity : c.maxForce,
+        }
+      );
+      world.addConstraint(con);
+    } catch (err) {
+      console.warn('[Sandbox] Skipping malformed constraint:', c, err);
+    }
+  }
+
+  // Settings.
+  const s = json.settings || {};
+  if (Number.isFinite(s.gravity)) {
+    world.gravity = s.gravity;
+    ui.gravity.value = s.gravity;
+    ui.gravityVal.textContent = s.gravity.toFixed(2);
+  }
+  if (Number.isFinite(s.timeScale)) {
+    state.timeScale = s.timeScale;
+    ui.timeScale.value = s.timeScale;
+    ui.timeVal.textContent = s.timeScale.toFixed(2);
+  }
+  // Default to paused unless the file explicitly says otherwise.
+  state.paused = (s.paused !== false);
+  ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
+
+  // View block (optional). All keys validated; unknown fields ignored.
+  const v = json.view || {};
+  if ([1, 2, 3, 4].includes(v.level)) {
+    const seg = document.querySelector(`#levelSegment .seg[data-level="${v.level}"]`);
+    if (seg) seg.click();
+  }
+  for (const key of ['showVectors', 'showContacts', 'showTrails', 'showAABB', 'showHeatmap', 'showFPS']) {
+    if (typeof v[key] === 'boolean' && ui[key]) ui[key].checked = v[key];
+  }
+}
+
+function downloadJSON(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+const loadFileInput = document.getElementById('loadFileInput');
+
+if (saveBtn) saveBtn.addEventListener('click', () => {
+  if (!Pro.isActive()) { openUpgradeModal(); return; }
+  const scene = serializeScene();
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '');
+  downloadJSON(scene, `scene-${stamp}.json`);
+});
+if (loadBtn) loadBtn.addEventListener('click', () => loadFileInput && loadFileInput.click());
+if (loadFileInput) loadFileInput.addEventListener('change', (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      deserializeScene(JSON.parse(reader.result));
+    } catch (err) {
+      console.error('[Sandbox] Failed to load scene:', err);
+      alert('Could not load scene: ' + err.message);
+    } finally {
+      ev.target.value = ''; // allow reloading the same file
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Exposed for share-by-link work to come.
+window.PSandboxScene = {
+  serialize: serializeScene,
+  deserialize: deserializeScene,
+  migrate: migrateScene,
+  SCHEMA_VERSION,
+};
+
+/* =========================== share-by-link =========================== */
+// Token format: "<prefix>:<base64url-payload>"
+//   v1 = gzip(JSON), the normal case
+//   r1 = raw  JSON,  fallback when CompressionStream is unavailable
+// The token prefix is independent of SCHEMA_VERSION — it lets us swap
+// compression / encoding without conflicting with schema migrations.
+
+function bytesToBase64Url(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function base64UrlToBytes(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function gzipString(str) {
+  const cs = new CompressionStream('gzip');
+  const w = cs.writable.getWriter();
+  w.write(new TextEncoder().encode(str));
+  w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function gunzipBytes(bytes) {
+  const ds = new DecompressionStream('gzip');
+  const w = ds.writable.getWriter();
+  w.write(bytes);
+  w.close();
+  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
+}
+
+async function encodeShareToken(scene) {
+  const json = JSON.stringify(scene);
+  if (typeof CompressionStream === 'undefined') {
+    return 'r1:' + bytesToBase64Url(new TextEncoder().encode(json));
+  }
+  return 'v1:' + bytesToBase64Url(await gzipString(json));
+}
+async function decodeShareToken(token) {
+  if (typeof token !== 'string') throw new Error('Invalid share token.');
+  const colon = token.indexOf(':');
+  if (colon < 0) throw new Error('Invalid share token format.');
+  const prefix = token.slice(0, colon);
+  const bytes = base64UrlToBytes(token.slice(colon + 1));
+  let json;
+  if (prefix === 'r1') {
+    json = new TextDecoder().decode(bytes);
+  } else if (prefix === 'v1') {
+    if (typeof DecompressionStream === 'undefined') {
+      throw new Error('This browser cannot decompress share links.');
+    }
+    json = await gunzipBytes(bytes);
+  } else {
+    throw new Error(`Unknown share token version: ${prefix}`);
+  }
+  return JSON.parse(json);
+}
+
+function buildShareUrl(token) {
+  return window.location.origin + window.location.pathname + '#scene=' + token;
+}
+
+async function applyHashIfPresent() {
+  const m = (window.location.hash || '').match(/^#scene=(.+)$/);
+  if (!m) return;
+  try {
+    deserializeScene(await decodeShareToken(m[1]));
+  } catch (err) {
+    console.error('[Sandbox] Failed to load shared scene:', err);
+    // Drop the bad fragment so a reload doesn't loop on the failure.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    loadPreset('default');
+  }
+}
+
+const shareBtn = document.getElementById('shareBtn');
+if (shareBtn) shareBtn.addEventListener('click', async () => {
+  try {
+    const token = await encodeShareToken(serializeScene());
+    const url = buildShareUrl(token);
+    if (url.length > 8000) {
+      console.warn(`[Sandbox] Share URL is ${url.length} chars; some platforms may truncate.`);
+    }
+    // Reflect the token in the URL bar so a reload re-loads the same scene.
+    window.history.replaceState(null, '', '#scene=' + token);
+
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(url); copied = true; } catch (_) { /* fall through */ }
+    }
+    if (copied) {
+      const orig = shareBtn.textContent;
+      shareBtn.textContent = 'Copied!';
+      shareBtn.disabled = true;
+      setTimeout(() => { shareBtn.textContent = orig; shareBtn.disabled = false; }, 1500);
+    } else {
+      // Clipboard blocked (often the case on http:// origins) — show URL to copy by hand.
+      prompt('Copy this URL:', url);
+    }
+  } catch (err) {
+    console.error('[Sandbox] Share failed:', err);
+    alert('Could not generate share link: ' + err.message);
+  }
+});
+
+// Extend the public API so future tooling (e.g. embedded iframes) can reuse it.
+if (window.PSandboxScene) {
+  window.PSandboxScene.encode = encodeShareToken;
+  window.PSandboxScene.decode = decodeShareToken;
+  window.PSandboxScene.buildShareUrl = buildShareUrl;
+  window.PSandboxScene.applyHashIfPresent = applyHashIfPresent;
+}
 
 // keyboard
 window.addEventListener('keydown', (ev) => {
@@ -1310,14 +2117,38 @@ function init() {
   // The user can still expand via the toggle buttons.
   if (window.matchMedia('(max-width: 860px)').matches) {
     topbarEl.classList.add('collapsed');
-    layoutEl.classList.add('panel-collapsed');
+    // Tablet-only: the panel-collapsed UX is for the 860 stacked-row layout.
+    // On phone (≤768) the panel becomes a HUD overlay, so this class would
+    // otherwise drag in 860-tier rules that shrink the HUD and hide its cards.
+    if (!window.matchMedia('(max-width: 768px)').matches) {
+      layoutEl.classList.add('panel-collapsed');
+    }
   }
-  loadPreset('default');
+  const hasShareHash = /^#scene=/.test(window.location.hash || '');
+  // ?preset=<name> deep-link (used by manifest shortcuts + landing-page CTAs).
+  // Whitelist the names against the existing preset switch so we don't blow up
+  // on garbage input. Falls back to 'default' if missing or unknown.
+  let urlPreset = null;
+  try {
+    const v = new URL(window.location.href).searchParams.get('preset');
+    if (v) urlPreset = String(v).toLowerCase();
+  } catch (e) {}
+  const VALID_PRESETS = new Set([
+    'stack', 'pendulum', 'newton', 'ramp', 'orbit', 'dominoes', 'tower', 'wreckingball'
+  ]);
+  if (!hasShareHash) {
+    if (urlPreset && VALID_PRESETS.has(urlPreset)) {
+      loadPreset(urlPreset);
+    } else {
+      loadPreset('default');
+    }
+  }
   educator.setLevel(1);
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => resize()).observe(canvas.parentElement);
   }
   requestAnimationFrame(loop);
+  if (hasShareHash) applyHashIfPresent();
 }
 if (document.readyState === 'complete') init();
 else window.addEventListener('load', init);

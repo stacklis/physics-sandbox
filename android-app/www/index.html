@@ -7,13 +7,24 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>Physics Sandbox — learn by playing</title>
-<link rel="stylesheet" href="styles.css?v=6" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="theme-color" content="#0b0d12" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Sandbox" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <span class="logo">⊙</span>
     <span class="title">Physics Sandbox</span>
+    <span class="by">by Stacklis</span>
+    <span class="pro-badge">PRO</span>
   </div>
   <div class="bar-group">
     <label class="seg-label">Knowledge level</label>
@@ -33,6 +44,11 @@
     <input id="timeScale" type="range" min="0" max="2" step="0.05" value="1" />
   </div>
   <div class="bar-group btns">
+    <button id="saveBtn" class="btn ghost locked" title="Save scene to a file (Pro)">Save</button>
+    <button id="loadBtn" class="btn ghost" title="Load scene from a file">Load</button>
+    <button id="shareBtn" class="btn ghost" title="Copy a shareable URL to the clipboard">Share</button>
+    <button id="derivationsBtn" class="btn ghost locked" title="Download your encountered concepts and derivations as a printable doc (Pro)">Derivations</button>
+    <input id="loadFileInput" type="file" accept="application/json,.json" hidden />
     <button id="pauseBtn" class="btn ghost" title="Pause / Play (space)">⏸</button>
     <button id="resetBtn" class="btn ghost" title="Reset scene">Reset</button>
     <button id="clearBtn" class="btn danger" title="Clear all">Clear</button>
@@ -174,6 +190,41 @@
   </aside>
 </main>
 
+<button id="drawerToggle" class="drawer-toggle" type="button" aria-label="Open tools drawer" aria-expanded="false">☰</button>
+<div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
+<button id="hudToggle" class="hud-toggle" type="button" aria-label="Toggle readouts overlay">HUD</button>
+
+<div id="lessonToast" class="lesson-toast" role="status" aria-live="polite">
+  <button type="button" class="toast-close" aria-label="Dismiss">×</button>
+  <button type="button" class="toast-toggle" aria-label="Expand or collapse">▾</button>
+  <div class="toast-title"></div>
+  <p class="toast-body"></p>
+  <div class="toast-formula" hidden></div>
+</div>
+
+<dialog id="upgradeDialog" class="upgrade-dialog">
+  <h2>Physics Sandbox <span class="pro-badge inline">PRO</span></h2>
+  <p class="upgrade-sub">Unlock the artifacts you build.</p>
+  <ul class="upgrade-features">
+    <li><strong>Save scenes</strong> to a file and reload them later.</li>
+    <li><strong>Download derivations</strong> — your encountered concepts with university and expert-level explanations and formulas — as a printable doc.</li>
+  </ul>
+  <div class="upgrade-price">$9 <span class="upgrade-price-period">one-time</span></div>
+  <div class="upgrade-actions">
+    <button type="button" class="btn upgrade-cta" id="upgradeBtn">Upgrade</button>
+    <button type="button" class="btn ghost" id="upgradeLater">Maybe later</button>
+  </div>
+  <details class="upgrade-redeem">
+    <summary>Have a code?</summary>
+    <div class="redeem-row">
+      <input type="text" id="redeemInput" placeholder="ENTER-CODE" autocomplete="off" spellcheck="false" />
+      <button type="button" class="btn" id="redeemBtn">Redeem</button>
+    </div>
+    <div id="redeemMsg" class="redeem-msg" aria-live="polite"></div>
+  </details>
+  <p class="upgrade-foot">Secure checkout via Stripe. <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>
+</dialog>
+
 <dialog id="helpDialog" class="help">
   <h2>Keyboard</h2>
   <ul>
@@ -187,8 +238,8 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=6"></script>
-<script src="education.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="engine.js?v=7"></script>
+<script src="education.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
