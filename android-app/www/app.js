@@ -40,16 +40,16 @@ function rebuildBoundaries() {
   const t = 0.4;
   // floor
   walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#3a4055' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#3a4055' })));
   // left
   walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#3a4055' })));
   // right
   walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
-    { isStatic: true, color: '#262d3d' })));
+    { isStatic: true, color: '#3a4055' })));
 }
 
 /* =========================== UI elements =========================== */
@@ -67,27 +67,18 @@ const ui = {
   showAABB: document.getElementById('showAABB'),
   showHeatmap: document.getElementById('showHeatmap'),
   showFPS: document.getElementById('showFPS'),
+  destructionMode: document.getElementById('destructionMode'),
+  grabStrength: document.getElementById('grabStrength'),
   audioOn: document.getElementById('audioOn'),
   audioVol: document.getElementById('audioVol'),
   hint: document.getElementById('hint'),
-  // panel
-  selected: document.getElementById('m-selected'),
-  speed: document.getElementById('m-speed'),
-  momentum: document.getElementById('m-momentum'),
-  ke: document.getElementById('m-ke'),
-  pe: document.getElementById('m-pe'),
-  ang: document.getElementById('m-ang'),
-  tke: document.getElementById('m-tke'),
-  tpe: document.getElementById('m-tpe'),
-  tot: document.getElementById('m-tot'),
-  count: document.getElementById('m-count'),
-  // educator targets
-  lessonTitle: document.getElementById('lessonTitle'),
-  lessonBody: document.getElementById('lessonBody'),
-  lessonFormula: document.getElementById('lessonFormula'),
-  lessonTags: document.getElementById('lessonTags'),
-  levelBadge: document.getElementById('levelBadge'),
-  conceptList: document.getElementById('conceptList'),
+  // educator targets (now in floating overlays)
+  lessonTitle: document.getElementById('ov-lessonTitle'),
+  lessonBody: document.getElementById('ov-lessonBody'),
+  lessonFormula: document.getElementById('ov-lessonFormula'),
+  lessonTags: document.getElementById('ov-lessonTags'),
+  levelBadge: document.getElementById('ov-levelBadge'),
+  conceptList: document.getElementById('ov-conceptList'),
 };
 
 const educator = new Educator(world, ui);
@@ -160,15 +151,16 @@ const AudioFx = (() => {
       if (masterGain) masterGain.gain.setValueAtTime(v, actx.currentTime);
     },
     collision(relV, now) {
-      // Dedupe: cap to ~one impact sound per 25 ms across all contacts.
-      if (now - lastCollisionT < 25) return;
+      // Dedupe: cap to ~one impact sound per 30 ms across all contacts.
+      if (now - lastCollisionT < 30) return;
       lastCollisionT = now;
-      const v = Math.min(Math.max(relV || 0, 0.5), 30);
-      const pitch = 90 + v * 12;          // soft thud → sharp clack
-      const gain = Math.min(0.45, 0.04 + v * 0.018);
-      noise({ dur: 0.04 + v * 0.004, filter: pitch * 6, gain });
-      // tiny sub-thud for low-velocity hits to give body
-      if (v < 8) tone({ freq: 80, dur: 0.06, type: 'sine', gain: gain * 0.3 });
+      const v = Math.min(Math.max(relV || 0, 0.5), 20);
+      const pitch = 60 + v * 8;          // softer thud
+      const gain = Math.min(0.25, 0.02 + v * 0.01);
+      // Use lower filter for softer sound
+      noise({ dur: 0.03 + v * 0.003, filter: pitch * 4, gain });
+      // Sub-thud for body
+      if (v < 10) tone({ freq: 60, dur: 0.05, type: 'sine', gain: gain * 0.2 });
     },
     spring() {
       tone({ freq: 320, dur: 0.18, type: 'triangle', gain: 0.12, slideTo: 180 });
@@ -191,8 +183,50 @@ const AudioFx = (() => {
 ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audioVol.value)));
 
 // Pipe simulation events into AudioFx. Educator already listens separately.
+// Destruction threshold for breaking objects (velocity in m/s)
+// Requires extremely forceful impacts - only violent collisions will break objects
+const DESTRUCTION_THRESHOLD = 100;
+
 world.on(ev => {
-  if (ev.type === 'collision') AudioFx.collision(ev.relVelocity, performance.now());
+  if (ev.type === 'collision') {
+    AudioFx.collision(ev.relVelocity, performance.now());
+    
+    // Destruction mode: break objects on impacts
+    if (state.destructionMode) {
+      // Engine uses 'a' and 'b', not 'bodyA' and 'bodyB'
+      const bodyA = ev.a;
+      const bodyB = ev.b;
+      
+      // Use body positions as impact point if ev.point is missing
+      const impactPoint = ev.point || (bodyA && bodyB ? {
+        x: (bodyA.position.x + bodyB.position.x) / 2,
+        y: (bodyA.position.y + bodyB.position.y) / 2
+      } : null);
+      
+      // Check velocities - use body velocity magnitude
+      const velA = bodyA ? bodyA.velocity.length() : 0;
+      const velB = bodyB ? bodyB.velocity.length() : 0;
+      const effectiveVelA = Math.max(bodyA?._thrownVelocity || 0, ev.relVelocity, velA);
+      const effectiveVelB = Math.max(bodyB?._thrownVelocity || 0, ev.relVelocity, velB);
+      
+      // Use material-specific destruction threshold if set, otherwise use global default
+      const thresholdA = bodyA?.destructionThreshold ?? DESTRUCTION_THRESHOLD;
+      const thresholdB = bodyB?.destructionThreshold ?? DESTRUCTION_THRESHOLD;
+      
+      const canDestroyA = bodyA && !bodyA.isStatic && !walls.includes(bodyA) && !bodyA._isFragment && !bodyA._destroyed;
+      const canDestroyB = bodyB && !bodyB.isStatic && !walls.includes(bodyB) && !bodyB._isFragment && !bodyB._destroyed;
+      
+      const shouldDestroyA = canDestroyA && (effectiveVelA > thresholdA || bodyA._destroyOnImpact);
+      const shouldDestroyB = canDestroyB && (effectiveVelB > thresholdB || bodyB._destroyOnImpact);
+      
+      if (shouldDestroyA) {
+        setTimeout(() => destroyBody(bodyA, impactPoint, effectiveVelA), 0);
+      }
+      if (shouldDestroyB) {
+        setTimeout(() => destroyBody(bodyB, impactPoint, effectiveVelB), 0);
+      }
+    }
+  }
   else if (ev.type === 'spring') AudioFx.spring();
   else if (ev.type === 'push') AudioFx.push();
   else if (ev.type === 'spawn') AudioFx.spawn();
@@ -220,9 +254,144 @@ const state = {
   impulseBody: null, impulseStart: null, impulseEnd: null,
   // selection for readouts
   selected: null,
-  // trails
+// trails
   trails: new Map(), // body.id -> array of recent positions (world)
+  // material applicator
+  activeMaterial: null, // currently selected material for application
+  // destruction mode
+  destructionMode: false,
+  // grab strength multiplier (1 = normal, higher = more forceful)
+  grabStrength: 1.0,
+  // track grabbed body velocity for throw detection
+  grabVelocityHistory: [],
+  };
+
+/* =========================== DESTRUCTION SYSTEM =========================== */
+// Breaks a body into voxel fragments on collision
+function destroyBody(body, impactPoint, impactForce) {
+  if (!body || body.isStatic || walls.includes(body) || body._destroyed) return [];
+  body._destroyed = true;
+  
+  const fragments = [];
+  const pos = body.position;
+  const vel = body.velocity;
+  const color = body.color || '#888';
+  
+  // Determine fragment count based on body size and impact force
+  const bodySize = body.shape === SHAPE.CIRCLE 
+    ? body.radius * 2 
+    : Math.max(body.width || 1, body.height || 1);
+  const fragmentCount = Math.min(12, Math.max(4, Math.floor(bodySize * 2 + impactForce * 0.5)));
+  const fragmentSize = Math.max(0.15, bodySize / fragmentCount * 0.8);
+  
+  // Create voxel fragments
+  for (let i = 0; i < fragmentCount; i++) {
+    // Spread fragments from impact point
+    const angle = (i / fragmentCount) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = Math.random() * bodySize * 0.4;
+    const fx = pos.x + Math.cos(angle) * dist;
+    const fy = pos.y + Math.sin(angle) * dist;
+    
+    // Calculate explosion velocity from impact point
+    const dx = fx - (impactPoint?.x || pos.x);
+    const dy = fy - (impactPoint?.y || pos.y);
+    const expDist = Math.hypot(dx, dy) || 0.1;
+    const expForce = (impactForce * 0.3 + 2) * (1 - expDist / bodySize);
+    
+    const frag = world.add(makeBox(fx, fy, fragmentSize, fragmentSize, {
+      density: body.density * 0.5,
+      friction: 0.5,
+      restitution: 0.3,
+      color: color
+    }));
+    
+    // Apply explosion velocity plus inherited velocity
+    frag.velocity = new Vec2(
+      vel.x + (dx / expDist) * expForce + (Math.random() - 0.5) * 2,
+      vel.y + (dy / expDist) * expForce + (Math.random() - 0.5) * 2 - 2
+    );
+    frag.angularVelocity = (Math.random() - 0.5) * 15;
+    frag._isFragment = true;
+    frag._fragmentLife = 5 + Math.random() * 3; // Fragments fade after 5-8 seconds
+    
+    fragments.push(frag);
+  }
+  
+  // Remove original body
+  world.remove(body);
+  if (state.selected === body) state.selected = null;
+  
+  // Play destruction sound
+  AudioFx.slice();
+  
+  return fragments;
+}
+
+// Update fragment lifetimes and fade them out
+function updateFragments(dt) {
+  if (!state.destructionMode) return;
+  
+  for (const body of [...world.bodies]) {
+    if (body._isFragment) {
+      body._fragmentLife -= dt;
+      if (body._fragmentLife <= 0) {
+        world.remove(body);
+      } else if (body._fragmentLife < 1) {
+        // Fade out - shrink the fragment
+        const scale = body._fragmentLife;
+        body.width *= 0.98;
+        body.height *= 0.98;
+      }
+    }
+  }
+}
+
+/* =========================== MATERIALS SYSTEM =========================== */
+// Each material has: density, friction, restitution, color, name, and destructionThreshold
+// destructionThreshold: velocity (m/s) needed to break object - lower = more fragile, higher = tougher
+const MATERIALS = {
+  default: { density: 1, friction: 0.3, restitution: 0.4, color: null, name: 'Default', destructionThreshold: 100 },
+  rubber: { density: 1.2, friction: 0.9, restitution: 0.85, color: '#ff6b9d', name: 'Rubber', destructionThreshold: 150 },
+  ice: { density: 0.9, friction: 0.02, restitution: 0.1, color: '#88ddff', name: 'Ice', destructionThreshold: 15 },
+  metal: { density: 7.8, friction: 0.5, restitution: 0.2, color: '#9ba8c0', name: 'Metal', destructionThreshold: 200 },
+  wood: { density: 0.6, friction: 0.6, restitution: 0.3, color: '#c49a6c', name: 'Wood', destructionThreshold: 40 },
+  bouncy: { density: 0.8, friction: 0.4, restitution: 0.95, color: '#00e5a0', name: 'Bouncy', destructionThreshold: 120 },
+  heavy: { density: 15, friction: 0.7, restitution: 0.1, color: '#5a5a6e', name: 'Heavy', destructionThreshold: 250 },
+  light: { density: 0.2, friction: 0.3, restitution: 0.5, color: '#ffeaa7', name: 'Light', destructionThreshold: 25 },
 };
+
+// Apply material to an existing body
+function applyMaterialToBody(body, materialKey) {
+  if (!body || body.isStatic) return false;
+  const mat = MATERIALS[materialKey];
+  if (!mat) return false;
+  
+  // Store original area for mass recalculation
+  const area = body.mass / (body.density || 1);
+  
+  // Apply material properties
+  body.density = mat.density;
+  body.mass = mat.density * area;
+  body.invMass = body.mass > 0 ? 1 / body.mass : 0;
+  body.friction = mat.friction;
+  body.restitution = mat.restitution;
+  
+  // Apply color if material has one
+  if (mat.color) {
+    body.color = mat.color;
+  }
+  
+  // Store material name and destruction threshold on body
+  body.materialName = materialKey;
+  body.destructionThreshold = mat.destructionThreshold;
+  
+  return true;
+}
+
+// Reset body to default material
+function resetBodyMaterial(body) {
+  return applyMaterialToBody(body, 'default');
+}
 
 /* =========================== world events → educator =========================== */
 let lastFallSampled = 0;
@@ -253,13 +422,90 @@ function canvasPos(ev) {
   return new Vec2(ev.clientX - r.left, ev.clientY - r.top);
 }
 
+// Helper function to switch to grab tool
+function switchToGrabTool() {
+  state.activeMaterial = null;
+  document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+  state.tool = 'grab';
+  document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
+  const grabTool = document.querySelector('.tool[data-tool="grab"]');
+  if (grabTool) grabTool.classList.add('active');
+  triggerHaptic('light');
+}
+
+// Right-click: deselect tool and switch to grab
+canvas.addEventListener('contextmenu', (ev) => {
+  ev.preventDefault();
+  switchToGrabTool();
+});
+
+// Long-press on mobile: deselect tool and switch to grab (500ms)
+let longPressTimer = null;
+let longPressTriggered = false;
+
 canvas.addEventListener('pointerdown', (ev) => {
-  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+  if (ev.pointerType === 'touch') {
+    longPressTriggered = false;
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      switchToGrabTool();
+      // Cancel any ongoing drag
+      state.dragStart = null;
+      state.dragCurrent = null;
+      endGrab();
+    }, 500);
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointermove', () => {
+  // Cancel long press if user moves finger
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointerup', () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointercancel', () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
+  
+  // Material applicator mode - apply on left click, reset on right click
+  if (state.activeMaterial && body && !body.isStatic && !walls.includes(body)) {
+    if (ev.pointerType === 'mouse' && ev.button === 2) {
+      // Right-click: reset to default and deselect material
+      resetBodyMaterial(body);
+      state.activeMaterial = null;
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      AudioFx.toggleOff();
+      triggerHaptic('medium');
+      return;
+    } else if (ev.pointerType !== 'mouse' || ev.button === 0) {
+      // Left-click: apply selected material
+      applyMaterialToBody(body, state.activeMaterial);
+      AudioFx.spawn();
+      triggerHaptic('light');
+      return;
+    }
+  }
+  
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return;
 
   switch (state.tool) {
     case 'box': case 'circle': case 'polygon': case 'wall': case 'triangle': case 'rope':
@@ -309,6 +555,33 @@ canvas.addEventListener('pointermove', (ev) => {
   const wp = screenToWorld(cp.x, cp.y);
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
+    // Track mouse velocity for throw force calculation using rolling average
+    const now = performance.now();
+    if (state.grabLastPos) {
+      const dt = Math.max(0.001, (now - state.grabLastTime) / 1000); // seconds
+      const dx = (wp.x - state.grabLastPos.x) / dt;
+      const dy = (wp.y - state.grabLastPos.y) / dt;
+      
+      // Store velocity samples for smoothing
+      if (!state.grabVelSamples) state.grabVelSamples = [];
+      state.grabVelSamples.push({ x: dx, y: dy, t: now });
+      // Keep last 8 samples (roughly 130ms at 60fps)
+      if (state.grabVelSamples.length > 8) state.grabVelSamples.shift();
+      
+      // Average recent samples for smooth throw direction
+      let avgX = 0, avgY = 0;
+      for (const s of state.grabVelSamples) {
+        avgX += s.x;
+        avgY += s.y;
+      }
+      avgX /= state.grabVelSamples.length;
+      avgY /= state.grabVelSamples.length;
+      
+      state.grabMouseVelocity = { x: avgX, y: avgY, mag: Math.sqrt(avgX*avgX + avgY*avgY) };
+    }
+    state.grabLastPos = { x: wp.x, y: wp.y };
+    state.grabLastTime = now;
+    
     // move grab anchor
     state.grabAnchor.position = wp;
   }
@@ -351,7 +624,7 @@ canvas.addEventListener('pointerup', (ev) => {
       world.emit({ type: 'spring' });
     } else {
       // anchor in space: create static anchor body
-      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(wp.x, wp.y, 0.05, { isStatic: true, color: '#4a5068' }));
       world.addConstraint(new DistanceConstraint(startBody, anchor, state.springStartLocal, new Vec2(0, 0), {
         isSpring: true, springK: 480, damping: 9.6
       }));
@@ -397,27 +670,67 @@ function startGrab(body, worldPoint) {
   // Mass-aware critical-damping tuning (Box2D mouse-joint style):
   // k = m·ω², c = 2·m·ω·ζ. Picking ω from a target frequency makes the grab
   // track at the same visual speed regardless of body mass.
-  const f = 3;       // Hz — target oscillation frequency
-  const zeta = 0.9;  // damping ratio (slightly under critical for snappy feel)
+  // Apply grab strength multiplier (1-5 range)
+  const strength = state.grabStrength;
+  const f = 3 * strength;       // Hz — target oscillation frequency (scales with strength)
+  const zeta = 0.7 + strength * 0.1;  // damping ratio
   const omega = 2 * Math.PI * f;
-  const k = body.mass * omega * omega;
+  const k = body.mass * omega * omega * strength;
   const c = 2 * body.mass * omega * zeta;
-  // Cap force so a fast cursor flick can't dump enough momentum to tunnel
-  // through walls or produce extreme velocities. ~50 g of acceleration max.
-  const maxForce = body.mass * 500;
+  // Scale max force with strength - allows more forceful throws
+  const maxForce = body.mass * 500 * strength;
   state.grabConstraint = new DistanceConstraint(body, state.grabAnchor, localBody, new Vec2(0, 0), {
     isSpring: true, springK: k, damping: c, length: 0, dampAllAxes: true, maxForce
   });
   world.constraints.push(state.grabConstraint);
+  state.grabVelocityHistory = []; // Reset velocity tracking
 }
 function endGrab() {
+  const releasedBody = state.grabBody;
+  let releaseVelocity = 0;
+  
   if (state.grabConstraint) {
     const i = world.constraints.indexOf(state.grabConstraint);
     if (i >= 0) world.constraints.splice(i, 1);
   }
-  if (state.grabBody) state.grabBody.gravityScale = state.grabPrevGravityScale ?? 1;
+  
+  // Apply mouse velocity as additional throw force
+  if (releasedBody && state.grabMouseVelocity && state.grabMouseVelocity.mag > 0.5) {
+    const mouseVel = state.grabMouseVelocity;
+    const strength = state.grabStrength;
+    // Scale the mouse velocity to add significant throw impulse
+    // Higher multiplier = more responsive to fast mouse movements
+    const throwMultiplier = 1.2 * strength;
+    releasedBody.velocity.x += mouseVel.x * throwMultiplier;
+    releasedBody.velocity.y += mouseVel.y * throwMultiplier;
+    releaseVelocity = releasedBody.velocity.length();
+  }
+  
+  // Also check velocity history for peak velocity during drag
+  if (releasedBody && state.grabVelocityHistory.length > 1) {
+    const maxHistoryVel = Math.max(...state.grabVelocityHistory);
+    releaseVelocity = Math.max(releaseVelocity, maxHistoryVel * 0.8);
+  }
+  
+  if (releasedBody) releasedBody.gravityScale = state.grabPrevGravityScale ?? 1;
+  
+  // Check for high-velocity throw destruction
+  if (state.destructionMode && releasedBody && releaseVelocity > DESTRUCTION_THRESHOLD * 0.7) {
+    // Mark for destruction on next collision, or destroy immediately if thrown very fast
+    releasedBody._thrownVelocity = releaseVelocity;
+    if (releaseVelocity > DESTRUCTION_THRESHOLD * 1.5) {
+      // Very fast throw - destroy on any collision
+      releasedBody._destroyOnImpact = true;
+    }
+  }
+  
   state.grabBody = null; state.grabAnchor = null; state.grabConstraint = null;
   state.grabPrevGravityScale = null;
+  state.grabVelocityHistory = [];
+  state.grabMouseVelocity = null;
+  state.grabLastPos = null;
+  state.grabLastTime = null;
+  state.grabVelSamples = null;
 }
 
 /* =========================== pin / slice =========================== */
@@ -471,16 +784,27 @@ function worldToLocal(body, worldP) {
 }
 
 /* =========================== spawn =========================== */
+// Mobile size limits - smaller max sizes for better viewing area
+function getMaxObjectSize() {
+  const isMobile = window.matchMedia('(max-width: 860px)').matches;
+  return {
+    radius: isMobile ? 1.8 : 4.0,      // max radius for circles/polygons
+    dimension: isMobile ? 3.0 : 6.0,   // max width/height for boxes
+    wallDim: isMobile ? 4.0 : 8.0      // max wall dimension
+  };
+}
+
 function finishSpawn(start, end) {
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
   const dragLen = Math.hypot(dx, dy);
+  const maxSize = getMaxObjectSize();
 
   switch (state.tool) {
     case 'box': {
-      const w = Math.max(0.5, Math.abs(dx) * 2 || 1.0);
-      const h = Math.max(0.5, Math.abs(dy) * 2 || 1.0);
+      const w = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1.0));
+      const h = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1.0));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makeBox(cx, cy, w, h, { color: pickSpawnColor() }));
       state.selected = b;
@@ -488,7 +812,7 @@ function finishSpawn(start, end) {
       break;
     }
     case 'circle': {
-      const r = Math.max(0.25, dragLen / 2 || 0.5);
+      const r = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makeCircle(cx, cy, r, { color: pickSpawnColor() }));
       state.selected = b;
@@ -496,7 +820,7 @@ function finishSpawn(start, end) {
       break;
     }
     case 'polygon': {
-      const r = Math.max(0.3, dragLen / 2 || 0.6);
+      const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const sides = 5 + ((Math.random() * 4) | 0);
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makePolygon(cx, cy, sides, r, { color: pickSpawnColor() }));
@@ -505,14 +829,14 @@ function finishSpawn(start, end) {
       break;
     }
     case 'wall': {
-      const w = Math.max(0.5, Math.abs(dx) || 2);
-      const h = Math.max(0.2, Math.abs(dy) || 0.4);
+      const w = Math.min(maxSize.wallDim, Math.max(0.5, Math.abs(dx) || 2));
+      const h = Math.min(maxSize.wallDim, Math.max(0.2, Math.abs(dy) || 0.4));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
-      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#3b4456' }));
+      world.add(makeBox(cx, cy, w, h, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'triangle': {
-      const r = Math.max(0.3, dragLen / 2 || 0.6);
+      const r = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
       const cx = (ws.x + we.x) / 2, cy = (ws.y + we.y) / 2;
       const b = world.add(makePolygon(cx, cy, 3, r, { color: pickSpawnColor() }));
       state.selected = b;
@@ -534,7 +858,7 @@ function finishSpawn(start, end) {
         const x = ws.x + dx * t;
         const y = ws.y + dy * t;
         const seg = world.add(makeCircle(x, y, segR, {
-          color: '#cfd6e6', density: 0.4, friction: 0.4, restitution: 0.05
+          color: '#9ba8c0', density: 0.4, friction: 0.4, restitution: 0.05
         }));
         segs.push(seg);
       }
@@ -551,13 +875,27 @@ function finishSpawn(start, end) {
   }
 }
 
-const SPAWN_PALETTE = ['#6aa6ff', '#8ad0ff', '#6ee29a', '#ffc46a', '#ff7a8a', '#c79bff', '#9bf2e0', '#ffa1cf'];
+// Vibrant, joyful palette that matches the new UI theme
+const SPAWN_PALETTE = [
+  '#00e5a0', // accent green
+  '#ff6b9d', // secondary pink
+  '#6b8bff', // tertiary blue
+  '#ffc46a', // warm yellow
+  '#00ffc8', // bright cyan
+  '#ff8bb8', // soft pink
+  '#8ba8ff', // light blue
+  '#a0ffdb', // mint
+  '#ffb366', // orange
+  '#c9a0ff', // lavender
+];
 let spawnIdx = 0;
 function pickSpawnColor() { spawnIdx = (spawnIdx + 1) % SPAWN_PALETTE.length; return SPAWN_PALETTE[spawnIdx]; }
 
 /* =========================== rendering =========================== */
 function render() {
-  ctx.clearRect(0, 0, cssW, cssH);
+  // Fill with lighter background instead of clear
+  ctx.fillStyle = '#1a1d28';
+  ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
   // bodies
@@ -591,23 +929,25 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  // Subtle grid - neutral color for visibility
+  ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = (camera.x % sPx); x < cssW; x += sPx) {
-    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+  ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
   }
   for (let y = (camera.y % sPx); y < cssH; y += sPx) {
-    ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
+  ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
   }
   ctx.stroke();
-
-  // axis at floor level
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  
+  // Floor line with accent
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
-}
+  }
 
 // Speed → color: blue (slow) → cyan → green → yellow → red (fast).
 // Mapped over 0..30 m/s, which covers most sandbox motion before the velocity
@@ -615,13 +955,13 @@ function drawGrid() {
 function speedColor(v) {
   const HEATMAP_VMAX = 30;
   const t = Math.min(1, v / HEATMAP_VMAX);
-  // 5-stop gradient
+// 5-stop gradient matching the vibrant theme
   const stops = [
-    [0.00, 90, 130, 220], // slow blue
-    [0.25, 100, 200, 230],
-    [0.50, 110, 220, 130],
-    [0.75, 240, 200, 90],
-    [1.00, 240, 100, 110]  // fast red
+  [0.00, 107, 139, 255], // slow tertiary blue
+  [0.25, 0, 229, 160],   // accent green
+  [0.50, 0, 255, 200],   // bright cyan
+  [0.75, 255, 196, 106], // warm yellow
+  [1.00, 255, 107, 157]  // fast secondary pink
   ];
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i][0]) {
@@ -640,98 +980,125 @@ function drawBody(b) {
   ctx.save();
   const useHeatmap = ui.showHeatmap.checked && !b.isStatic && !walls.includes(b);
   const fillColor = useHeatmap ? speedColor(b.velocity.length()) : b.color;
+  const isDynamic = !b.isStatic && !walls.includes(b);
+  
+  // Add subtle glow for dynamic bodies
+  if (isDynamic) {
+  ctx.shadowColor = withAlpha(fillColor, 0.4);
+  ctx.shadowBlur = 10;
+  }
+  
   if (b.shape === SHAPE.CIRCLE) {
-    const p = worldToScreen(b.position.x, b.position.y);
-    const r = b.radius * camera.scale;
-    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.55 : 0.85);
-    ctx.strokeStyle = fillColor;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // orientation marker
-    const ex = p.x + Math.cos(b.angle) * r;
-    const ey = p.y + Math.sin(b.angle) * r;
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+  const p = worldToScreen(b.position.x, b.position.y);
+  const r = b.radius * camera.scale;
+  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // orientation marker
+  ctx.shadowBlur = 0;
+  const ex = p.x + Math.cos(b.angle) * r;
+  const ey = p.y + Math.sin(b.angle) * r;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
   } else {
-    const verts = b.worldVertices();
-    ctx.beginPath();
-    for (let i = 0; i < verts.length; i++) {
-      const p = worldToScreen(verts[i].x, verts[i].y);
-      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.45 : 0.85);
-    ctx.strokeStyle = fillColor;
-    ctx.lineWidth = 1.5;
-    ctx.fill();
-    ctx.stroke();
+  const verts = b.worldVertices();
+  ctx.beginPath();
+  for (let i = 0; i < verts.length; i++) {
+  const p = worldToScreen(verts[i].x, verts[i].y);
+  if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
+  ctx.strokeStyle = fillColor;
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
   }
   ctx.restore();
-}
+  }
 
 function drawAABBs() {
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(107, 139, 255, 0.4)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
+  ctx.setLineDash([4, 4]);
   for (const b of world.bodies) {
-    if (walls.includes(b)) continue;
-    const a = b.aabb();
-    const min = worldToScreen(a.minX, a.minY);
-    const max = worldToScreen(a.maxX, a.maxY);
-    ctx.strokeRect(min.x, min.y, max.x - min.x, max.y - min.y);
+  if (walls.includes(b)) continue;
+  const a = b.aabb();
+  const min = worldToScreen(a.minX, a.minY);
+  const max = worldToScreen(a.maxX, a.maxY);
+  ctx.strokeRect(min.x, min.y, max.x - min.x, max.y - min.y);
   }
   ctx.setLineDash([]);
-}
+  }
 
 function drawFPS() {
   ctx.save();
-  ctx.fillStyle = 'rgba(15,18,28,0.7)';
-  ctx.fillRect(8, 8, 130, 38);
-  ctx.fillStyle = '#cfd6e6';
-  ctx.font = '11px ui-monospace, monospace';
+  // Rounded rect background
+  ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
+  ctx.beginPath();
+  ctx.roundRect(10, 10, 140, 44, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  ctx.font = '500 12px "JetBrains Mono", monospace';
   ctx.textBaseline = 'top';
   const fps = state.fpsEMA.toFixed(1);
   const dyn = world.bodies.filter(b => !b.isStatic).length;
-  ctx.fillText(`${fps} fps`, 14, 12);
-  ctx.fillText(`bodies: ${world.bodies.length} (${dyn} dyn)`, 14, 26);
+  ctx.fillStyle = '#00e5a0';
+  ctx.fillText(`${fps} fps`, 18, 16);
+  ctx.fillStyle = '#8888a0';
+  ctx.fillText(`bodies: ${world.bodies.length} (${dyn} dyn)`, 18, 32);
   ctx.restore();
-}
+  }
 
 function drawConstraint(c) {
   const wA = applyTransform(c.A, c.anchorA);
   const wB = applyTransform(c.B, c.anchorB);
   const a = worldToScreen(wA.x, wA.y);
   const b = worldToScreen(wB.x, wB.y);
-  ctx.strokeStyle = c.isSpring ? '#9bf2e0' : '#cfd6e6';
-  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = c.isSpring ? '#00ffc8' : '#8888a0';
+  ctx.lineWidth = 2;
   if (c.isSpring) {
-    drawSpring(a, b);
+  drawSpring(a, b);
   } else {
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
   }
-}
-function drawSpring(a, b) {
+  }
+  function drawSpring(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   const ux = dx / len, uy = dy / len;
   const nx = -uy, ny = ux;
   const coils = Math.max(8, Math.floor(len / 8));
+  
+  // Glow effect for springs
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
+  ctx.shadowBlur = 8;
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   for (let i = 1; i < coils; i++) {
-    const t = i / coils;
-    const cx = a.x + ux * len * t;
-    const cy = a.y + uy * len * t;
-    const off = (i % 2 === 0 ? 1 : -1) * 4;
-    ctx.lineTo(cx + nx * off, cy + ny * off);
+  const t = i / coils;
+  const cx = a.x + ux * len * t;
+  const cy = a.y + uy * len * t;
+  const off = (i % 2 === 0 ? 1 : -1) * 5;
+  ctx.lineTo(cx + nx * off, cy + ny * off);
   }
   ctx.lineTo(b.x, b.y);
   ctx.stroke();
-  // anchor dots
-  ctx.fillStyle = '#9bf2e0';
-  ctx.beginPath(); ctx.arc(a.x, a.y, 2.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(b.x, b.y, 2.5, 0, Math.PI * 2); ctx.fill();
-}
+  ctx.shadowBlur = 0;
+  
+  // anchor dots with glow
+  ctx.fillStyle = '#00ffc8';
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
+  ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(a.x, a.y, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  }
 
 function applyTransform(b, local) {
   const cos = Math.cos(b.angle), sin = Math.sin(b.angle);
@@ -740,55 +1107,137 @@ function applyTransform(b, local) {
 }
 
 function drawToolOverlay() {
-  // Spawn drag preview
+  // Spawn drag preview with glow - thinner, sleeker outlines matching shape geometry
   if (state.dragStart && state.dragCurrent) {
     const a = state.dragStart, b = state.dragCurrent;
-    ctx.strokeStyle = 'rgba(106,166,255,0.7)';
-    ctx.fillStyle = 'rgba(106,166,255,0.10)';
-    ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
+    
+    ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
+    ctx.fillStyle = 'rgba(0, 229, 160, 0.06)';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    if (state.tool === 'circle') {
-      const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    } else {
-      const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-      const w = Math.max(20, Math.abs(b.x - a.x));
-      const h = Math.max(20, Math.abs(b.y - a.y));
-      ctx.rect(x0, y0, w, h);
+    
+    switch (state.tool) {
+      case 'circle':
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        break;
+        
+      case 'triangle': {
+        // Equilateral triangle pointing up, sized by drag radius
+        const triR = Math.max(14, r);
+        for (let i = 0; i < 3; i++) {
+          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 3);
+          const px = cx + Math.cos(angle) * triR;
+          const py = cy + Math.sin(angle) * triR;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+      
+      case 'polygon': {
+        // Pentagon preview (polygon spawns 5-8 sides randomly)
+        const polyR = Math.max(14, r);
+        const sides = 5;
+        for (let i = 0; i < sides; i++) {
+          const angle = -Math.PI / 2 + (i * 2 * Math.PI / sides);
+          const px = cx + Math.cos(angle) * polyR;
+          const py = cy + Math.sin(angle) * polyR;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        break;
+      }
+      
+      case 'rope': {
+        // Rope preview - a dotted line from start to end
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        // Draw small circles at endpoints
+        ctx.moveTo(a.x + 6, a.y);
+        ctx.arc(a.x, a.y, 6, 0, Math.PI * 2);
+        ctx.moveTo(b.x + 6, b.y);
+        ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+        break;
+      }
+      
+      case 'wall': {
+        // Wall preview - rectangle with no rounded corners, different color
+        ctx.strokeStyle = 'rgba(74, 80, 104, 0.8)';
+        ctx.fillStyle = 'rgba(74, 80, 104, 0.1)';
+        ctx.shadowColor = 'rgba(74, 80, 104, 0.3)';
+        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+        const w = Math.max(20, Math.abs(b.x - a.x));
+        const h = Math.max(10, Math.abs(b.y - a.y));
+        ctx.rect(x0, y0, w, h);
+        break;
+      }
+      
+      case 'box':
+      default: {
+        // Box preview - rectangle with slight rounding
+        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+        const w = Math.max(20, Math.abs(b.x - a.x));
+        const h = Math.max(20, Math.abs(b.y - a.y));
+        ctx.roundRect(x0, y0, w, h, 2);
+        break;
+      }
     }
-    ctx.fill(); ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // Spring drag preview
-  if (state.springStart && state.dragCurrent) {
-    const wA = applyTransform(state.springStart, state.springStartLocal);
-    const a = worldToScreen(wA.x, wA.y);
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = '#9bf2e0';
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // Impulse drag preview
-  if (state.impulseBody && state.impulseStart && state.impulseEnd) {
-    const a = state.impulseStart, b = state.impulseEnd;
-    ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    drawArrowhead(a, b, '#ffc46a');
-  }
-
-  // Slice stroke preview
-  if (state.slicePath && state.slicePath.length > 1) {
-    ctx.strokeStyle = '#ff7a8a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
-    for (let i = 1; i < state.slicePath.length; i++) {
-      ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
-    }
+    
+    ctx.fill();
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+  }
+  
+  // Spring drag preview with glow
+  if (state.springStart && state.dragCurrent) {
+  const wA = applyTransform(state.springStart, state.springStartLocal);
+  const a = worldToScreen(wA.x, wA.y);
+  ctx.shadowColor = 'rgba(0, 255, 200, 0.5)';
+  ctx.shadowBlur = 10;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#00ffc8';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+  }
+  
+  // Impulse drag preview with glow
+  if (state.impulseBody && state.impulseStart && state.impulseEnd) {
+  const a = state.impulseStart, b = state.impulseEnd;
+  ctx.shadowColor = 'rgba(255, 196, 106, 0.5)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  drawArrowhead(a, b, '#ffc46a');
+  ctx.shadowBlur = 0;
+  }
+  
+  // Slice stroke preview with glow
+  if (state.slicePath && state.slicePath.length > 1) {
+  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
+  for (let i = 1; i < state.slicePath.length; i++) {
+  ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
   }
 }
 
@@ -805,55 +1254,84 @@ function drawArrowhead(a, b, color) {
 }
 
 function drawContacts() {
-  ctx.fillStyle = '#ff7a8a';
+  ctx.fillStyle = '#ff6b9d';
+  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
+  ctx.shadowBlur = 8;
   for (const c of world.contacts) {
-    for (const p of c.points) {
-      const s = worldToScreen(p.x, p.y);
-      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
-      const tip = { x: s.x + c.normal.x * 12, y: s.y + c.normal.y * 12 };
-      ctx.strokeStyle = '#ff7a8a';
-      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-    }
+  for (const p of c.points) {
+  const s = worldToScreen(p.x, p.y);
+  ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI * 2); ctx.fill();
+  const tip = { x: s.x + c.normal.x * 14, y: s.y + c.normal.y * 14 };
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
   }
-}
+  }
+  ctx.shadowBlur = 0;
+  }
 
 function drawVelocities() {
-  ctx.strokeStyle = '#8ad0ff';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = '#6b8bff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(107, 139, 255, 0.5)';
+  ctx.shadowBlur = 6;
   for (const b of world.bodies) {
-    if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
-    const p = worldToScreen(b.position.x, b.position.y);
-    const ex = p.x + b.velocity.x * camera.scale * 0.25;
-    const ey = p.y + b.velocity.y * camera.scale * 0.25;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
-    drawArrowhead(p, { x: ex, y: ey }, '#8ad0ff');
+  if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
+  const p = worldToScreen(b.position.x, b.position.y);
+  const ex = p.x + b.velocity.x * camera.scale * 0.25;
+  const ey = p.y + b.velocity.y * camera.scale * 0.25;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+  drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
   }
-}
-
-function drawTrails() {
+  ctx.shadowBlur = 0;
+  }
+  
+  function drawTrails() {
   for (const [id, pts] of state.trails) {
-    if (pts.length < 2) continue;
-    ctx.strokeStyle = 'rgba(138,208,255,0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 0; i < pts.length; i++) {
-      const s = worldToScreen(pts[i].x, pts[i].y);
-      if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-    }
-    ctx.stroke();
+  if (pts.length < 2) continue;
+  // Gradient trail from transparent to vibrant
+  const gradient = ctx.createLinearGradient(
+    worldToScreen(pts[0].x, pts[0].y).x,
+    worldToScreen(pts[0].x, pts[0].y).y,
+    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).x,
+    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).y
+  );
+  gradient.addColorStop(0, 'rgba(0, 229, 160, 0.1)');
+  gradient.addColorStop(1, 'rgba(0, 229, 160, 0.6)');
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+  const s = worldToScreen(pts[i].x, pts[i].y);
+  if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
   }
-}
+  ctx.stroke();
+  }
+  }
 
 function drawSelectionRing(b) {
   const aabb = b.aabb();
   const min = worldToScreen(aabb.minX, aabb.minY);
   const max = worldToScreen(aabb.maxX, aabb.maxY);
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.setLineDash([3, 4]);
+  const pad = 4;
+  const w = max.x - min.x + pad * 2;
+  const h = max.y - min.y + pad * 2;
+  const x = min.x - pad;
+  const y = min.y - pad;
+  const r = 4; // corner radius
+  
+  // Subtle glow
+  ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(min.x - 4, min.y - 4, max.x - min.x + 8, max.y - min.y + 8);
-  ctx.setLineDash([]);
-}
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  }
 
 function withAlpha(hex, a) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -893,38 +1371,9 @@ function bodyHeightAboveFloor(body) {
   return h > 0 ? h : 0;
 }
 
+// Readouts are now handled by the floating info overlay
 function updateReadouts() {
-  const b = state.selected;
-  if (b && !walls.includes(b)) {
-    const v = b.velocity.length();
-    ui.selected.textContent = b.shape === SHAPE.CIRCLE ? `Ball (m=${b.mass.toFixed(2)})` : `Polygon (m=${b.mass.toFixed(2)})`;
-    ui.speed.textContent = fmtNumRest(v, 0.05);
-    ui.momentum.textContent = fmtNumRest(b.mass * v, 0.05);
-    ui.ke.textContent = fmtNumRest(0.5 * b.mass * v * v + 0.5 * b.inertia * b.angularVelocity * b.angularVelocity, 1e-3);
-    ui.pe.textContent = fmtNum(b.mass * world.gravity * bodyHeightAboveFloor(b));
-    ui.ang.textContent = fmtNumRest(b.angularVelocity, 0.05);
-  } else {
-    ui.selected.textContent = '—';
-    ui.speed.textContent = '0';
-    ui.momentum.textContent = '0';
-    ui.ke.textContent = '0';
-    ui.pe.textContent = '0';
-    ui.ang.textContent = '0';
-  }
-
-  // System totals
-  let tke = 0, tpe = 0, n = 0;
-  for (const body of world.bodies) {
-    if (body.isStatic) continue;
-    n++;
-    const v2 = body.velocity.lengthSq();
-    tke += 0.5 * body.mass * v2 + 0.5 * body.inertia * body.angularVelocity * body.angularVelocity;
-    tpe += body.mass * world.gravity * bodyHeightAboveFloor(body);
-  }
-  ui.tke.textContent = fmtNum(tke) + ' J';
-  ui.tpe.textContent = fmtNum(tpe) + ' J';
-  ui.tot.textContent = fmtNum(tke + tpe) + ' J';
-  ui.count.textContent = String(n);
+  // No-op - readings moved to floating overlay
 }
 
 /* =========================== trails update =========================== */
@@ -940,6 +1389,20 @@ function updateTrails() {
   // prune for removed bodies
   for (const id of [...state.trails.keys()]) {
     if (!world.bodies.find(b => b.id === id)) state.trails.delete(id);
+  }
+}
+
+// ======================= HAPTIC FEEDBACK =======================
+function triggerHaptic(type = 'light') {
+  if ('vibrate' in navigator) {
+    const patterns = {
+      light: [8],
+      medium: [15],
+      heavy: [25],
+      double: [10, 30, 10],
+      success: [10, 50, 20]
+    };
+    navigator.vibrate(patterns[type] || patterns.light);
   }
 }
 
@@ -963,29 +1426,85 @@ ui.clearBtn.addEventListener('click', () => {
   world.preSubstep = null;
 });
 
-// tool buttons
+// tool buttons with haptic feedback
 document.querySelectorAll('.tool').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.tool').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     state.tool = el.dataset.tool;
+    // Deselect material applicator when switching tools
+    state.activeMaterial = null;
+    document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+    triggerHaptic('light');
   });
 });
 
-// presets
+// Material applicator - click to select, click again to deselect
+document.querySelectorAll('.material').forEach(el => {
+  el.addEventListener('click', () => {
+    const matKey = el.dataset.material;
+    
+    // Toggle: if same material clicked, deselect
+    if (state.activeMaterial === matKey) {
+      state.activeMaterial = null;
+      el.classList.remove('active');
+      AudioFx.toggleOff();
+    } else {
+      // Deselect previous and select new
+      document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      state.activeMaterial = matKey;
+      AudioFx.toolSelect();
+    }
+    triggerHaptic('light');
+  });
+});
+
+// Destruction mode toggle
+if (ui.destructionMode) {
+ui.destructionMode.addEventListener('change', () => {
+    state.destructionMode = ui.destructionMode.checked;
+    triggerHaptic(state.destructionMode ? 'medium' : 'light');
+    if (state.destructionMode) {
+      AudioFx.slice();
+    }
+  });
+}
+
+// Grab strength slider
+if (ui.grabStrength) {
+  ui.grabStrength.addEventListener('input', () => {
+    state.grabStrength = parseFloat(ui.grabStrength.value);
+    // Update existing grab constraint if one exists
+    if (state.grabConstraint && state.grabBody) {
+      const body = state.grabBody;
+      const strength = state.grabStrength;
+      const f = 3 * strength;
+      const zeta = 0.7 + strength * 0.1;
+      const omega = 2 * Math.PI * f;
+      state.grabConstraint.springK = body.mass * omega * omega * strength;
+      state.grabConstraint.damping = 2 * body.mass * omega * zeta;
+      state.grabConstraint.maxForce = body.mass * 500 * strength;
+    }
+  });
+}
+
+// presets with haptic
 document.querySelectorAll('.preset').forEach(el => {
   el.addEventListener('click', () => {
     loadPreset(el.dataset.preset);
     world.emit({ type: 'preset', name: el.dataset.preset });
+    triggerHaptic('double');
   });
 });
 
-// level selection
+// level selection with haptic
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
     el.classList.add('active');
     educator.setLevel(parseInt(el.dataset.level, 10));
+    triggerHaptic('light');
   });
 });
 
@@ -998,10 +1517,7 @@ document.getElementById('topbarToggle').addEventListener('click', () => {
   // ResizeObserver picks this up, but call resize() directly so canvas redraws this frame.
   requestAnimationFrame(resize);
 });
-document.getElementById('panelToggle').addEventListener('click', () => {
-  layoutEl.classList.toggle('panel-collapsed');
-  requestAnimationFrame(resize);
-});
+
 document.getElementById('hintClose').addEventListener('click', () => {
   hintEl.classList.add('dismissed');
   try { localStorage.setItem('ps.hintDismissed', '1'); } catch (e) { /* private mode */ }
@@ -1010,230 +1526,57 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
-/* =========================== mobile UI =========================== */
-// All wiring runs unconditionally; the styles for these elements are gated to
-// ≤768px, so on desktop the toggles are hidden and the toast is display:none.
-// classList changes here are harmless when the elements aren't visible.
-const isPhone = () => window.matchMedia('(max-width: 768px)').matches;
+// ======================= TOOLS PANEL COLLAPSE =======================
+const toolsPanel = document.getElementById('toolsPanel');
+const toolsCollapseBtn = document.getElementById('toolsCollapseBtn');
 
-const drawerToggleEl = document.getElementById('drawerToggle');
-const drawerBackdropEl = document.getElementById('drawerBackdrop');
-const toolsAside = document.querySelector('.tools');
-
-function setDrawerOpen(open) {
-  if (!toolsAside) return;
-  toolsAside.classList.toggle('open', open);
-  drawerToggleEl?.classList.toggle('active', open);
-  drawerBackdropEl?.classList.toggle('visible', open);
-  drawerToggleEl?.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-if (drawerToggleEl) {
-  drawerToggleEl.addEventListener('click', () => {
-    setDrawerOpen(!toolsAside.classList.contains('open'));
-  });
-}
-if (drawerBackdropEl) {
-  drawerBackdropEl.addEventListener('click', () => setDrawerOpen(false));
-}
-// Auto-close drawer on phone after picking a Spawn/Interact tool or Preset.
-const closeDrawerOnPhone = () => {
-  if (window.matchMedia('(max-width: 768px)').matches) setDrawerOpen(false);
-};
-document.querySelectorAll('.tool[data-tool], .preset').forEach(el => {
-  el.addEventListener('click', closeDrawerOnPhone);
-});
-
-const hudToggleEl = document.getElementById('hudToggle');
-const panelAside = document.querySelector('.panel');
-if (hudToggleEl && panelAside) {
-  hudToggleEl.addEventListener('click', () => {
-    const visible = panelAside.classList.toggle('hud-visible');
-    hudToggleEl.classList.toggle('active', visible);
-    try { localStorage.setItem('ps.hudVisible', visible ? '1' : '0'); } catch (e) {}
-  });
-  try {
-    const stored = localStorage.getItem('ps.hudVisible');
-    const visible = stored === null || stored === '1';
-    if (visible) {
-      panelAside.classList.add('hud-visible');
-      hudToggleEl.classList.add('active');
-    }
-  } catch (e) {
-    panelAside.classList.add('hud-visible');
-    hudToggleEl.classList.add('active');
-  }
+function toggleToolsCollapse() {
+  triggerHaptic('light');
+  toolsPanel.classList.toggle('collapsed');
+  const isCollapsed = toolsPanel.classList.contains('collapsed');
+  try { localStorage.setItem('ps.toolsCollapsed', isCollapsed ? '1' : '0'); } catch (e) {}
+  requestAnimationFrame(resize);
 }
 
-// Lesson toast — replicates the educator's lesson card on phone as a top toast.
-const lessonToastEl = document.getElementById('lessonToast');
-if (lessonToastEl && typeof educator !== 'undefined') {
-  const tTitle = lessonToastEl.querySelector('.toast-title');
-  const tBody = lessonToastEl.querySelector('.toast-body');
-  const tFormula = lessonToastEl.querySelector('.toast-formula');
-  const tClose = lessonToastEl.querySelector('.toast-close');
-  const tToggle = lessonToastEl.querySelector('.toast-toggle');
-  let toastDismissTimer = null;
-  const TOAST_AUTO_MS = 10000;
+toolsCollapseBtn.addEventListener('click', toggleToolsCollapse);
 
-  function dismissToast() {
-    lessonToastEl.classList.remove('visible', 'expanded');
-    clearTimeout(toastDismissTimer);
+// Restore collapsed state
+try {
+  if (localStorage.getItem('ps.toolsCollapsed') === '1') {
+    toolsPanel.classList.add('collapsed');
   }
-  function showToast(title, body, formula) {
-    tTitle.textContent = title;
-    tBody.textContent = body;
-    if (formula) {
-      tFormula.textContent = formula;
-      tFormula.hidden = false;
-    } else {
-      tFormula.hidden = true;
-    }
-    lessonToastEl.classList.add('visible');
-    // Preserve the user's expand/collapse choice across new lessons; only run
-    // the auto-dismiss timer when collapsed (expanded = "I'm reading this").
-    clearTimeout(toastDismissTimer);
-    if (!lessonToastEl.classList.contains('expanded')) {
-      toastDismissTimer = setTimeout(dismissToast, TOAST_AUTO_MS);
-    }
-  }
+} catch (e) {}
 
-  if (tClose) tClose.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    dismissToast();
-  });
-  if (tToggle) tToggle.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const expanded = lessonToastEl.classList.toggle('expanded');
-    if (expanded) {
-      clearTimeout(toastDismissTimer);
-    } else {
-      toastDismissTimer = setTimeout(dismissToast, TOAST_AUTO_MS);
-    }
-  });
-
-  // Wrap educator.show so concept renders propagate to the toast on phone.
-  // Skip the 'intro' welcome — only fire for actual concept events.
-  const _origEducatorShow = educator.show.bind(educator);
-  educator.show = function (key, title, body, formula, tags) {
-    _origEducatorShow(key, title, body, formula, tags);
-    if (key !== 'intro' && isPhone()) showToast(title, body, formula);
-  };
-}
-
-/* =========================== draggable overlays (mobile) =========================== */
-// Make HUD / lesson toast / canvas hint draggable on phone, with position
-// persisted to localStorage. On desktop the CSS-default positions apply and
-// inline overrides are cleared if the user resizes back from phone.
-function makeDraggable(el, storageKey) {
-  if (!el) return;
-  const isPhoneMq = window.matchMedia('(max-width: 768px)');
-  let dragging = false, moved = false;
-  let startX = 0, startY = 0, origLeft = 0, origTop = 0;
-
-  function readSaved() {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const p = JSON.parse(raw);
-      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) return p;
-    } catch (e) {}
-    return null;
-  }
-
-  function applyPosition(x, y) {
-    const rect = el.getBoundingClientRect();
-    const w = rect.width, h = rect.height;
-    const maxX = Math.max(4, window.innerWidth - w - 4);
-    const maxY = Math.max(4, window.innerHeight - h - 4);
-    x = Math.max(4, Math.min(maxX, x));
-    y = Math.max(4, Math.min(maxY, y));
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.right = 'auto';
-    el.style.bottom = 'auto';
-    if (!el.dataset.psSized) {
-      el.style.width = w + 'px';
-      el.dataset.psSized = '1';
-    }
-  }
-
-  function clearOverrides() {
-    el.style.left = '';
-    el.style.top = '';
-    el.style.right = '';
-    el.style.bottom = '';
-    el.style.width = '';
-    delete el.dataset.psSized;
-  }
-
-  function applyForMode() {
-    if (isPhoneMq.matches) {
-      const saved = readSaved();
-      if (saved) requestAnimationFrame(() => applyPosition(saved.x, saved.y));
-    } else {
-      clearOverrides();
-    }
-  }
-  applyForMode();
-  if (isPhoneMq.addEventListener) isPhoneMq.addEventListener('change', applyForMode);
-
-  el.addEventListener('pointerdown', (ev) => {
-    if (!isPhoneMq.matches) return;
-    if (ev.target.closest('button, input')) return; // let buttons/inputs work
-    try { el.setPointerCapture(ev.pointerId); } catch (e) {}
-    const rect = el.getBoundingClientRect();
-    startX = ev.clientX; startY = ev.clientY;
-    origLeft = rect.left; origTop = rect.top;
-    dragging = true; moved = false;
-  });
-
-  el.addEventListener('pointermove', (ev) => {
-    if (!dragging) return;
-    const dx = ev.clientX - startX, dy = ev.clientY - startY;
-    if (!moved && Math.hypot(dx, dy) > 5) moved = true;
-    if (moved) {
-      ev.preventDefault();
-      applyPosition(origLeft + dx, origTop + dy);
-    }
-  });
-
-  function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    if (moved) {
-      const rect = el.getBoundingClientRect();
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({ x: rect.left, y: rect.top }));
-      } catch (e) {}
-    }
-  }
-  el.addEventListener('pointerup', endDrag);
-  el.addEventListener('pointercancel', endDrag);
-
-  // Capture-phase: suppress the click that fires after a drag so things like
-  // tap-to-expand toast / tap-to-collapse card don't fire from the same gesture.
-  el.addEventListener('click', (ev) => {
-    if (moved) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      moved = false;
-    }
-  }, true);
-}
-
-makeDraggable(document.querySelector('.panel'), 'ps.hudPos');
-makeDraggable(document.getElementById('lessonToast'), 'ps.toastPos');
-makeDraggable(document.getElementById('hint'), 'ps.hintPos');
-
-// Draggable dividers — pointer events handle mouse + touch uniformly.
+// ======================= DRAGGABLE DIVIDERS =======================
 function setupDivider(divider, computeSize, varName, storeKey) {
+  if (!divider) return;
   let dragging = false;
-  divider.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    divider.setPointerCapture(e.pointerId);
-    divider.classList.add('dragging');
-    dragging = true;
+  
+  // Prevent flicker on hover by adding interacting class
+  divider.addEventListener('pointerenter', () => {
+    document.body.classList.add('interacting');
   });
+  
+  divider.addEventListener('pointerleave', () => {
+    if (!dragging) {
+      document.body.classList.remove('interacting');
+    }
+  });
+  
+  divider.addEventListener('pointerdown', (e) => {
+    // Un-collapse tools when starting to drag
+    if (toolsPanel.classList.contains('collapsed')) {
+      toolsPanel.classList.remove('collapsed');
+    }
+    e.preventDefault();
+    try { divider.setPointerCapture(e.pointerId); } catch (err) {}
+    divider.classList.add('dragging');
+    layoutEl.classList.add('resizing');
+    document.body.classList.add('interacting');
+    dragging = true;
+    triggerHaptic('light');
+  });
+  
   divider.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const isMobile = window.matchMedia('(max-width: 860px)').matches;
@@ -1241,45 +1584,594 @@ function setupDivider(divider, computeSize, varName, storeKey) {
     const size = computeSize(e, r, isMobile);
     layoutEl.style.setProperty(varName, size + 'px');
   });
+  
   divider.addEventListener('pointerup', () => {
     if (!dragging) return;
     dragging = false;
     divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
+    document.body.classList.remove('interacting');
     resize();
+    triggerHaptic('medium');
     try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
   });
+  
+  divider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    layoutEl.classList.remove('resizing');
+    document.body.classList.remove('interacting');
+  });
 }
+
+// Tools divider setup
+const toolsDividerEl = document.getElementById('toolsDivider');
 setupDivider(
-  document.getElementById('panelDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(80, Math.min(r.height * 0.85, r.bottom - e.clientY))
-    : Math.max(180, Math.min(r.width * 0.7, r.right - e.clientX)),
-  '--panel-size', 'ps.panelSize'
-);
-setupDivider(
-  document.getElementById('toolsDivider'),
-  (e, r, mobile) => mobile
-    ? Math.max(40, Math.min(r.height * 0.45, e.clientY - r.top))
-    : Math.max(120, Math.min(r.width * 0.4, e.clientX - r.left)),
+  toolsDividerEl,
+  (e, r, mobile) => {
+    const minSize = mobile ? 36 : 80;
+    const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
+    const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
+    return Math.max(minSize, Math.min(maxSize, rawSize));
+  },
   '--tools-size', 'ps.toolsSize'
 );
+
+// Restore tools size
 try {
-  const ps = localStorage.getItem('ps.panelSize');
-  if (ps) layoutEl.style.setProperty('--panel-size', ps);
   const ts = localStorage.getItem('ps.toolsSize');
-  if (ts) layoutEl.style.setProperty('--tools-size', ts);
+  if (ts && !toolsPanel.classList.contains('collapsed')) {
+    layoutEl.style.setProperty('--tools-size', ts);
+  }
 } catch (e) {}
 
-// Per-card collapse — click any card title to hide its body.
-document.querySelectorAll('.panel .card').forEach(card => {
-  const title = card.querySelector('.card-title');
-  if (!title) return;
-  const chev = document.createElement('span');
-  chev.className = 'card-chevron';
-  chev.textContent = '▾';
-  title.appendChild(chev);
-  title.addEventListener('click', () => card.classList.toggle('collapsed'));
-});
+// ======================= TOPBAR DIVIDER =======================
+const topbarDivider = document.getElementById('topbarDivider');
+const topbar = document.querySelector('.topbar');
+
+function setupTopbarDivider() {
+  if (!topbarDivider || !topbar) return;
+  
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  
+  topbarDivider.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
+    topbarDivider.classList.add('dragging');
+    topbar.classList.add('resizing');
+    document.body.classList.add('interacting');
+    dragging = true;
+    startY = e.clientY;
+    startHeight = topbar.offsetHeight;
+    triggerHaptic('light');
+  });
+  
+  topbarDivider.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const deltaY = e.clientY - startY;
+    const newHeight = Math.max(48, Math.min(200, startHeight + deltaY));
+    topbar.style.minHeight = newHeight + 'px';
+  });
+  
+  topbarDivider.addEventListener('pointerup', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
+    document.body.classList.remove('interacting');
+    triggerHaptic('medium');
+    try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
+  });
+  
+  topbarDivider.addEventListener('pointercancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    topbarDivider.classList.remove('dragging');
+    topbar.classList.remove('resizing');
+    document.body.classList.remove('interacting');
+  });
+  
+  // Double-click to reset
+  topbarDivider.addEventListener('dblclick', () => {
+    topbar.style.minHeight = '';
+    triggerHaptic('double');
+    try { localStorage.removeItem('ps.topbarHeight'); } catch (e) {}
+  });
+}
+
+setupTopbarDivider();
+
+// Restore topbar height
+try {
+  const th = localStorage.getItem('ps.topbarHeight');
+  if (th && topbar) topbar.style.minHeight = th;
+} catch (e) {}
+
+// ======================= MODULAR OVERLAY SYSTEM =======================
+// Reusable overlay manager with fluid touch dragging and inertia
+// Track all overlay instances for z-index management
+const overlayInstances = [];
+
+class FloatingOverlay {
+  constructor(id, toggleId, storageKey) {
+    this.el = document.getElementById(id);
+    this.toggle = document.getElementById(toggleId);
+    this.storageKey = storageKey;
+    this.drag = { 
+      active: false, 
+      offsetX: 0, 
+      offsetY: 0, 
+      velocityX: 0, 
+      velocityY: 0,
+      lastX: 0,
+      lastY: 0,
+      lastTime: 0
+    };
+    this.pinch = {
+      active: false,
+      initialDistance: 0,
+      initialScale: 1,
+      pointers: new Map()
+    };
+    this.scale = 1;
+    this.opacity = 0.9;
+    this.glassMode = false;
+    this.inertiaRAF = null;
+    
+    if (!this.el || !this.toggle) return;
+    
+    this.closeBtn = this.el.querySelector('.floating-overlay-close');
+    this.opacitySlider = this.el.querySelector('.overlay-controls input[type=range]');
+    this.glassToggle = this.el.querySelector('.glass-toggle');
+    
+    overlayInstances.push(this);
+    this.init();
+  }
+  
+  init() {
+    // Toggle button with haptic
+    this.toggle.addEventListener('click', () => {
+      triggerHaptic('light');
+      this.toggleVisibility();
+    });
+    if (this.closeBtn) {
+      this.closeBtn.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.hide();
+      });
+    }
+    
+    // Opacity slider
+    if (this.opacitySlider) {
+      this.opacitySlider.addEventListener('input', () => {
+        this.setOpacity(parseFloat(this.opacitySlider.value));
+      });
+    }
+    
+    // Glass mode toggle
+    if (this.glassToggle) {
+      this.glassToggle.addEventListener('click', () => {
+        triggerHaptic('light');
+        this.toggleGlassMode();
+      });
+    }
+    
+    // Bring to front on any interaction
+    this.el.addEventListener('pointerdown', () => this.bringToFront(), { capture: true });
+    
+    // Multi-touch support for pinch and drag
+    this.el.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
+    this.el.addEventListener('pointermove', (e) => this.onPointerMove(e), { passive: false });
+    this.el.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    this.el.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+    this.el.addEventListener('lostpointercapture', (e) => this.onPointerUp(e));
+    
+    // Touch events for better pinch detection
+    this.el.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
+    this.el.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
+    this.el.addEventListener('touchend', (e) => this.onTouchEnd(e));
+    
+    // Prevent context menu on long press
+    this.el.addEventListener('contextmenu', (e) => {
+      if (this.drag.active || this.pinch.active) e.preventDefault();
+    });
+    
+    // Restore state
+    this.restoreState();
+  }
+  
+  bringToFront() {
+    // Remove focused from all overlays
+    overlayInstances.forEach(ov => {
+      if (ov.el) ov.el.classList.remove('focused');
+    });
+    // Add focused to this one
+    this.el.classList.add('focused');
+  }
+  
+  toggleGlassMode() {
+    this.glassMode = !this.glassMode;
+    this.el.classList.toggle('glass-mode', this.glassMode);
+    this.saveState();
+  }
+  
+  setGlassMode(enabled) {
+    this.glassMode = enabled;
+    this.el.classList.toggle('glass-mode', this.glassMode);
+  }
+  
+  // Pinch gesture helpers
+  getTouchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  
+  onTouchStart(e) {
+    if (e.target.matches('input, button, a')) return;
+    
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      this.pinch.active = true;
+      this.drag.active = false;
+      this.pinch.initialDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      this.pinch.initialScale = this.scale;
+      this.el.classList.add('pinching');
+      this.el.classList.remove('dragging');
+      triggerHaptic('light');
+    }
+  }
+  
+  onTouchMove(e) {
+    if (this.pinch.active && e.touches.length === 2) {
+      e.preventDefault();
+      const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+      const scaleRatio = currentDistance / this.pinch.initialDistance;
+      // Smaller max scale on mobile for more viewing area
+      const isMobile = window.matchMedia('(max-width: 860px)').matches;
+      const minScale = isMobile ? 0.5 : 0.6;
+      const maxScale = isMobile ? 1.0 : 1.5;
+      const newScale = Math.max(minScale, Math.min(maxScale, this.pinch.initialScale * scaleRatio));
+      this.setScale(newScale);
+    }
+  }
+  
+  onTouchEnd(e) {
+    if (this.pinch.active && e.touches.length < 2) {
+      this.pinch.active = false;
+      this.el.classList.remove('pinching');
+      triggerHaptic('medium');
+      this.saveState();
+    }
+  }
+  
+  setScale(val) {
+    this.scale = val;
+    this.el.style.setProperty('--overlay-scale', val);
+    // Also scale font sizes proportionally
+    this.el.style.fontSize = (12 * val) + 'px';
+  }
+  
+  toggleVisibility() {
+    if (this.el.classList.contains('visible')) {
+      this.hide();
+    } else {
+      this.show();
+    }
+  }
+  
+  show() {
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    if (!this.el.style.left && !this.el.style.right) {
+      this.setDefaultPosition();
+    }
+    this.el.classList.add('visible');
+    this.toggle.classList.add('active');
+    this.saveState();
+  }
+  
+  hide() {
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    this.el.classList.remove('visible');
+    this.toggle.classList.remove('active');
+    this.saveState();
+  }
+  
+  setDefaultPosition() {
+    const defaultX = this.el.dataset.defaultX || '16';
+    const defaultY = this.el.dataset.defaultY || '70';
+    
+    if (defaultX === 'right') {
+      this.el.style.right = '70px';
+      this.el.style.left = 'auto';
+    } else if (defaultX === 'center') {
+      this.el.style.left = Math.max(16, (window.innerWidth - 320) / 2) + 'px';
+    } else {
+      this.el.style.left = defaultX + 'px';
+    }
+    this.el.style.top = defaultY + 'px';
+  }
+  
+  setOpacity(val) {
+    this.opacity = val;
+    // Control opacity while maintaining frosted glass effect
+    this.el.style.setProperty('--overlay-opacity', val);
+    // Adjust blur based on opacity - more blur when more transparent
+    const blurAmount = Math.max(8, 16 * (1 - val));
+    this.el.style.backdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
+    this.el.style.webkitBackdropFilter = `blur(${blurAmount}px) saturate(1.2)`;
+    if (this.opacitySlider) this.opacitySlider.value = val;
+    this.saveState();
+  }
+  
+  onPointerDown(e) {
+    if (e.target.matches('input, button, a, .floating-overlay-close')) return;
+    e.preventDefault();
+    
+    if (this.inertiaRAF) cancelAnimationFrame(this.inertiaRAF);
+    
+    try {
+      this.el.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    
+    this.el.classList.add('dragging');
+    this.drag.active = true;
+    
+    // Store the starting cursor position and current element position
+    this.drag.startX = e.clientX;
+    this.drag.startY = e.clientY;
+    
+    // Get element's current visual position
+    const rect = this.el.getBoundingClientRect();
+    this.drag.elStartX = rect.left;
+    this.drag.elStartY = rect.top;
+    
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = performance.now();
+    this.drag.velocityX = 0;
+    this.drag.velocityY = 0;
+    
+    triggerHaptic('light');
+  }
+  
+  onPointerMove(e) {
+    if (!this.drag.active) return;
+    e.preventDefault();
+    
+    const now = performance.now();
+    const dt = Math.max(1, now - this.drag.lastTime);
+    
+    // Calculate velocity for inertia
+    this.drag.velocityX = (e.clientX - this.drag.lastX) / dt * 16;
+    this.drag.velocityY = (e.clientY - this.drag.lastY) / dt * 16;
+    
+    this.drag.lastX = e.clientX;
+    this.drag.lastY = e.clientY;
+    this.drag.lastTime = now;
+    
+    // Calculate delta from drag start
+    const dx = e.clientX - this.drag.startX;
+    const dy = e.clientY - this.drag.startY;
+    
+    // New position = element start position + delta
+    let x = this.drag.elStartX + dx;
+    let y = this.drag.elStartY + dy;
+    
+    // Clamp to viewport bounds
+    x = Math.max(0, Math.min(window.innerWidth - this.el.offsetWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - this.el.offsetHeight, y));
+    
+    this.el.style.left = x + 'px';
+    this.el.style.right = 'auto';
+    this.el.style.top = y + 'px';
+  }
+  
+  onPointerUp(e) {
+    if (!this.drag.active) return;
+    this.drag.active = false;
+    this.el.classList.remove('dragging');
+    
+    // Apply inertia if velocity is significant
+    const speed = Math.sqrt(this.drag.velocityX ** 2 + this.drag.velocityY ** 2);
+    if (speed > 0.5) {
+      this.applyInertia();
+    } else {
+      this.saveState();
+    }
+  }
+  
+  applyInertia() {
+    const friction = 0.92;
+    const minVelocity = 0.1;
+    
+    const animate = () => {
+      this.drag.velocityX *= friction;
+      this.drag.velocityY *= friction;
+      
+      let x = parseFloat(this.el.style.left) + this.drag.velocityX;
+      let y = parseFloat(this.el.style.top) + this.drag.velocityY;
+      
+      // Bounce off edges with damping
+      const maxX = window.innerWidth - this.el.offsetWidth;
+      const maxY = window.innerHeight - this.el.offsetHeight;
+      
+      if (x < 0) { x = 0; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (x > maxX) { x = maxX; this.drag.velocityX *= -0.3; triggerHaptic('light'); }
+      if (y < 0) { y = 0; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      if (y > maxY) { y = maxY; this.drag.velocityY *= -0.3; triggerHaptic('light'); }
+      
+      this.el.style.left = x + 'px';
+      this.el.style.top = y + 'px';
+      
+      if (Math.abs(this.drag.velocityX) > minVelocity || Math.abs(this.drag.velocityY) > minVelocity) {
+        this.inertiaRAF = requestAnimationFrame(animate);
+      } else {
+        this.saveState();
+      }
+    };
+    
+    this.inertiaRAF = requestAnimationFrame(animate);
+  }
+  
+  saveState() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify({
+        visible: this.el.classList.contains('visible'),
+        x: parseInt(this.el.style.left) || 0,
+        y: parseInt(this.el.style.top) || 0,
+        opacity: this.opacity,
+        scale: this.scale,
+        glassMode: this.glassMode
+      }));
+    } catch (e) {}
+  }
+  
+  restoreState() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.x !== undefined) {
+          this.el.style.left = data.x + 'px';
+          this.el.style.right = 'auto';
+        }
+        if (data.y !== undefined) this.el.style.top = data.y + 'px';
+        if (data.opacity !== undefined) this.setOpacity(data.opacity);
+        if (data.scale !== undefined) this.setScale(data.scale);
+        if (data.glassMode !== undefined) this.setGlassMode(data.glassMode);
+        if (data.visible) this.show();
+      }
+    } catch (e) {}
+  }
+}
+
+// Create overlay instances
+const infoOverlayManager = new FloatingOverlay('infoOverlay', 'infoOverlayToggle', 'ps.infoOverlay');
+const lessonOverlayManager = new FloatingOverlay('lessonOverlay', 'lessonOverlayToggle', 'ps.lessonOverlay');
+const tipsOverlayManager = new FloatingOverlay('tipsOverlay', 'tipsOverlayToggle', 'ps.tipsOverlay');
+
+// Toggle functions for keyboard shortcuts
+function toggleInfoOverlay() { infoOverlayManager.toggleVisibility(); }
+function toggleLessonOverlay() { lessonOverlayManager.toggleVisibility(); }
+function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
+
+// Element refs for updates
+const ovSelected = document.getElementById('ov-selected');
+const ovMaterial = document.getElementById('ov-material');
+const ovMass = document.getElementById('ov-mass');
+const ovSpeed = document.getElementById('ov-speed');
+const ovKe = document.getElementById('ov-ke');
+const ovPe = document.getElementById('ov-pe');
+const ovMomentum = document.getElementById('ov-momentum');
+const ovAngular = document.getElementById('ov-angular');
+const ovTotal = document.getElementById('ov-total');
+const ovCount = document.getElementById('ov-count');
+const ovLessonTitle = document.getElementById('ov-lessonTitle');
+const ovLessonBody = document.getElementById('ov-lessonBody');
+const ovLessonFormula = document.getElementById('ov-lessonFormula');
+const ovLevelBadge = document.getElementById('ov-levelBadge');
+const ovConceptList = document.getElementById('ov-conceptList');
+
+// Update info overlay readings
+function updateInfoOverlay() {
+  const infoEl = document.getElementById('infoOverlay');
+  if (!infoEl || !infoEl.classList.contains('visible')) return;
+  
+  const b = state.selected;
+  const dynamicBodies = world.bodies.filter(x => !x.isStatic && !walls.includes(x));
+  
+  // System totals
+  let totalKE = 0, totalPE = 0;
+  dynamicBodies.forEach(body => {
+    totalKE += 0.5 * body.mass * body.velocity.lengthSq();
+    totalPE += body.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(body);
+  });
+  
+  if (ovTotal) ovTotal.textContent = (totalKE + totalPE).toFixed(1);
+  if (ovCount) ovCount.textContent = dynamicBodies.length;
+  
+  if (!b || walls.includes(b)) {
+    if (ovSelected) ovSelected.textContent = '—';
+    if (ovMaterial) { ovMaterial.textContent = '—'; ovMaterial.style.color = ''; }
+    if (ovMass) ovMass.textContent = '0';
+    if (ovSpeed) ovSpeed.textContent = '0';
+    if (ovKe) ovKe.textContent = '0';
+    if (ovPe) ovPe.textContent = '0';
+    if (ovMomentum) ovMomentum.textContent = '0';
+    if (ovAngular) ovAngular.textContent = '0';
+    return;
+  }
+  
+  const speed = b.velocity.length();
+  const ke = 0.5 * b.mass * b.velocity.lengthSq();
+  const pe = b.mass * Math.abs(world.gravity) * bodyHeightAboveFloor(b);
+  const momentum = b.mass * speed;
+  
+  // Determine shape name
+  let shapeName = 'Box';
+  if (b.shape === SHAPE.CIRCLE) shapeName = 'Ball';
+  else if (b.shape === SHAPE.POLYGON && b.vertices?.length === 3) shapeName = 'Triangle';
+  else if (b.shape === SHAPE.POLYGON) shapeName = 'Polygon';
+  
+  // Get material name (capitalize first letter)
+  const matKey = b.materialName || 'default';
+  const matData = MATERIALS[matKey];
+  const displayMatName = matData?.name || (matKey.charAt(0).toUpperCase() + matKey.slice(1));
+  
+  if (ovSelected) ovSelected.textContent = shapeName;
+  if (ovMaterial) {
+    ovMaterial.textContent = displayMatName;
+    ovMaterial.style.color = matData?.color || '';
+  }
+  if (ovMass) ovMass.textContent = b.mass.toFixed(2);
+  if (ovSpeed) ovSpeed.textContent = speed.toFixed(2);
+  if (ovKe) ovKe.textContent = ke.toFixed(1);
+  if (ovPe) ovPe.textContent = pe.toFixed(1);
+  if (ovMomentum) ovMomentum.textContent = momentum.toFixed(2);
+  if (ovAngular) ovAngular.textContent = Math.abs(b.angularVelocity || 0).toFixed(2);
+}
+
+// Update lesson overlay from education system
+function updateLessonOverlay() {
+  const lessonEl = document.getElementById('lessonOverlay');
+  if (!lessonEl || !lessonEl.classList.contains('visible')) return;
+  
+  // Sync with education.js if available
+  if (typeof currentLesson !== 'undefined' && currentLesson) {
+    if (ovLessonTitle) ovLessonTitle.textContent = currentLesson.title || 'Physics Concepts';
+    if (ovLessonBody) ovLessonBody.textContent = currentLesson.body || '';
+    if (ovLessonFormula && currentLesson.formula) {
+      ovLessonFormula.textContent = currentLesson.formula;
+      ovLessonFormula.hidden = false;
+    } else if (ovLessonFormula) {
+      ovLessonFormula.hidden = true;
+    }
+  }
+  
+  // Update level badge
+  if (ovLevelBadge) {
+    const levelNames = ['Curious', 'Student', 'University', 'Expert'];
+    const currentLevel = parseInt(document.querySelector('#levelSegment .seg.active')?.dataset.level) || 1;
+    ovLevelBadge.textContent = levelNames[currentLevel - 1];
+  }
+}
+
+// Update tips overlay concepts
+function updateTipsOverlay() {
+  if (!ovConceptList) return;
+  const tipsEl = document.getElementById('tipsOverlay');
+  if (!tipsEl || !tipsEl.classList.contains('visible')) return;
+  
+  // Sync with education.js concept list if available
+  const panelConcepts = document.getElementById('conceptList');
+  if (panelConcepts) {
+    ovConceptList.innerHTML = panelConcepts.innerHTML;
+  }
+}
 
 /* =========================== Pro paywall =========================== */
 // Pro is gated client-side via localStorage 'ps.pro'. Activation paths today:
@@ -1890,6 +2782,12 @@ window.addEventListener('keydown', (ev) => {
     ui.clearBtn.click();
   } else if (ev.key === '?') {
     document.getElementById('helpDialog').showModal();
+  } else if (ev.key === 'i' || ev.key === 'I') {
+    toggleInfoOverlay();
+  } else if (ev.key === 'l' || ev.key === 'L') {
+    toggleLessonOverlay();
+  } else if (ev.key === 't' || ev.key === 'T') {
+    toggleTipsOverlay();
   }
 });
 
@@ -1924,7 +2822,7 @@ function loadPreset(name) {
     }
     case 'pendulum': {
       const ax = Wm * 0.5, ay = 0.5;
-      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.08, { isStatic: true, color: '#4a5068' }));
       const bob = world.add(makeCircle(ax + 3, ay + 0.2, 0.5, { color: '#ff7a8a', density: 4 }));
       world.addConstraint(new DistanceConstraint(anchor, bob, new Vec2(0, 0), new Vec2(0, 0), {
         length: 3.2, stiffness: 1.0
@@ -1941,7 +2839,7 @@ function loadPreset(name) {
       const N = 5;
       for (let i = 0; i < N; i++) {
         const x = cx + (i - (N - 1) / 2) * spacing;
-        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#3b4456' }));
+        const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#4a5068' }));
         const ball = world.add(makeCircle(x, ay + len, radius, {
           color: '#8ad0ff', restitution: 0.95, friction: 0.0, density: 5
         }));
@@ -1964,14 +2862,14 @@ function loadPreset(name) {
         position: new Vec2(Wm * 0.5, Hm * 0.7),
         vertices: verts,
         isStatic: true,
-        color: '#3b4456'
+        color: '#4a5068'
       });
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
       world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#3b4456' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'orbit': {
@@ -2051,7 +2949,7 @@ function loadPreset(name) {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
       const ropeLen = Math.min(4.5, Hm * 0.55);
-      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#3b4456' }));
+      const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#4a5068' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
       }));
@@ -2089,20 +2987,30 @@ function loop(now) {
     state.fpsEMA = state.fpsEMA * 0.92 + inst * 0.08;
   }
   if (!state.paused) {
-    if (state.grabBody && !state.grabBody.isStatic) {
+if (state.grabBody && !state.grabBody.isStatic) {
       // Off-center grab forces produce torque; strongly damp angular velocity
       // while held so the body doesn't spiral out of control.
       const dampedDt = rawDt * state.timeScale;
       state.grabBody.angularVelocity *= Math.exp(-9 * dampedDt);
+      
+      // Track velocity for throw detection
+      const vel = state.grabBody.velocity.length();
+      state.grabVelocityHistory.push(vel);
+      // Keep only last 10 samples
+      if (state.grabVelocityHistory.length > 10) state.grabVelocityHistory.shift();
     }
     world.step(rawDt * state.timeScale);
     sampleEnvironment(now);
     updateTrails();
+    updateFragments(rawDt);
   }
-  render();
+render();
   updateReadouts();
+  updateInfoOverlay();
+  updateLessonOverlay();
+  updateTipsOverlay();
   requestAnimationFrame(loop);
-}
+  }
 
 /* =========================== bootstrap =========================== */
 function init() {
