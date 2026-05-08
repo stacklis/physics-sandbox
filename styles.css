@@ -646,6 +646,7 @@ body.interacting * {
   justify-content: center;
   gap: 6px;
   padding: 7px 8px;
+}
 /* PRO PAYWALL ------------------------------------------------------------- */
 .pro-badge {
   display: none;
