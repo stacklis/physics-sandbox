@@ -18,9 +18,9 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=60" />
+<link rel="stylesheet" href="../styles.css?v=61" />
 </head>
-<body>
+<body data-active-tab="tools" data-sheet-open="false">
 <header class="topbar">
   <div class="brand">
     <span class="logo" aria-hidden="true">PS</span>
@@ -55,160 +55,148 @@
   </div>
   <button id="topbarToggle" class="bar-toggle" aria-label="Collapse top bar" title="Collapse / expand top bar"></button>
 </header>
-<div class="topbar-divider" id="topbarDivider" role="separator" aria-label="Resize top panel" title="Drag to resize">
-  <div class="divider-handle-h"></div>
-</div>
 
-<main class="layout">
-  <aside class="tools" aria-label="Tools" id="toolsPanel">
-    <button class="tools-collapse-btn" id="toolsCollapseBtn" aria-label="Collapse tools" title="Collapse/expand tools">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
-    <div class="tool-section">
-      <div class="section-title">Spawn</div>
-      <div class="tool-grid">
-        <button class="tool" data-tool="box" title="Box (1)">
-          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>
-          <span>Box</span>
-        </button>
-        <button class="tool" data-tool="circle" title="Ball (2)">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>
-          <span>Ball</span>
-        </button>
-        <button class="tool" data-tool="polygon" title="Polygon (3)">
-          <svg viewBox="0 0 24 24"><polygon points="12,4 20,10 17,19 7,19 4,10"/></svg>
-          <span>Polygon</span>
-        </button>
-        <button class="tool" data-tool="wall" title="Static wall (4)">
-          <svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4"/></svg>
-          <span>Wall</span>
-        </button>
-        <button class="tool" data-tool="triangle" title="Triangle (5)">
-          <svg viewBox="0 0 24 24"><polygon points="12,4 20,19 4,19"/></svg>
-          <span>Triangle</span>
-        </button>
-        <button class="tool" data-tool="rope" title="Rope (6)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="13" cy="14" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
-          <span>Rope</span>
-        </button>
-      </div>
+<main class="canvas-host">
+  <canvas id="canvas"></canvas>
+  <div id="hint" class="hint">
+    <span>Click and drag in empty space to spawn. Click an object to interact. Press <kbd>?</kbd> for keys.</span>
+    <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
+  </div>
+</main>
+
+<aside class="panel-host" aria-label="Workspace panels">
+  <!-- TOOLS panel — desktop left sidebar; mobile sheet tab -->
+  <section class="panel" data-panel="tools" id="toolsPanel" aria-label="Tools">
+    <div class="panel-grabber" aria-hidden="true"></div>
+    <div class="panel-header">
+      <span class="panel-title">Tools</span>
     </div>
-    <div class="tool-section">
-      <div class="section-title">Interact</div>
-      <div class="tool-grid">
-        <button class="tool active" data-tool="grab" title="Grab and drag (G)">
-          <svg viewBox="0 0 24 24"><path d="M8 11V6a2 2 0 014 0v5M12 11V5a2 2 0 014 0v6M16 11V7a2 2 0 014 0v8a6 6 0 01-6 6h-3a5 5 0 01-4-2l-3-4 2-2 3 2"/></svg>
-          <span>Grab</span>
-        </button>
-        <button class="tool" data-tool="spring" title="Spring (S)">
-          <svg viewBox="0 0 24 24"><path d="M3 12h3l1-3 2 6 2-6 2 6 2-6 2 6 1-3h3"/></svg>
-          <span>Spring</span>
-        </button>
-        <button class="tool" data-tool="impulse" title="Push (P)">
-          <svg viewBox="0 0 24 24"><path d="M4 12h12M11 7l5 5-5 5"/></svg>
-          <span>Push</span>
-        </button>
-        <button class="tool" data-tool="delete" title="Delete (X)">
-          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          <span>Delete</span>
-        </button>
-        <button class="tool" data-tool="pin" title="Pin / Unpin (N)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v6M9 9h6l1 5H8zM12 14v7"/></svg>
-          <span>Pin</span>
-        </button>
-        <button class="tool" data-tool="slice" title="Slice constraints (K)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l8-8M14 10l5-5M11 13l3 3"/></svg>
-          <span>Slice</span>
-        </button>
+    <div class="panel-body">
+      <div class="tool-section">
+        <div class="section-title">Spawn</div>
+        <div class="tool-grid">
+          <button class="tool" data-tool="box" title="Box (1)">
+            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>
+            <span>Box</span>
+          </button>
+          <button class="tool" data-tool="circle" title="Ball (2)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>
+            <span>Ball</span>
+          </button>
+          <button class="tool" data-tool="polygon" title="Polygon (3)">
+            <svg viewBox="0 0 24 24"><polygon points="12,4 20,10 17,19 7,19 4,10"/></svg>
+            <span>Polygon</span>
+          </button>
+          <button class="tool" data-tool="wall" title="Static wall (4)">
+            <svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4"/></svg>
+            <span>Wall</span>
+          </button>
+          <button class="tool" data-tool="triangle" title="Triangle (5)">
+            <svg viewBox="0 0 24 24"><polygon points="12,4 20,19 4,19"/></svg>
+            <span>Triangle</span>
+          </button>
+          <button class="tool" data-tool="rope" title="Rope (6)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="13" cy="14" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+            <span>Rope</span>
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="tool-section">
-      <div class="section-title">Materials <span class="section-hint">(click to apply)</span></div>
-      <div class="tool-grid material-grid">
-        <button class="material" data-material="default">Default</button>
-        <button class="material" data-material="rubber">Rubber</button>
-        <button class="material" data-material="ice">Ice</button>
-        <button class="material" data-material="metal">Metal</button>
-        <button class="material" data-material="wood">Wood</button>
-        <button class="material" data-material="bouncy">Bouncy</button>
-        <button class="material" data-material="heavy">Heavy</button>
-        <button class="material" data-material="light">Light</button>
+      <div class="tool-section">
+        <div class="section-title">Interact</div>
+        <div class="tool-grid">
+          <button class="tool active" data-tool="grab" title="Grab and drag (G)">
+            <svg viewBox="0 0 24 24"><path d="M8 11V6a2 2 0 014 0v5M12 11V5a2 2 0 014 0v6M16 11V7a2 2 0 014 0v8a6 6 0 01-6 6h-3a5 5 0 01-4-2l-3-4 2-2 3 2"/></svg>
+            <span>Grab</span>
+          </button>
+          <button class="tool" data-tool="spring" title="Spring (S)">
+            <svg viewBox="0 0 24 24"><path d="M3 12h3l1-3 2 6 2-6 2 6 2-6 2 6 1-3h3"/></svg>
+            <span>Spring</span>
+          </button>
+          <button class="tool" data-tool="impulse" title="Push (P)">
+            <svg viewBox="0 0 24 24"><path d="M4 12h12M11 7l5 5-5 5"/></svg>
+            <span>Push</span>
+          </button>
+          <button class="tool" data-tool="delete" title="Delete (X)">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <span>Delete</span>
+          </button>
+          <button class="tool" data-tool="pin" title="Pin / Unpin (N)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v6M9 9h6l1 5H8zM12 14v7"/></svg>
+            <span>Pin</span>
+          </button>
+          <button class="tool" data-tool="slice" title="Slice constraints (K)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l8-8M14 10l5-5M11 13l3 3"/></svg>
+            <span>Slice</span>
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="tool-section">
-      <div class="section-title">Presets</div>
-      <div class="tool-grid">
-        <button class="preset" data-preset="stack">Stack</button>
-        <button class="preset" data-preset="pendulum">Pendulum</button>
-        <button class="preset" data-preset="newton">Cradle</button>
-        <button class="preset" data-preset="ramp">Ramp</button>
-        <button class="preset" data-preset="orbit">Orbits</button>
-        <button class="preset" data-preset="dominoes">Dominoes</button>
-        <button class="preset" data-preset="tower">Tower</button>
-        <button class="preset" data-preset="wreckingball">Wrecker</button>
+      <div class="tool-section">
+        <div class="section-title">Materials <span class="section-hint">(click to apply)</span></div>
+        <div class="tool-grid material-grid">
+          <button class="material" data-material="default">Default</button>
+          <button class="material" data-material="rubber">Rubber</button>
+          <button class="material" data-material="ice">Ice</button>
+          <button class="material" data-material="metal">Metal</button>
+          <button class="material" data-material="wood">Wood</button>
+          <button class="material" data-material="bouncy">Bouncy</button>
+          <button class="material" data-material="heavy">Heavy</button>
+          <button class="material" data-material="light">Light</button>
+        </div>
       </div>
-    </div>
-    <div class="tool-section">
-      <div class="section-title">Physics</div>
-      <div class="tool-grid">
-        <label class="check destruction-toggle"><input type="checkbox" id="destructionMode"/> Destruction</label>
-        <label class="slider-row grab-strength">
-          <span>Grab</span>
-          <input id="grabStrength" type="range" min="0.5" max="5" step="0.1" value="1" />
+      <div class="tool-section">
+        <div class="section-title">Presets</div>
+        <div class="tool-grid">
+          <button class="preset" data-preset="stack">Stack</button>
+          <button class="preset" data-preset="pendulum">Pendulum</button>
+          <button class="preset" data-preset="newton">Cradle</button>
+          <button class="preset" data-preset="ramp">Ramp</button>
+          <button class="preset" data-preset="orbit">Orbits</button>
+          <button class="preset" data-preset="dominoes">Dominoes</button>
+          <button class="preset" data-preset="tower">Tower</button>
+          <button class="preset" data-preset="wreckingball">Wrecker</button>
+        </div>
+      </div>
+      <div class="tool-section">
+        <div class="section-title">Physics</div>
+        <div class="tool-grid">
+          <label class="check destruction-toggle"><input type="checkbox" id="destructionMode"/> Destruction</label>
+          <label class="slider-row grab-strength">
+            <span>Grab</span>
+            <input id="grabStrength" type="range" min="0.5" max="5" step="0.1" value="1" />
+          </label>
+        </div>
+      </div>
+      <div class="tool-section">
+        <div class="section-title">Display</div>
+        <div class="tool-grid">
+          <label class="check"><input type="checkbox" id="showVectors"/> Velocity</label>
+          <label class="check"><input type="checkbox" id="showContacts"/> Contacts</label>
+          <label class="check"><input type="checkbox" id="showTrails"/> Trails</label>
+          <label class="check"><input type="checkbox" id="showAABB"/> AABB</label>
+          <label class="check"><input type="checkbox" id="showHeatmap"/> Heatmap</label>
+          <label class="check"><input type="checkbox" id="showFPS"/> FPS</label>
+        </div>
+      </div>
+      <div class="tool-section">
+        <div class="section-title">Audio</div>
+        <div class="tool-grid">
+          <label class="check"><input type="checkbox" id="audioOn" checked/> Sound</label>
+        </div>
+        <label class="slider-row">
+          <span>Volume</span>
+          <input id="audioVol" type="range" min="0" max="1" step="0.01" value="0.4" />
         </label>
       </div>
     </div>
-    <div class="tool-section">
-      <div class="section-title">Display</div>
-      <div class="tool-grid">
-        <label class="check"><input type="checkbox" id="showVectors"/> Velocity</label>
-        <label class="check"><input type="checkbox" id="showContacts"/> Contacts</label>
-        <label class="check"><input type="checkbox" id="showTrails"/> Trails</label>
-        <label class="check"><input type="checkbox" id="showAABB"/> AABB</label>
-        <label class="check"><input type="checkbox" id="showHeatmap"/> Heatmap</label>
-        <label class="check"><input type="checkbox" id="showFPS"/> FPS</label>
-      </div>
-    </div>
-    <div class="tool-section">
-      <div class="section-title">Audio</div>
-      <div class="tool-grid">
-        <label class="check"><input type="checkbox" id="audioOn" checked/> Sound</label>
-      </div>
-      <label class="slider-row">
-        <span>Volume</span>
-        <input id="audioVol" type="range" min="0" max="1" step="0.01" value="0.4" />
-      </label>
-    </div>
-  </aside>
-  <div class="tools-divider" id="toolsDivider" role="separator" aria-label="Resize tools panel" title="Drag to resize">
-    <div class="divider-handle"></div>
-  </div>
-  <section class="stage">
-    <canvas id="canvas"></canvas>
-    <div id="hint" class="hint">
-      <span>Click and drag in empty space to spawn. Click an object to interact. Press <kbd>?</kbd> for keys.</span>
-      <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
-    </div>
-    
-    <!-- Overlay toggle buttons - top right cluster -->
-    <div class="overlay-toggles">
-      <button id="infoOverlayToggle" class="overlay-toggle" title="Readings (I)" aria-label="Toggle readings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      </button>
-      <button id="lessonOverlayToggle" class="overlay-toggle" title="Lessons (L)" aria-label="Toggle lessons">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-      </button>
-      <button id="tipsOverlayToggle" class="overlay-toggle" title="Tips (T)" aria-label="Toggle tips">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-      </button>
-    </div>
+  </section>
 
-    <!-- Floating readings overlay -->
-    <div id="infoOverlay" class="floating-overlay" data-default-x="16" data-default-y="70">
-      <div class="floating-overlay-header">
-        <span class="floating-overlay-title">Live Readings</span>
-        <button class="floating-overlay-close" aria-label="Close">×</button>
-      </div>
+  <!-- READINGS panel — desktop right sidebar; mobile sheet tab -->
+  <section class="panel" data-panel="readings" id="infoOverlay" aria-label="Live readings">
+    <div class="panel-grabber" aria-hidden="true"></div>
+    <div class="panel-header">
+      <span class="panel-title">Live Readings</span>
+    </div>
+    <div class="panel-body">
       <div class="readout-grid">
         <div class="metric"><div class="metric-label">Object</div><div class="metric-val" id="ov-selected">—</div></div>
         <div class="metric"><div class="metric-label">Material</div><div class="metric-val" id="ov-material">—</div></div>
@@ -223,63 +211,49 @@
         <span>System: <b id="ov-total">0</b> J</span>
         <span>Bodies: <b id="ov-count">0</b></span>
       </div>
-      <div class="overlay-controls">
-        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
-        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
     </div>
+  </section>
 
-    <!-- Floating lessons overlay -->
-    <div id="lessonOverlay" class="floating-overlay lesson-overlay" data-default-x="right" data-default-y="70">
-      <div class="floating-overlay-header">
-        <span class="floating-overlay-title" id="ov-lessonTitle">Physics Concepts</span>
-        <span class="level-badge" id="ov-levelBadge">Curious</span>
-        <button class="floating-overlay-close" aria-label="Close">×</button>
-      </div>
-      <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This overlay explains the physics behind what you see.</p>
+  <!-- EDUCATOR panel — desktop bottom dock; mobile sheet tab -->
+  <section class="panel" data-panel="educator" id="lessonOverlay" aria-label="Educator">
+    <div class="panel-grabber" aria-hidden="true"></div>
+    <div class="panel-header">
+      <span class="panel-title" id="ov-lessonTitle">Physics Concepts</span>
+      <span class="level-badge" id="ov-levelBadge">Curious</span>
+    </div>
+    <div class="panel-body">
+      <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This panel explains the physics behind what you see.</p>
       <div class="formula" id="ov-lessonFormula" hidden></div>
       <div class="lesson-tags" id="ov-lessonTags"></div>
-      <div class="overlay-controls">
-        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
-        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Floating tips overlay -->
-    <div id="tipsOverlay" class="floating-overlay tips-overlay" data-default-x="center" data-default-y="70">
-      <div class="floating-overlay-header">
-        <span class="floating-overlay-title">Quick Tips</span>
-        <button class="floating-overlay-close" aria-label="Close">×</button>
-      </div>
-      <ul class="tips-list">
-        <li><kbd>1-6</kbd> Switch spawn tools</li>
-        <li><kbd>G</kbd> Grab · <kbd>S</kbd> Spring · <kbd>P</kbd> Push</li>
-        <li><kbd>X</kbd> Delete · <kbd>N</kbd> Pin · <kbd>K</kbd> Slice</li>
-        <li><kbd>Space</kbd> Pause/Play · <kbd>R</kbd> Reset</li>
-        <li>Right-drag to pan, scroll to zoom</li>
-        <li>Drag in empty space to size objects</li>
-      </ul>
       <div class="concepts-touched">
         <div class="concepts-title">Concepts explored</div>
         <div id="ov-conceptList" class="concept-list">
           <span class="concept-pill empty">Interact to learn</span>
         </div>
       </div>
-      <div class="overlay-controls">
-        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
-        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
     </div>
   </section>
 
-  
-</main>
+  <!-- Hidden compatibility shim — preserves #tipsOverlay so legacy app.js
+       references stay non-null. Tips content (kbd shortcuts) lives in
+       #helpDialog (press ?), keyboard 'T' opens that instead. -->
+  <div id="tipsOverlay" hidden aria-hidden="true"></div>
+</aside>
+
+<nav class="tabbar" aria-label="Panel tabs">
+  <button class="tab active" data-tab="tools" aria-pressed="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+    <span>Tools</span>
+  </button>
+  <button class="tab" data-tab="readings" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+    <span>Readings</span>
+  </button>
+  <button class="tab" data-tab="educator" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+    <span>Educator</span>
+  </button>
+</nav>
 
 <dialog id="helpDialog" class="help">
   <h2>Keyboard</h2>
@@ -287,15 +261,16 @@
     <li><kbd>1</kbd>–<kbd>6</kbd> spawn tools (box, ball, polygon, wall, triangle, rope)</li>
     <li><kbd>G</kbd> grab · <kbd>S</kbd> spring · <kbd>P</kbd> push · <kbd>X</kbd> delete · <kbd>N</kbd> pin · <kbd>K</kbd> slice</li>
     <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
-    <li><kbd>I</kbd> readings · <kbd>L</kbd> lessons · <kbd>T</kbd> tips · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> level</li>
+    <li><kbd>I</kbd> readings · <kbd>L</kbd> educator · <kbd>T</kbd> help · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> level</li>
     <li>Drag in empty space to spawn sized objects</li>
     <li>Right-click drag to pan, scroll to zoom</li>
   </ul>
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="../engine.js?v=60"></script>
-<script src="../education.js?v=60"></script>
-<script src="../app.js?v=60"></script>
+<script src="../engine.js?v=61"></script>
+<script src="../education.js?v=61"></script>
+<script src="../app.js?v=61"></script>
+<script type="module" src="../layout.js?v=61"></script>
 </body>
 </html>

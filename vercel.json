@@ -3,6 +3,10 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/free", "destination": "/app/?free=1" },
+    { "source": "/free/", "destination": "/app/?free=1" }
+  ],
   "headers": [
     {
       "source": "/(.*)\\.(js|css)",
