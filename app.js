@@ -96,6 +96,51 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Mode-aware save/load. The 2D side uses the IIFE-internal serializeScene;
+// the 3D side uses module exports. We attach interceptors in capture phase
+// so 3D mode wins before the IIFE handlers fire.
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const fileInput = document.getElementById('loadFileInput');
+  if (!saveBtn || !loadBtn || !fileInput) return;
+
+  saveBtn.addEventListener('click', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopPropagation(); ev.preventDefault();
+    const mod = await import('./app3d.js?v=66');
+    const scene = mod.serialize3D();
+    const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `sandbox-3d-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, true);
+
+  loadBtn.addEventListener('click', ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopPropagation(); ev.preventDefault();
+    fileInput.click();
+  }, true);
+
+  fileInput.addEventListener('change', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopPropagation();
+    const f = fileInput.files[0]; if (!f) return;
+    const text = await f.text();
+    let json;
+    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); return; }
+    if (json.mode !== '3d') {
+      alert('That scene is a 2D scene. Switch to 2D mode to load it.');
+      return;
+    }
+    const mod = await import('./app3d.js?v=66');
+    try { mod.deserialize3D(json); }
+    catch (e) { alert('Failed to load scene: ' + e.message); }
+  }, true);
+});
+
 (function () {
 const { Vec2, World, Body, DistanceConstraint, makeBox, makeCircle, makePolygon, SHAPE } = window.PSandbox;
 const { Educator } = window.PEdu;

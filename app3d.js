@@ -226,3 +226,62 @@ export function teardown3D() {
   if (renderer) { renderer.dispose(); renderer = null; }
   if (world) { world.free(); world = null; }
 }
+
+const SCHEMA_3D = 'physics-sandbox/scene-3d/v1';
+
+export function serialize3D() {
+  const bodies = [];
+  for (const rb of world.bodies) {
+    if (rb.isFixed()) continue;
+    const u = rb.userData || {};
+    const t = rb.translation(), q = rb.rotation(), v = rb.linvel(), a = rb.angvel();
+    const c = rb.collider(0);
+    const entry = { kind: u.kind, color: u.color,
+      position: [t.x, t.y, t.z], rotation: [q.x, q.y, q.z, q.w],
+      velocity: [v.x, v.y, v.z], angularVelocity: [a.x, a.y, a.z] };
+    switch (u.kind) {
+      case 'cube':     { const he = c.halfExtents(); entry.size = he.x * 2; break; }
+      case 'sphere':   { entry.radius = c.radius(); break; }
+      case 'cylinder':
+      case 'capsule':  { entry.radius = c.radius(); entry.halfHeight = c.halfHeight(); break; }
+      case 'prism':    { entry.sides = u.sides; entry.radius = u.radius; entry.depth = u.depth; break; }
+    }
+    bodies.push(entry);
+  }
+  return {
+    type: SCHEMA_3D,
+    mode: '3d',
+    createdAt: new Date().toISOString(),
+    bodies,
+  };
+}
+
+export function deserialize3D(json) {
+  if (!json || json.type !== SCHEMA_3D) {
+    throw new Error('Not a 3D scene file.');
+  }
+  // Wipe dynamic bodies (keep static playfield).
+  for (const rb of [...world.bodies]) {
+    if (!rb.isFixed()) {
+      renderer.removeBodyMesh(rb);
+      world.removeBody(rb);
+    }
+  }
+  for (const b of json.bodies || []) {
+    const pos = { x: b.position[0], y: b.position[1], z: b.position[2] };
+    let spec;
+    switch (b.kind) {
+      case 'cube':     spec = makeCube({ position: pos, size: b.size, color: b.color }); break;
+      case 'sphere':   spec = makeSphere({ position: pos, radius: b.radius, color: b.color }); break;
+      case 'cylinder': spec = makeCylinder({ position: pos, radius: b.radius, halfHeight: b.halfHeight, color: b.color }); break;
+      case 'capsule':  spec = makeCapsule({ position: pos, radius: b.radius, halfHeight: b.halfHeight, color: b.color }); break;
+      case 'prism':    spec = makePrism({ position: pos, sides: b.sides, radius: b.radius, depth: b.depth, color: b.color }); break;
+      default: continue;
+    }
+    const rb = world.addBody(spec);
+    if (b.rotation) rb.setRotation({ x: b.rotation[0], y: b.rotation[1], z: b.rotation[2], w: b.rotation[3] }, true);
+    if (b.velocity) rb.setLinvel({ x: b.velocity[0], y: b.velocity[1], z: b.velocity[2] }, true);
+    if (b.angularVelocity) rb.setAngvel({ x: b.angularVelocity[0], y: b.angularVelocity[1], z: b.angularVelocity[2] }, true);
+    renderer.addBodyMesh(rb);
+  }
+}
