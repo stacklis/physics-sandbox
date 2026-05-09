@@ -3,10 +3,23 @@
 import * as THREE from 'three';
 import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=66';
 import { Renderer3D } from './render3d.js?v=66';
+import { getConcept } from './education3d.js?v=66';
 
 const PALETTE = ['#00e5a0', '#ff6b9d', '#6b8bff', '#ffc46a', '#00ffc8', '#ff8bb8', '#a0ffdb', '#ffb366', '#c9a0ff'];
 let palIdx = 0;
 const nextColor = () => { palIdx = (palIdx + 1) % PALETTE.length; return PALETTE[palIdx]; };
+
+let lastConceptShownAt = 0;
+function showConcept(key) {
+  const now = performance.now();
+  if (now - lastConceptShownAt < 4000) return; // 4 s cooldown
+  lastConceptShownAt = now;
+  const lvlBtn = document.querySelector('#levelSegment .seg.active');
+  const level = lvlBtn ? Number(lvlBtn.dataset.level) || 1 : 1;
+  const c = getConcept(key, level);
+  if (!c) return;
+  toast(`${c.title} — ${c.body}`);
+}
 
 let world, renderer, raf, lastT;
 let canvas, hostEl;
@@ -180,6 +193,7 @@ function onUp(ev) {
     if (spec) {
       const rb = world.addBody(spec);
       renderer.addBodyMesh(rb);
+      showConcept('contactRestitution3D');
     }
   } catch (e) {
     if (/body cap/.test(e.message)) toast('Body cap reached (80). Delete some objects first.');
