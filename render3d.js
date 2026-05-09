@@ -66,13 +66,17 @@ export class Renderer3D {
     const backMat = new THREE.MeshStandardMaterial({
       color: '#1f2330', roughness: 0.95,
       onBeforeCompile: shader => {
-        // Subtle grid via fragment shader. Simple & fast.
+        // Subtle grid via fragment shader. The grid additive must run AFTER
+        // <output_fragment> writes gl_FragColor — otherwise the chunk
+        // overwrites our addition.
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <output_fragment>',
-          `vec2 g = abs(fract(vUv * vec2(16.0, 9.0)) - 0.5);
-           float line = smoothstep(0.46, 0.5, max(g.x, g.y));
-           gl_FragColor.rgb += vec3(0.06) * line;
-           #include <output_fragment>`
+          `#include <output_fragment>
+           {
+             vec2 g = abs(fract(vUv * vec2(16.0, 9.0)) - 0.5);
+             float line = smoothstep(0.46, 0.5, max(g.x, g.y));
+             gl_FragColor.rgb += vec3(0.06) * line;
+           }`
         );
       }
     });
