@@ -215,6 +215,15 @@ function loop() {
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
+  // Belt-and-braces: if a body somehow escapes the playfield, remove it.
+  for (const rb of [...world.bodies]) {
+    if (rb.isFixed()) continue;
+    const t = rb.translation();
+    if (Math.abs(t.x) > 50 || t.y < -20 || Math.abs(t.z) > 20) {
+      renderer.removeBodyMesh(rb);
+      world.removeBody(rb);
+    }
+  }
   world.step(dt);
   renderer.syncMeshes();
   renderer.render();

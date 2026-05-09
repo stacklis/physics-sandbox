@@ -72,7 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (seg) {
     seg.addEventListener('click', e => {
       const btn = e.target.closest('[data-mode]');
-      if (btn) setPhysicsMode(btn.dataset.mode);
+      if (!btn) return;
+      // 3D mode is a Pro feature — intercept before setPhysicsMode.
+      if (btn.dataset.mode === '3d' && !Pro.isActive()) {
+        openUpgradeModal();
+        return;
+      }
+      setPhysicsMode(btn.dataset.mode);
     });
   }
   // Apply persisted mode (don't prompt — user already chose this previously).
