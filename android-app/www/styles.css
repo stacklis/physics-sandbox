@@ -1805,6 +1805,7 @@ body {
     scrollbar-width: none;
     gap: 14px;
     padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
     padding-right: 56px;
   }
   /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
@@ -1846,20 +1847,23 @@ body {
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55);
     z-index: 25;
     transform: translateY(100%);
-    transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1),
-                height 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition:
+      transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      width 220ms cubic-bezier(0.32, 0.72, 0, 1);
     will-change: transform;
     pointer-events: none;
   }
   body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
   body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="high"] .panel { --sheet-height: 90vh; }
+  body[data-sheet-height="high"] .panel { --sheet-height: 80vh; }
   /* Legacy values still resolve sanely. */
   body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="tall"] .panel { --sheet-height: 90vh; }
+  body[data-sheet-height="tall"] .panel { --sheet-height: 80vh; }
   .panel.visible {
     transform: translateY(0);
     pointer-events: auto;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
   .panel-grabber { display: flex; }
   .panel-header { padding: 4px 14px 8px; }
@@ -1934,7 +1938,8 @@ body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
 .panel {
   container-type: inline-size;
 }
-#toolsPanel { container-name: tools-panel; }
+/* Tools queries height too (compact-mode at short heights), needs `size`. */
+#toolsPanel { container-type: size; container-name: tools-panel; }
 #infoOverlay { container-name: readings-panel; }
 /* Educator queries height too (compact-mode hint when float is short), so it
    needs `container-type: size` rather than `inline-size`. */
@@ -1993,5 +1998,356 @@ body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
     padding-bottom: 4px;
   }
   #lessonOverlay .concept-pill { white-space: nowrap; flex: 0 0 auto; }
+}
+
+/* TOOLS — compact mode at short heights (e.g. low-snap mobile sheet at 30vh).
+   Each tool-section becomes a horizontal scroller so users still get the full
+   tool palette in a small slice. Tool buttons stay >=44px tall (touch floor). */
+@container tools-panel (max-height: 300px) {
+  #toolsPanel .panel-body { gap: 8px; }
+  #toolsPanel .tool-section { gap: 4px; }
+  #toolsPanel .section-title {
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+  }
+  #toolsPanel .tool-grid,
+  #toolsPanel .material-grid {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  #toolsPanel .tool-grid > *,
+  #toolsPanel .material-grid > * {
+    flex: 0 0 auto;
+  }
+  #toolsPanel .tool {
+    min-height: 44px;
+    min-width: 56px;
+    padding: 6px 8px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  #toolsPanel .tool svg { width: 18px; height: 18px; }
+  #toolsPanel .tool span { font-size: 10px; }
+  #toolsPanel .preset,
+  #toolsPanel .material {
+    min-height: 44px;
+    min-width: 64px;
+    padding: 6px 10px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  #toolsPanel .check {
+    min-height: 44px;
+    min-width: 88px;
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  #toolsPanel .slider-row {
+    min-height: 44px;
+    min-width: 140px;
+    padding: 4px 8px;
+  }
+  /* Custom slim scrollbar for the inline horizontal scrollers. */
+  #toolsPanel .tool-grid::-webkit-scrollbar,
+  #toolsPanel .material-grid::-webkit-scrollbar {
+    height: 2px;
+  }
+  #toolsPanel .tool-grid::-webkit-scrollbar-track,
+  #toolsPanel .material-grid::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  #toolsPanel .tool-grid::-webkit-scrollbar-thumb,
+  #toolsPanel .material-grid::-webkit-scrollbar-thumb {
+    background: var(--bg-4);
+    border-radius: 2px;
+  }
+}
+
+/* =====================================================================
+   SCROLL LOCK + OVERSCROLL — when sheet is open, the body is frozen so
+   browser-level rubber-band scroll on the topbar / canvas-host doesn't
+   compete with the sheet drag. .canvas-host stays interactive (pan/zoom).
+   ===================================================================== */
+body[data-sheet-locked="true"] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@media (max-width: 1024px) {
+  html { overscroll-behavior: none; }
+}
+
+/* =====================================================================
+   PANEL ANIMATION POLISH — sheet open/close + height/width snap easing.
+   Keeps `.panel.dragging` snappy (existing rule disables transition).
+   ===================================================================== */
+.panel {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* =====================================================================
+   ACTIVE TAB PILL — animated accent under the active tab in the mobile
+   tabbar. ::before sits behind the icon+label and pulses with a glow.
+   ===================================================================== */
+.tabbar .tab {
+  position: relative;
+  isolation: isolate;
+}
+.tabbar .tab::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  opacity: 0;
+  z-index: -1;
+  transform: scale(0.92);
+  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  pointer-events: none;
+}
+.tabbar .tab.active::before {
+  opacity: 0.16;
+  transform: scale(1);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.tabbar .tab svg {
+  transition: transform 180ms ease;
+}
+.tabbar .tab.active svg {
+  transform: scale(1.05);
+}
+
+/* =====================================================================
+   HINT CLOSE — bigger touch target without changing the visual chip size.
+   Visual stays 26x26; ::before extends the hit area to 44x44. (Spec G.)
+   ===================================================================== */
+.hint-close {
+  position: relative;
+  min-width: 26px;
+  min-height: 26px;
+}
+.hint-close::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 12px;
+}
+
+/* =====================================================================
+   TOPBAR OVERFLOW MENU
+   - Desktop (>=1025px): .topbar-overflow uses display:contents so its
+     children flow inline with the topbar exactly as before. The ⋯ button
+     hides.
+   - Mobile (<=1024px): .topbar-overflow becomes an absolute dropdown
+     panel anchored under the ⋯ button; default hidden, shown when
+     body[data-topbar-overflow-open="true"].
+   ===================================================================== */
+.topbar { position: relative; }
+
+.topbar-overflow { display: contents; }
+.topbar-more { display: none; }
+
+@media (min-width: 1025px) {
+  .topbar-overflow { display: contents; }
+  .topbar-more { display: none; }
+}
+
+@media (max-width: 1024px) {
+  .topbar-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .topbar-more:hover,
+  .topbar-more:focus-visible {
+    background: var(--bg-4);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  body[data-topbar-overflow-open="true"] .topbar-more {
+    background: rgba(0, 229, 160, 0.12);
+    border-color: var(--accent);
+    color: var(--accent-2);
+  }
+  .topbar-overflow {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 8px;
+    z-index: 40;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 180px;
+    padding: 8px;
+    background: rgba(15, 15, 22, 0.97);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    gap: 4px;
+  }
+  body[data-topbar-overflow-open="true"] .topbar-overflow {
+    display: flex;
+  }
+  .topbar-overflow .btn {
+    width: 100%;
+    min-height: 40px;
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: left;
+    justify-content: flex-start;
+    border-radius: 8px;
+  }
+}
+
+/* =====================================================================
+   LANDSCAPE MOBILE — phones held sideways. Sheet pulls from the right,
+   tabbar moves to a vertical strip on the right edge, topbar shrinks.
+   Triggered via body[data-layout-mode="landscape-mobile"] from layout.js
+   (matched against (max-width:1024px) + landscape + max-height:600px).
+   ===================================================================== */
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 600px) {
+  body {
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  /* Compress topbar — shorter, tighter, kill the slider <label> text since
+     the slider track itself communicates value. */
+  .topbar {
+    gap: 10px;
+    padding: 4px 10px;
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-right: 50px;
+    min-height: 36px;
+  }
+  .topbar .btn {
+    padding: 6px 10px;
+    font-size: 11px;
+    min-height: 32px;
+  }
+  .topbar .seg { padding: 5px 8px; font-size: 11px; }
+  .topbar .bar-group label { font-size: 10px; }
+  .topbar .bar-group:not(:has(.segment)) label {
+    display: none;
+  }
+  .topbar .seg-label { display: none; }
+  .topbar .bar-group input[type=range] {
+    width: 80px;
+    max-width: 100px;
+  }
+  .topbar-more {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 16px;
+  }
+
+  /* Tabbar — vertical strip on the right edge. */
+  .tabbar {
+    flex-direction: column;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 40px;
+    height: auto;
+    padding: max(6px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) 4px;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+    gap: 6px;
+  }
+  .tabbar .tab {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 56px;
+    padding: 4px;
+    font-size: 10px;
+    gap: 2px;
+  }
+  .tabbar .tab svg { width: 20px; height: 20px; }
+  .tabbar .tab span {
+    /* Stay readable but compress so they fit a 40px column. */
+    font-size: 9px;
+    letter-spacing: 0.2px;
+  }
+
+  /* Hint pinned bottom-left, but clear the right-side tabbar. */
+  .canvas-host .hint {
+    left: 12px;
+    bottom: 12px;
+    right: 52px;
+    max-width: calc(100% - 64px);
+  }
+
+  /* Sheet — pulls from the right, vertical drag handle on its left edge,
+     respects 40px tabbar gutter. */
+  .panel {
+    top: 0;
+    bottom: 0;
+    right: 40px;
+    left: auto;
+    height: 100%;
+    width: var(--sheet-width, 60vw);
+    max-height: none;
+    max-width: 95vw;
+    border-radius: 16px 0 0 16px;
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.55);
+    transform: translateX(100%);
+  }
+  body[data-sheet-height="low"] .panel { --sheet-width: 30vw; }
+  body[data-sheet-height="mid"] .panel { --sheet-width: 60vw; }
+  body[data-sheet-height="high"] .panel { --sheet-width: 80vw; }
+  body[data-sheet-height="default"] .panel { --sheet-width: 60vw; }
+  body[data-sheet-height="tall"] .panel { --sheet-width: 80vw; }
+  .panel.visible {
+    transform: translateX(0);
+  }
+
+  /* Vertical grabber — left edge of the sheet. */
+  .panel-grabber {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    height: auto;
+  }
+  .panel-grabber::before {
+    width: 4px;
+    height: 42px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  }
+  .panel-header { padding-left: 22px; }
 }
 

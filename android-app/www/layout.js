@@ -15,13 +15,15 @@
 // localStorage keys (ps:layout:* and ps:panel:*).
 //
 // Mobile uses the existing bottom-sheet metaphor but with continuous user
-// drag height + nearest-of-{30,60,90}vh snap on release.
+// drag height + nearest-of-{30,60,80}vh snap on release. In landscape mobile
+// the sheet pulls from the right and snaps in vw.
 //
 // No build step. Native ESM. Loaded via `<script type="module">`.
 
 const TABS = ['tools', 'readings', 'educator'];
 const PANEL_BY_TAB = { tools: 'toolsPanel', readings: 'infoOverlay', educator: 'lessonOverlay' };
 const MOBILE_QUERY = '(max-width: 1024px)';
+const LANDSCAPE_MOBILE_QUERY = '(max-width: 1024px) and (orientation: landscape) and (max-height: 600px)';
 
 const body = document.body;
 const tabbar = document.querySelector('.tabbar');
@@ -37,6 +39,7 @@ const canvasHost = document.querySelector('.canvas-host');
 let activeTab = 'tools';
 let sheetOpen = false;          // mobile only
 let mobile = window.matchMedia(MOBILE_QUERY).matches;
+let landscapeMobile = window.matchMedia(LANDSCAPE_MOBILE_QUERY).matches;
 
 // Public surface (used by app.js for keyboard shortcuts) ----------------------
 function setActiveTab(tab, opts = {}) {
@@ -56,12 +59,14 @@ function openSheet() {
   if (!mobile) return;
   sheetOpen = true;
   body.dataset.sheetOpen = 'true';
+  body.dataset.sheetLocked = 'true';
   syncPanelVisibility();
 }
 
 function closeSheet() {
   sheetOpen = false;
   body.dataset.sheetOpen = 'false';
+  delete body.dataset.sheetLocked;
   syncPanelVisibility();
 }
 
@@ -102,8 +107,10 @@ tabs.forEach(btn => {
 
 // =============================================================================
 // MOBILE SHEET — continuous drag with nearest-of-{low,mid,high} snap on release.
+// In portrait the snap targets are vh (30 / 60 / 80). In landscape-mobile the
+// sheet pulls from the right and the targets are vw (same numbers).
 // =============================================================================
-const SHEET_SNAP_VH = { low: 30, mid: 60, high: 90 };
+const SHEET_SNAP = { low: 30, mid: 60, high: 80 };
 let sheetHeightMode = 'mid';
 
 function setSheetHeight(mode) {
@@ -114,41 +121,56 @@ function setSheetHeight(mode) {
   body.dataset.sheetHeight = mode;
   // Clear any inline override from a live drag.
   for (const el of Object.values(panels)) {
-    if (el) el.style.removeProperty('--sheet-height');
+    if (el) {
+      el.style.removeProperty('--sheet-height');
+      el.style.removeProperty('--sheet-width');
+    }
   }
 }
 
 function bindGrabber(panelEl) {
   const grabber = panelEl.querySelector('.panel-grabber');
   if (!grabber) return;
-  let startY = 0;
-  let dy = 0;
+  let startCoord = 0;        // start clientY (portrait) or clientX (landscape)
+  let delta = 0;             // signed pixel delta along drag axis
   let dragging = false;
   let pointerId = null;
-  let startHeightVh = 60;
-  let liveVh = 60;
+  let startVal = 60;         // start size in vh (portrait) or vw (landscape)
+  let liveVal = 60;
+  let axisIsX = false;       // captured at pointerdown so a mid-drag rotation
+                             // doesn't flip the math
 
   grabber.addEventListener('pointerdown', e => {
     if (!mobile) return;
     dragging = true;
     pointerId = e.pointerId;
-    startY = e.clientY;
-    dy = 0;
-    startHeightVh = SHEET_SNAP_VH[sheetHeightMode] || 60;
-    liveVh = startHeightVh;
+    axisIsX = landscapeMobile;
+    startCoord = axisIsX ? e.clientX : e.clientY;
+    delta = 0;
+    startVal = SHEET_SNAP[sheetHeightMode] || 60;
+    liveVal = startVal;
     try { grabber.setPointerCapture(e.pointerId); } catch {}
     panelEl.classList.add('dragging');
   });
 
   grabber.addEventListener('pointermove', e => {
     if (!dragging) return;
-    dy = e.clientY - startY;
-    // Convert pixel delta to vh delta. Drag down => sheet shrinks (negative vh
-    // change), drag up => sheet grows.
-    const vhPx = window.innerHeight / 100;
-    const dVh = -dy / vhPx;
-    liveVh = clamp(startHeightVh + dVh, 18, 95);
-    panelEl.style.setProperty('--sheet-height', `${liveVh}vh`);
+    const cur = axisIsX ? e.clientX : e.clientY;
+    delta = cur - startCoord;
+    if (axisIsX) {
+      // Landscape: sheet attached to right edge. Drag right => sheet shrinks
+      // (delta > 0 -> negative vw change). Drag left => sheet grows.
+      const vwPx = window.innerWidth / 100;
+      const dVal = -delta / vwPx;
+      liveVal = clamp(startVal + dVal, 18, 95);
+      panelEl.style.setProperty('--sheet-width', `${liveVal}vw`);
+    } else {
+      // Portrait: sheet attached to bottom. Drag down (delta > 0) shrinks.
+      const vhPx = window.innerHeight / 100;
+      const dVal = -delta / vhPx;
+      liveVal = clamp(startVal + dVal, 18, 95);
+      panelEl.style.setProperty('--sheet-height', `${liveVal}vh`);
+    }
   });
 
   function release() {
@@ -156,22 +178,23 @@ function bindGrabber(panelEl) {
     dragging = false;
     panelEl.classList.remove('dragging');
 
-    // Close-on-pull-down rules.
-    // - From default (mid) sheet: dragging > 80px down closes.
-    // - From any sheet height:    dragging > 100px down closes.
-    if (dy > 100 || (sheetHeightMode === 'mid' && dy > 80)) {
+    // Close-on-pull-away rules:
+    //   from `low`           (30vh/30vw): drag-away >  60px closes
+    //   from `mid` or `high` (60/80):     drag-away > 100px closes
+    // delta > 0 means "away from sheet" in both axes (down in portrait, right
+    // in landscape) given the sheet anchors used.
+    const closeThreshold = sheetHeightMode === 'low' ? 60 : 100;
+    if (delta > closeThreshold) {
       closeSheet();
       return;
     }
 
-    // Snap to nearest of {30, 60, 90}vh; if within 8vh of a snap point use that
-    // snap, otherwise stay at the nearest snap (still snap — spec says snap on
-    // release).
-    const snaps = Object.entries(SHEET_SNAP_VH);
+    // Snap to nearest of {30, 60, 80}; (still snap on release).
+    const snaps = Object.entries(SHEET_SNAP);
     let bestKey = 'mid';
     let bestDist = Infinity;
-    for (const [key, vh] of snaps) {
-      const d = Math.abs(liveVh - vh);
+    for (const [key, v] of snaps) {
+      const d = Math.abs(liveVal - v);
       if (d < bestDist) { bestDist = d; bestKey = key; }
     }
     setSheetHeight(bestKey);
@@ -767,47 +790,131 @@ if ('ResizeObserver' in window && canvasHost) {
 // Breakpoint changes ----------------------------------------------------------
 // =============================================================================
 const mql = window.matchMedia(MOBILE_QUERY);
+const mqlLandscape = window.matchMedia(LANDSCAPE_MOBILE_QUERY);
+
+function updateLayoutMode() {
+  if (!mobile) {
+    body.dataset.layoutMode = 'desktop';
+  } else if (landscapeMobile) {
+    body.dataset.layoutMode = 'landscape-mobile';
+  } else {
+    body.dataset.layoutMode = 'portrait-mobile';
+  }
+}
+
 function onBreakpointChange() {
   const wasMobile = mobile;
+  const wasLandscape = landscapeMobile;
   mobile = mql.matches;
-  if (wasMobile === mobile) return;
-  if (!mobile) {
-    sheetOpen = false;
-    body.dataset.sheetOpen = 'false';
-    setSheetHeight('mid');
-    // Show dock-edges + restore floating states.
-    for (const el of Object.values(dockEdges)) el.style.display = '';
-    restoreFloatStates();
-    schedulePositionEdges();
-  } else {
-    sheetOpen = false;
-    body.dataset.sheetOpen = 'false';
-    // Hide dock-edges and tear down floats so the sheet renders cleanly.
-    for (const el of Object.values(dockEdges)) el.style.display = 'none';
-    for (const key of FLOAT_KEYS) {
-      const el = panels[key];
-      if (el && el.classList.contains('floating')) {
-        // Don't clear the persisted state — just visually re-dock for mobile.
-        el.classList.remove('floating', 'active');
-        clearFloatStyles(el);
-        delete body.dataset[key + 'Floating'];
-        const host = document.querySelector('.panel-host');
-        if (host) host.appendChild(el);
-        updatePopButton(key);
+  landscapeMobile = mqlLandscape.matches;
+  const breakpointFlipped = wasMobile !== mobile;
+  const orientationFlipped = wasLandscape !== landscapeMobile;
+  if (!breakpointFlipped && !orientationFlipped) return;
+  updateLayoutMode();
+  if (breakpointFlipped) {
+    if (!mobile) {
+      sheetOpen = false;
+      body.dataset.sheetOpen = 'false';
+      delete body.dataset.sheetLocked;
+      setSheetHeight('mid');
+      // Show dock-edges + restore floating states.
+      for (const el of Object.values(dockEdges)) el.style.display = '';
+      restoreFloatStates();
+      schedulePositionEdges();
+    } else {
+      sheetOpen = false;
+      body.dataset.sheetOpen = 'false';
+      delete body.dataset.sheetLocked;
+      // Hide dock-edges and tear down floats so the sheet renders cleanly.
+      for (const el of Object.values(dockEdges)) el.style.display = 'none';
+      for (const key of FLOAT_KEYS) {
+        const el = panels[key];
+        if (el && el.classList.contains('floating')) {
+          // Don't clear the persisted state — just visually re-dock for mobile.
+          el.classList.remove('floating', 'active');
+          clearFloatStyles(el);
+          delete body.dataset[key + 'Floating'];
+          const host = document.querySelector('.panel-host');
+          if (host) host.appendChild(el);
+          updatePopButton(key);
+        }
       }
+    }
+  }
+  if (orientationFlipped) {
+    // Clear any inline drag override so the new axis CSS var picks up cleanly.
+    for (const el of Object.values(panels)) {
+      if (!el) continue;
+      el.style.removeProperty('--sheet-height');
+      el.style.removeProperty('--sheet-width');
     }
   }
   syncPanelVisibility();
 }
-if (typeof mql.addEventListener === 'function') {
-  mql.addEventListener('change', onBreakpointChange);
-} else if (typeof mql.addListener === 'function') {
-  mql.addListener(onBreakpointChange);
+
+function bindMql(target, handler) {
+  if (typeof target.addEventListener === 'function') {
+    target.addEventListener('change', handler);
+  } else if (typeof target.addListener === 'function') {
+    target.addListener(handler);
+  }
 }
+bindMql(mql, onBreakpointChange);
+bindMql(mqlLandscape, onBreakpointChange);
+window.addEventListener('orientationchange', onBreakpointChange);
+
+// =============================================================================
+// TOPBAR OVERFLOW MENU — `⋯` button toggles a dropdown that holds the
+// Save/Load/Share/Derivations/Reset/Clear actions on mobile. On desktop the
+// `.topbar-overflow` wrapper uses `display: contents` so children flow inline
+// and the ⋯ button hides (CSS-driven). Click-outside + Escape close.
+// =============================================================================
+const topbarMoreBtn = document.getElementById('topbarMore');
+const topbarOverflow = document.getElementById('topbarOverflow');
+
+function openTopbarOverflow() {
+  body.dataset.topbarOverflowOpen = 'true';
+  if (topbarMoreBtn) topbarMoreBtn.setAttribute('aria-expanded', 'true');
+}
+function closeTopbarOverflow() {
+  delete body.dataset.topbarOverflowOpen;
+  if (topbarMoreBtn) topbarMoreBtn.setAttribute('aria-expanded', 'false');
+}
+function toggleTopbarOverflow() {
+  if (body.dataset.topbarOverflowOpen === 'true') closeTopbarOverflow();
+  else openTopbarOverflow();
+}
+
+if (topbarMoreBtn) {
+  topbarMoreBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleTopbarOverflow();
+  });
+}
+// When a button inside the overflow is clicked, close the menu (the underlying
+// app.js handlers still fire because they're bound by id directly).
+if (topbarOverflow) {
+  topbarOverflow.addEventListener('click', e => {
+    if (e.target.closest('button')) closeTopbarOverflow();
+  });
+}
+// Click-outside closes the menu.
+document.addEventListener('pointerdown', e => {
+  if (body.dataset.topbarOverflowOpen !== 'true') return;
+  if (e.target.closest('.topbar-overflow,.topbar-more')) return;
+  closeTopbarOverflow();
+}, true);
+// Escape closes the menu.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && body.dataset.topbarOverflowOpen === 'true') {
+    closeTopbarOverflow();
+  }
+});
 
 // =============================================================================
 // Init ------------------------------------------------------------------------
 // =============================================================================
+updateLayoutMode();
 setSheetHeight('mid');
 setActiveTab('tools');
 syncPanelVisibility();
@@ -841,9 +948,11 @@ window.toggleTipsOverlay = () => {
 window.PSandboxLayout = {
   setActiveTab, openSheet, closeSheet, toggleSheet,
   floatPanel, dockPanel,
+  openTopbarOverflow, closeTopbarOverflow, toggleTopbarOverflow,
   get state() {
     return {
-      activeTab, sheetOpen, mobile, sheetHeightMode,
+      activeTab, sheetOpen, mobile, landscapeMobile, sheetHeightMode,
+      layoutMode: body.dataset.layoutMode,
       readingsFloating: panels.readings?.classList.contains('floating') || false,
       educatorFloating: panels.educator?.classList.contains('floating') || false,
     };
