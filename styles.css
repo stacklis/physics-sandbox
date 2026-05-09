@@ -2351,7 +2351,3 @@ body[data-sheet-locked="true"] {
   .panel-header { padding-left: 22px; }
 }
 
-/* 3D mode toggle — slightly tighter than the level segment */
-#modeSegment { min-width: 0; }
-#modeSegment .seg { padding: 4px 10px; font-size: 12px; }
-
