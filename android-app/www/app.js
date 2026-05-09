@@ -366,13 +366,11 @@ function applyMaterialToBody(body, materialKey) {
   const mat = MATERIALS[materialKey];
   if (!mat) return false;
   
-  // Store original area for mass recalculation
-  const area = body.mass / (body.density || 1);
-  
-  // Apply material properties
+  // Apply material properties. Update density and let the engine recompute
+  // mass/inertia (and their inverses) from shape — hand-rolling those was
+  // writing to body.invMass, which the solver doesn't read (it uses inverseMass).
   body.density = mat.density;
-  body.mass = mat.density * area;
-  body.invMass = body.mass > 0 ? 1 / body.mass : 0;
+  body.computeMass();
   body.friction = mat.friction;
   body.restitution = mat.restitution;
   
@@ -493,7 +491,7 @@ canvas.addEventListener('pointerdown', (ev) => {
       resetBodyMaterial(body);
       state.activeMaterial = null;
       document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
-      AudioFx.toggleOff();
+      AudioFx.pin();
       triggerHaptic('medium');
       return;
     } else if (ev.pointerType !== 'mouse' || ev.button === 0) {
@@ -1448,7 +1446,7 @@ document.querySelectorAll('.material').forEach(el => {
     if (state.activeMaterial === matKey) {
       state.activeMaterial = null;
       el.classList.remove('active');
-      AudioFx.toggleOff();
+      AudioFx.pin();
     } else {
       // Deselect previous and select new
       document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
