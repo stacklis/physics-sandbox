@@ -15,31 +15,49 @@ function getPhysicsMode() {
   catch { return '2d'; }
 }
 let _3dHandle = null;
+let _switching = false;
 
-async function setPhysicsMode(next) {
-  const cur = getPhysicsMode();
-  if (cur === next) return;
-  if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
-  try { localStorage.setItem(MODE_KEY, next); } catch {}
-  // Update toggle UI
+function _setToggleUI(next) {
   document.querySelectorAll('#modeSegment .seg').forEach(b => {
     const on = b.dataset.mode === next;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
+}
+
+async function setPhysicsMode(next) {
+  if (_switching) return;
+  const cur = getPhysicsMode();
+  if (cur === next) return;
+  if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
+  _switching = true;
+  try { localStorage.setItem(MODE_KEY, next); } catch {}
+  _setToggleUI(next);
   if (next === '3d') {
-    // Hide 2D-only controls (toolbar swap happens in Task 6)
     document.body.dataset.mode = '3d';
-    const mod = await import('./app3d.js?v=66');
-    _3dHandle = await mod.init3D({
-      canvas: document.getElementById('canvas'),
-      hostEl: document.querySelector('main.canvas-host'),
-    });
+    try {
+      const mod = await import('./app3d.js?v=66');
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    } catch (err) {
+      // Roll back so a failed 3D load doesn't permanently brick the page.
+      console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D.');
+    } finally {
+      _switching = false;
+    }
   } else {
     document.body.dataset.mode = '2d';
     if (_3dHandle) {
-      const mod = await import('./app3d.js?v=66');
-      mod.teardown3D();
+      try {
+        const mod = await import('./app3d.js?v=66');
+        mod.teardown3D();
+      } catch {}
       _3dHandle = null;
     }
     // Reload to restore 2D state cleanly. No state-machine gymnastics for now.
@@ -60,16 +78,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Apply persisted mode (don't prompt — user already chose this previously).
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
-    document.querySelectorAll('#modeSegment .seg').forEach(b => {
-      const on = b.dataset.mode === '3d';
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
+    _setToggleUI('3d');
     import('./app3d.js?v=66').then(async mod => {
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas'),
         hostEl: document.querySelector('main.canvas-host'),
       });
+    }).catch(err => {
+      console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
     });
   } else {
     document.body.dataset.mode = '2d';
