@@ -62,7 +62,9 @@ export class World {
     this.bodies.delete(rb);
   }
   step(dt) {
-    if (dt && dt > 0) this._w.timestep = dt;
+    // Clamp dt: a backgrounded tab or first frame after resume can deliver a
+    // huge delta. Rapier doesn't sub-step, so a single fat step would tunnel.
+    if (dt && dt > 0) this._w.timestep = Math.min(dt, 1 / 30);
     this._w.step();
   }
   atCap() {
@@ -123,10 +125,14 @@ export function makePrism({ position, sides = 5, radius = 0.5, depth = 0.5, isSt
     verts[(i * 2) * 3 + 0] = x; verts[(i * 2) * 3 + 1] = y; verts[(i * 2) * 3 + 2] = -depth / 2;
     verts[(i * 2 + 1) * 3 + 0] = x; verts[(i * 2 + 1) * 3 + 1] = y; verts[(i * 2 + 1) * 3 + 2] = depth / 2;
   }
+  const hull = RAPIER.ColliderDesc.convexHull(verts);
+  if (!hull) {
+    throw new Error(`makePrism: degenerate convex hull (sides=${sides}, radius=${radius}, depth=${depth})`);
+  }
   return {
     kind: 'prism', position, isStatic, density, friction, restitution, color,
     sides, radius, depth,
-    colliders: [{ collider: RAPIER.ColliderDesc.convexHull(verts) }],
+    colliders: [{ collider: hull }],
   };
 }
 
