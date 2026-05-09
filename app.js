@@ -2,6 +2,100 @@
 // no telemetry — by design (see privacy.html)
 'use strict';
 
+/* =========================== mode router ===========================
+ * Reads localStorage.physicsMode (default '2d'). On '2d', the 2D IIFE
+ * below runs as today. On '3d', the 2D IIFE still initialises (it owns
+ * the renderer and global state for cross-mode UI), but the 3D module
+ * is loaded immediately after and takes ownership of the canvas.
+ * The toggle button calls setPhysicsMode() to switch.
+ * ================================================================ */
+const MODE_KEY = 'physicsMode';
+function getPhysicsMode() {
+  try { return localStorage.getItem(MODE_KEY) === '3d' ? '3d' : '2d'; }
+  catch { return '2d'; }
+}
+let _3dHandle = null;
+let _switching = false;
+
+function _setToggleUI(next) {
+  document.querySelectorAll('#modeSegment .seg').forEach(b => {
+    const on = b.dataset.mode === next;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+async function setPhysicsMode(next) {
+  if (_switching) return;
+  const cur = getPhysicsMode();
+  if (cur === next) return;
+  if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
+  _switching = true;
+  try { localStorage.setItem(MODE_KEY, next); } catch {}
+  _setToggleUI(next);
+  if (next === '3d') {
+    document.body.dataset.mode = '3d';
+    try {
+      const mod = await import('./app3d.js?v=66');
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    } catch (err) {
+      // Roll back so a failed 3D load doesn't permanently brick the page.
+      console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D.');
+    } finally {
+      _switching = false;
+    }
+  } else {
+    document.body.dataset.mode = '2d';
+    if (_3dHandle) {
+      try {
+        const mod = await import('./app3d.js?v=66');
+        mod.teardown3D();
+      } catch {}
+      _3dHandle = null;
+    }
+    // Reload to restore 2D state cleanly. No state-machine gymnastics for now.
+    location.reload();
+  }
+}
+
+// Wire toggle once DOM is ready. The 2D IIFE below also adds listeners; this
+// runs first because it's outside the IIFE and only attaches one click handler.
+document.addEventListener('DOMContentLoaded', () => {
+  const seg = document.getElementById('modeSegment');
+  if (seg) {
+    seg.addEventListener('click', e => {
+      const btn = e.target.closest('[data-mode]');
+      if (btn) setPhysicsMode(btn.dataset.mode);
+    });
+  }
+  // Apply persisted mode (don't prompt — user already chose this previously).
+  if (getPhysicsMode() === '3d') {
+    document.body.dataset.mode = '3d';
+    _setToggleUI('3d');
+    import('./app3d.js?v=66').then(async mod => {
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    }).catch(err => {
+      console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
+    });
+  } else {
+    document.body.dataset.mode = '2d';
+  }
+});
+
 (function () {
 const { Vec2, World, Body, DistanceConstraint, makeBox, makeCircle, makePolygon, SHAPE } = window.PSandbox;
 const { Educator } = window.PEdu;
@@ -1508,7 +1602,6 @@ document.querySelectorAll('#levelSegment .seg').forEach(el => {
 
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
-const layoutEl = document.querySelector('.layout');
 const hintEl = document.getElementById('hint');
 document.getElementById('topbarToggle').addEventListener('click', () => {
   topbarEl.classList.toggle('collapsed');
@@ -1524,175 +1617,25 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
-// ======================= TOOLS PANEL COLLAPSE =======================
-const toolsPanel = document.getElementById('toolsPanel');
-const toolsCollapseBtn = document.getElementById('toolsCollapseBtn');
+// ======================= LAYOUT GLUE (REMOVED 2026-05-08) =======================
+// The tools-collapse button, the draggable tools/topbar dividers, and the
+// FloatingOverlay class previously defined here have been removed in the
+// layout rework. layout.js now drives panel visibility (mobile bottom sheet
+// / desktop derived sidebars). The floating-overlay panels became regular
+// .panel sections inside .panel-host; their IDs (#infoOverlay, #lessonOverlay,
+// #tipsOverlay shim) are preserved so the update*Overlay functions below and
+// the educator's ui.* element refs continue to work unmodified.
 
-function toggleToolsCollapse() {
-  triggerHaptic('light');
-  toolsPanel.classList.toggle('collapsed');
-  const isCollapsed = toolsPanel.classList.contains('collapsed');
-  try { localStorage.setItem('ps.toolsCollapsed', isCollapsed ? '1' : '0'); } catch (e) {}
-  requestAnimationFrame(resize);
-}
-
-toolsCollapseBtn.addEventListener('click', toggleToolsCollapse);
-
-// Restore collapsed state
-try {
-  if (localStorage.getItem('ps.toolsCollapsed') === '1') {
-    toolsPanel.classList.add('collapsed');
-  }
-} catch (e) {}
-
-// ======================= DRAGGABLE DIVIDERS =======================
-function setupDivider(divider, computeSize, varName, storeKey) {
-  if (!divider) return;
-  let dragging = false;
-  
-  // Prevent flicker on hover by adding interacting class
-  divider.addEventListener('pointerenter', () => {
-    document.body.classList.add('interacting');
-  });
-  
-  divider.addEventListener('pointerleave', () => {
-    if (!dragging) {
-      document.body.classList.remove('interacting');
-    }
-  });
-  
-  divider.addEventListener('pointerdown', (e) => {
-    // Un-collapse tools when starting to drag
-    if (toolsPanel.classList.contains('collapsed')) {
-      toolsPanel.classList.remove('collapsed');
-    }
-    e.preventDefault();
-    try { divider.setPointerCapture(e.pointerId); } catch (err) {}
-    divider.classList.add('dragging');
-    layoutEl.classList.add('resizing');
-    document.body.classList.add('interacting');
-    dragging = true;
-    triggerHaptic('light');
-  });
-  
-  divider.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const isMobile = window.matchMedia('(max-width: 860px)').matches;
-    const r = layoutEl.getBoundingClientRect();
-    const size = computeSize(e, r, isMobile);
-    layoutEl.style.setProperty(varName, size + 'px');
-  });
-  
-  divider.addEventListener('pointerup', () => {
-    if (!dragging) return;
-    dragging = false;
-    divider.classList.remove('dragging');
-    layoutEl.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-    resize();
-    triggerHaptic('medium');
-    try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
-  });
-  
-  divider.addEventListener('pointercancel', () => {
-    if (!dragging) return;
-    dragging = false;
-    divider.classList.remove('dragging');
-    layoutEl.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-  });
-}
-
-// Tools divider setup
-const toolsDividerEl = document.getElementById('toolsDivider');
-setupDivider(
-  toolsDividerEl,
-  (e, r, mobile) => {
-    const minSize = mobile ? 36 : 80;
-    const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
-    const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
-    return Math.max(minSize, Math.min(maxSize, rawSize));
-  },
-  '--tools-size', 'ps.toolsSize'
-);
-
-// Restore tools size
-try {
-  const ts = localStorage.getItem('ps.toolsSize');
-  if (ts && !toolsPanel.classList.contains('collapsed')) {
-    layoutEl.style.setProperty('--tools-size', ts);
-  }
-} catch (e) {}
-
-// ======================= TOPBAR DIVIDER =======================
-const topbarDivider = document.getElementById('topbarDivider');
-const topbar = document.querySelector('.topbar');
-
-function setupTopbarDivider() {
-  if (!topbarDivider || !topbar) return;
-  
-  let dragging = false;
-  let startY = 0;
-  let startHeight = 0;
-  
-  topbarDivider.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
-    topbarDivider.classList.add('dragging');
-    topbar.classList.add('resizing');
-    document.body.classList.add('interacting');
-    dragging = true;
-    startY = e.clientY;
-    startHeight = topbar.offsetHeight;
-    triggerHaptic('light');
-  });
-  
-  topbarDivider.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const deltaY = e.clientY - startY;
-    const newHeight = Math.max(48, Math.min(200, startHeight + deltaY));
-    topbar.style.minHeight = newHeight + 'px';
-  });
-  
-  topbarDivider.addEventListener('pointerup', () => {
-    if (!dragging) return;
-    dragging = false;
-    topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-    triggerHaptic('medium');
-    try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
-  });
-  
-  topbarDivider.addEventListener('pointercancel', () => {
-    if (!dragging) return;
-    dragging = false;
-    topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-  });
-  
-  // Double-click to reset
-  topbarDivider.addEventListener('dblclick', () => {
-    topbar.style.minHeight = '';
-    triggerHaptic('double');
-    try { localStorage.removeItem('ps.topbarHeight'); } catch (e) {}
-  });
-}
-
-setupTopbarDivider();
-
-// Restore topbar height
-try {
-  const th = localStorage.getItem('ps.topbarHeight');
-  if (th && topbar) topbar.style.minHeight = th;
-} catch (e) {}
-
-// ======================= MODULAR OVERLAY SYSTEM =======================
-// Reusable overlay manager with fluid touch dragging and inertia
-// Track all overlay instances for z-index management
-const overlayInstances = [];
-
+// ======================= OVERLAY/PANEL TOGGLES (DELEGATED) =======================
+// The FloatingOverlay class that lived here (touch-dragged free-floating panels
+// with inertia + pinch zoom) was removed in the 2026-05-08 layout rework. Panel
+// visibility is now driven by layout.js (bottom-sheet on mobile, fixed sidebars
+// on desktop). app.js's update*Overlay functions still write content into the
+// same #ov-* / #infoOverlay / #lessonOverlay element IDs; layout.js toggles the
+// `.visible` class those functions check before doing work. The keyboard
+// shortcuts (I / L / T) call window.toggleInfoOverlay / toggleLessonOverlay /
+// toggleTipsOverlay which layout.js installs on window.
+/* legacy FloatingOverlay class removed — see git history if you need to revive it.
 class FloatingOverlay {
   constructor(id, toggleId, storageKey) {
     this.el = document.getElementById(id);
@@ -2046,16 +1989,10 @@ class FloatingOverlay {
     } catch (e) {}
   }
 }
-
-// Create overlay instances
-const infoOverlayManager = new FloatingOverlay('infoOverlay', 'infoOverlayToggle', 'ps.infoOverlay');
-const lessonOverlayManager = new FloatingOverlay('lessonOverlay', 'lessonOverlayToggle', 'ps.lessonOverlay');
-const tipsOverlayManager = new FloatingOverlay('tipsOverlay', 'tipsOverlayToggle', 'ps.tipsOverlay');
-
-// Toggle functions for keyboard shortcuts
-function toggleInfoOverlay() { infoOverlayManager.toggleVisibility(); }
-function toggleLessonOverlay() { lessonOverlayManager.toggleVisibility(); }
-function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
+*/
+// toggleInfoOverlay / toggleLessonOverlay / toggleTipsOverlay are installed on
+// `window` by layout.js. The keyboard handler below calls them as bare
+// identifiers, which resolve to the window globals.
 
 // Element refs for updates
 const ovSelected = document.getElementById('ov-selected');
@@ -2189,10 +2126,19 @@ function updateTipsOverlay() {
 //   - Cancel URL:  https://sandbox.stacklis.com/app/
 // Until pasted, the upgrade button shows a placeholder alert.
 const STRIPE_PAYMENT_LINK = '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>';
+// ?free=1 — force the app into free-tier mode regardless of localStorage.
+// Used by the landing page CTA (/app/?free=1) and the /free legacy redirect.
+// Pro features stay locked while this is set; the URL param persists across
+// the session so a refresh keeps the user in free mode.
+const FREE_MODE = (() => {
+  try { return new URL(window.location.href).searchParams.get('free') === '1'; }
+  catch (e) { return false; }
+})();
 const Pro = (() => {
   const KEY = 'ps.pro';
   const REDEEM_CODES = new Set(['STACKLIS-EARLY']);
   function isActive() {
+    if (FREE_MODE) return false;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
   }
   function activate() {
@@ -2227,6 +2173,7 @@ const Pro = (() => {
 })();
 Pro.checkUrlParam();
 Pro.updateUI();
+if (FREE_MODE) document.body.classList.add('free-mode');
 window.PSandboxPro = Pro;
 
 // ?embed=1 — landing page iframe demo. Hides the brand title, the PRO badge,
@@ -3019,17 +2966,9 @@ function init() {
     setTimeout(init, 50);
     return;
   }
-  // On mobile, auto-collapse the heavy chrome so the canvas dominates.
-  // The user can still expand via the toggle buttons.
-  if (window.matchMedia('(max-width: 860px)').matches) {
-    topbarEl.classList.add('collapsed');
-    // Tablet-only: the panel-collapsed UX is for the 860 stacked-row layout.
-    // On phone (≤768) the panel becomes a HUD overlay, so this class would
-    // otherwise drag in 860-tier rules that shrink the HUD and hide its cards.
-    if (!window.matchMedia('(max-width: 768px)').matches) {
-      layoutEl.classList.add('panel-collapsed');
-    }
-  }
+  // (Removed 2026-05-08): mobile auto-collapse glue. layout.js now manages
+  // mobile chrome — the topbar stays as-is and the bottom-sheet UX gives the
+  // canvas the full main cell.
   const hasShareHash = /^#scene=/.test(window.location.hash || '');
   // ?preset=<name> deep-link (used by manifest shortcuts + landing-page CTAs).
   // Whitelist the names against the existing preset switch so we don't blow up

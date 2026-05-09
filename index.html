@@ -26,26 +26,29 @@
 <meta name="theme-color" content="#0b0d12" />
 
 <!-- Reuse the app's CSS so the landing inherits the brand palette + tokens. -->
-<link rel="stylesheet" href="/styles.css?v=60" />
+<link rel="stylesheet" href="/styles.css?v=65" />
 
 <style>
-  /* Landing-only overrides. The base styles.css locks `body` to overflow:hidden
-     for the canvas app; landing needs scroll. */
-  html, body { overflow: auto; height: auto; }
+  /* Landing-only overrides. The base styles.css locks `body` to a 100vw grid
+     for the canvas app; landing needs normal block-flow scroll. */
+  html, body { overflow-x: hidden; overflow-y: auto; height: auto; width: auto; max-width: 100%; }
   body { display: block; }
   .lp { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .hero.lp { padding-left: 24px; padding-right: 24px; }
+  .hero h1 { overflow-wrap: break-word; }
 
   /* HEADER --------------------------------------------------------------- */
   .lp-nav {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 24px;
     max-width: 1100px; margin: 0 auto;
+    gap: 12px;
   }
-  .lp-nav .brand { gap: 10px; font-weight: 600; }
-  .lp-nav .brand .logo { width: 28px; height: 28px; font-size: 16px; }
-  .lp-nav .brand .title { font-size: 15px; }
-  .lp-nav .brand .by { font-size: 11px; opacity: 0.7; }
-  .lp-nav-links { display: flex; gap: 18px; align-items: center; }
+  .lp-nav .brand { gap: 10px; font-weight: 600; min-width: 0; }
+  .lp-nav .brand .logo { width: 28px; height: 28px; font-size: 16px; flex: 0 0 auto; }
+  .lp-nav .brand .title { font-size: 15px; white-space: nowrap; }
+  .lp-nav .brand .by { font-size: 11px; opacity: 0.7; white-space: nowrap; }
+  .lp-nav-links { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
   .lp-nav-links a {
     color: var(--muted); text-decoration: none; font-size: 13px;
   }
@@ -54,6 +57,14 @@
     background: linear-gradient(180deg, rgba(106,166,255,0.32), rgba(106,166,255,0.10));
     border: 1px solid rgba(106,166,255,0.6);
     color: var(--text); padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  /* Narrow phones — collapse the long anchor nav and keep only the CTA so the
+     nav line stays single-row without wrapping. */
+  @media (max-width: 540px) {
+    .lp-nav { padding: 14px 18px; gap: 10px; }
+    .lp-nav-links { gap: 12px; }
+    .lp-nav-links a:not(.btn-buy) { display: none; }
+    .lp-nav .brand .by { display: none; }
   }
 
   /* HERO ----------------------------------------------------------------- */
@@ -275,10 +286,10 @@
   <h1>Learn physics by <span class="accent">playing</span>.</h1>
   <p class="lede">A 2D rigid-body sandbox that explains itself. Drag in empty space to spawn. Watch live energy and momentum readouts. Scale the explanations from "Curious" to "Expert" as you go.</p>
   <div class="cta-row">
-    <a class="cta primary" href="/free/" target="_blank" rel="noopener">Try it free →</a>
+    <a class="cta primary" href="/app/?free=1" target="_blank" rel="noopener">Try it free →</a>
     <a class="cta" href="#pricing">Get Pro · $9 one-time</a>
   </div>
-  <a id="try" class="demo-launch" href="/free/" target="_blank" rel="noopener" aria-label="Launch the interactive physics demo in a new tab">
+  <a id="try" class="demo-launch" href="/app/?free=1" target="_blank" rel="noopener" aria-label="Launch the interactive physics demo in a new tab">
     <div class="demo-launch-inner">
       <svg class="demo-play" viewBox="0 0 24 24" width="44" height="44" fill="currentColor" aria-hidden="true">
         <path d="M8 5v14l11-7z" />
@@ -438,7 +449,7 @@
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
       <a href="/app/">App</a>
-      <a href="/free/">Free demo</a>
+      <a href="/app/?free=1">Free demo</a>
       <a href="https://github.com/stacklis/physics-sandbox" rel="noopener">GitHub</a>
     </div>
   </div>
