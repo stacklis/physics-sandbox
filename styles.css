@@ -94,11 +94,16 @@ input, button { font: inherit; }
   font-weight: 600;
   font-size: 16px;
   letter-spacing: 0.3px;
+  white-space: nowrap;
   background: linear-gradient(135deg, var(--text) 30%, var(--accent-2) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Brand never shrinks below its content (mobile topbar is overflow-x: auto,
+   so the topbar can scroll instead of cramming the brand). */
+.topbar .brand { flex-shrink: 0; }
 
 .bar-group {
   display: flex;
@@ -963,12 +968,15 @@ body.pro .locked::before { content: none; }
   padding: 8px 10px 8px 14px;
   border-radius: 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   backdrop-filter: blur(12px);
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
+
+/* Allow the hint text to shrink and wrap so the × stays inside the hint. */
+.hint > span { min-width: 0; flex: 1 1 auto; }
 
 .hint:hover {
   border-color: var(--accent);
@@ -1223,6 +1231,8 @@ body.pro .locked::before { content: none; }
   color: var(--text);
   padding: 24px 28px;
   max-width: 450px;
+  width: calc(100% - 32px);
+  box-sizing: border-box;
   box-shadow: var(--shadow), var(--shadow-glow);
 }
 
@@ -1504,17 +1514,18 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   background: transparent;
   border: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.4px;
   padding: 4px 6px;
   border-radius: 10px;
   transition: color 0.15s, background 0.15s;
   min-height: 48px;
+  white-space: nowrap;
 }
 .tabbar .tab svg {
   width: 22px; height: 22px;
@@ -1579,17 +1590,35 @@ body {
   /* Topbar becomes scrollable strip so the action bar always fits. */
   .topbar {
     flex-wrap: nowrap;
+    align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    gap: 12px;
+    scrollbar-width: none;
+    gap: 14px;
     padding: 10px 14px;
-    padding-right: 50px;
+    padding-right: 56px;
   }
+  /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
+  .topbar .seg { padding: 8px 12px; font-size: 12px; }
+  .topbar .bar-group label { font-size: 12px; }
+  .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
   .topbar .bar-group.btns { margin-left: 0; }
   .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
+  /* Pin the collapse/expand toggle to the right viewport edge of the topbar.
+     `position: absolute` (default) would scroll with the row content; sticky
+     keeps it visible while the horizontal scroll moves the bar-groups. */
+  .topbar .bar-toggle {
+    position: sticky;
+    right: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+    /* Make it visually float above the scroll content so labels behind it
+       are obscured rather than visually colliding. */
+    box-shadow: -10px 0 14px rgba(10,10,15,0.85);
+  }
 
   .canvas-host { grid-area: main; }
 
