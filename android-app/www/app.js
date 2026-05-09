@@ -82,6 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   // Apply persisted mode (don't prompt — user already chose this previously).
+  // But re-check Pro: a lapsed-Pro user with a stale '3d' flag should boot 2D.
+  if (getPhysicsMode() === '3d' && !Pro.isActive()) {
+    try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+  }
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
     _setToggleUI('3d');
