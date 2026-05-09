@@ -29,17 +29,19 @@ The toggle lives in the top bar, between the title and the educator-level dropdo
 
 When 3D mode is active, the spawn rail swaps in:
 
-| Tool      | Behavior                                                       |
-|-----------|----------------------------------------------------------------|
-| Cube      | Replaces Box. Edge length = `max(dragWidth, dragHeight)`.      |
-| Sphere    | Replaces Circle. Drag-rect → sphere radius.                    |
-| Cylinder  | Axis along Y (vertical) by default; reads as a barrel/drum that can be knocked onto its side. Drag sets radius (horizontal) and length (vertical). |
-| Capsule   | Cylinder + hemispherical caps. Same axis convention.           |
-| Prism     | Extruded n-gon, n ∈ {3..8} (mirrors current Polygon tool).     |
-| Wall      | Static slab.                                                   |
-| Rope      | Chain of capsules joined by spherical (ball) joints.           |
+| Tool      | Behavior                                                       | v1?  |
+|-----------|----------------------------------------------------------------|------|
+| Cube      | Replaces Box. Edge length = `max(dragWidth, dragHeight)`.      | yes  |
+| Sphere    | Replaces Circle. Drag-rect → sphere radius.                    | yes  |
+| Cylinder  | Axis along Y (vertical); reads as a barrel that can be knocked onto its side. Drag sets radius (horizontal) and length (vertical). | yes  |
+| Capsule   | Cylinder + hemispherical caps. Same axis convention.           | yes  |
+| Prism     | Extruded n-gon, n ∈ {3..8} (mirrors current Polygon tool).     | yes  |
+| Wall      | Static slab.                                                   | yes  |
+| Rope      | Chain of capsules joined by spherical (ball) joints.           | v1.1 |
 
-Action tools (Grab / Spring / Impulse / Delete / Pin / Slice) stay. Their hit-test becomes a screen-space ray instead of point-in-polygon. Drag-grab projects the cursor onto the body's initial Z-plane so the user doesn't accidentally yank objects toward the camera. Slice is hidden in 3D mode for v1.
+Action tools shipped in v1: **Grab** and **Delete**. Their hit-test is a screen-space ray. Drag-grab projects the cursor onto the body's initial Z-plane so the user doesn't accidentally yank objects toward the camera.
+
+**Deferred to v1.1** (engine3d.js currently has no joint primitives, so all joint-shaped tools land together): **Spring**, **Impulse**, **Pin**, **Rope**. **Slice** is permanently out-of-scope in 3D — see "Out of Scope" below.
 
 ## Spawn UX
 

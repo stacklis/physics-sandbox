@@ -120,6 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // stopImmediatePropagation: prevents the 2D bubble-phase handler on this
     // same button from firing. Plain stopPropagation only blocks ancestors.
     ev.stopImmediatePropagation(); ev.preventDefault();
+    // Save is a Pro feature (matches the existing 2D gate that we just silenced
+    // by stopping propagation). Re-check Pro here so non-Pro users hit the
+    // upsell instead of getting a free download.
+    if (!Pro.isActive()) { openUpgradeModal(); return; }
     const mod = await import('./app3d.js?v=66');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });

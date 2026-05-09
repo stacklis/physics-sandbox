@@ -15,11 +15,13 @@ export class Renderer3D {
     this.scene.background = new THREE.Color('#1a1d28');
     this.scene.fog = new THREE.Fog('#1a1d28', 30, 80);
 
-    // Camera: side-on with 12° downward tilt.
+    // Camera: side-on with a 12° downward tilt — exactly 12°, not lookAt-plus-12°.
+    // lookAt would add its own pitch from the position offset, so we use Euler
+    // rotation directly with the position raised slightly to preview top faces.
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
-    this.camera.position.set(0, 8, 22);
-    this.camera.lookAt(0, 4, 0);
-    this.camera.rotation.x -= THREE.MathUtils.degToRad(12);
+    this.camera.position.set(0, 4.5, 22);
+    this.camera.rotation.order = 'YXZ';
+    this.camera.rotation.x = -THREE.MathUtils.degToRad(12);
 
     // Lights.
     this.scene.add(new THREE.HemisphereLight(0x99aaff, 0x222233, 0.55));
