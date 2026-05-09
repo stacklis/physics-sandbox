@@ -107,37 +107,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
   saveBtn.addEventListener('click', async ev => {
     if (getPhysicsMode() !== '3d') return;
-    ev.stopPropagation(); ev.preventDefault();
+    // stopImmediatePropagation: prevents the 2D bubble-phase handler on this
+    // same button from firing. Plain stopPropagation only blocks ancestors.
+    ev.stopImmediatePropagation(); ev.preventDefault();
     const mod = await import('./app3d.js?v=66');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `sandbox-3d-${Date.now()}.json`;
+    a.href = url;
+    a.download = `sandbox-3d-${Date.now()}.json`;
+    // Firefox requires the anchor to be in the DOM for programmatic click.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
   }, true);
 
   loadBtn.addEventListener('click', ev => {
     if (getPhysicsMode() !== '3d') return;
-    ev.stopPropagation(); ev.preventDefault();
+    ev.stopImmediatePropagation(); ev.preventDefault();
     fileInput.click();
   }, true);
 
   fileInput.addEventListener('change', async ev => {
     if (getPhysicsMode() !== '3d') return;
-    ev.stopPropagation();
+    ev.stopImmediatePropagation();
     const f = fileInput.files[0]; if (!f) return;
     const text = await f.text();
     let json;
-    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); return; }
+    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); fileInput.value = ''; return; }
     if (json.mode !== '3d') {
       alert('That scene is a 2D scene. Switch to 2D mode to load it.');
+      fileInput.value = '';
       return;
     }
     const mod = await import('./app3d.js?v=66');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
+    finally { fileInput.value = ''; }
   }, true);
 });
 
