@@ -1452,7 +1452,7 @@ document.querySelectorAll('.material').forEach(el => {
       document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
       state.activeMaterial = matKey;
-      AudioFx.toolSelect();
+      AudioFx.spawn();
     }
     triggerHaptic('light');
   });
