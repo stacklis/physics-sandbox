@@ -18,7 +18,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=63" />
+<link rel="stylesheet" href="styles.css?v=64" />
 </head>
 <body data-active-tab="tools" data-sheet-open="false">
 <header class="topbar">
@@ -195,6 +195,7 @@
     <div class="panel-grabber" aria-hidden="true"></div>
     <div class="panel-header">
       <span class="panel-title">Live Readings</span>
+      <button class="panel-pop" data-pop="readings" type="button" aria-label="Detach panel" title="Pop out">⊞</button>
     </div>
     <div class="panel-body">
       <div class="readout-grid">
@@ -220,6 +221,7 @@
     <div class="panel-header">
       <span class="panel-title" id="ov-lessonTitle">Physics Concepts</span>
       <span class="level-badge" id="ov-levelBadge">Curious</span>
+      <button class="panel-pop" data-pop="educator" type="button" aria-label="Detach panel" title="Pop out">⊞</button>
     </div>
     <div class="panel-body">
       <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This panel explains the physics behind what you see.</p>
@@ -294,6 +296,6 @@
 <script src="engine.js?v=61"></script>
 <script src="education.js?v=61"></script>
 <script src="app.js?v=61"></script>
-<script type="module" src="layout.js?v=61"></script>
+<script type="module" src="layout.js?v=62"></script>
 </body>
 </html>

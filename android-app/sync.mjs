@@ -21,7 +21,7 @@ const dstDir = join(__dirname, 'www');
 mkdirSync(dstDir, { recursive: true });
 
 // 1) Code files (flat copy)
-const codeFiles = ['app.js', 'engine.js', 'education.js', 'styles.css'];
+const codeFiles = ['app.js', 'engine.js', 'education.js', 'layout.js', 'styles.css'];
 let copied = 0;
 for (const f of codeFiles) {
   const src = join(srcDir, f);

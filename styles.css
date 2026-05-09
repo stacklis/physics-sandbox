@@ -1461,7 +1461,7 @@ body {
 #infoOverlay .panel-body { gap: 10px; }
 #infoOverlay .readout-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
 }
 #infoOverlay .totals-mini {
@@ -1540,13 +1540,44 @@ body {
 
 /* ===================== DESKTOP (>1024px) ===================== */
 @media (min-width: 1025px) {
+  :root {
+    --tools-w: 280px;
+    --readings-w: 320px;
+    --educator-h: 180px;
+  }
   body {
-    grid-template-columns: 280px 1fr 320px;
-    grid-template-rows: auto 1fr 180px;
+    grid-template-columns: var(--tools-w) 1fr var(--readings-w);
+    grid-template-rows: auto 1fr var(--educator-h);
     grid-template-areas:
       "topbar topbar topbar"
       "tools  main   readings"
       "tools  educator educator";
+  }
+  /* When Readings is floating, collapse the right column so canvas + educator
+     expand into the freed space. */
+  body[data-readings-floating="true"] {
+    grid-template-columns: var(--tools-w) 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   main"
+      "tools  educator educator";
+  }
+  /* When Educator is floating, collapse the bottom row. */
+  body[data-educator-floating="true"] {
+    grid-template-rows: auto 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   readings"
+      "tools  main   readings";
+  }
+  /* Both floating: full-bleed canvas + tools column only. */
+  body[data-readings-floating="true"][data-educator-floating="true"] {
+    grid-template-columns: var(--tools-w) 1fr 0;
+    grid-template-rows: auto 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   main"
+      "tools  main   main";
   }
   .canvas-host { grid-area: main; }
   #toolsPanel { grid-area: tools; border-right: 1px solid var(--line); }
@@ -1555,6 +1586,183 @@ body {
     grid-area: educator;
     border-top: 1px solid var(--line);
   }
+  /* Hide docked panels' grid-area presence when they're floating
+     (the grid still allocates 0 for the row/column thanks to the body data attrs). */
+  body[data-readings-floating="true"] #infoOverlay:not(.floating) { display: none; }
+  body[data-educator-floating="true"] #lessonOverlay:not(.floating) { display: none; }
+
+  /* Dock-edge resize handles. Placed absolutely so they sit ON the boundary
+     between dock + canvas without disturbing the grid math. JS injects three
+     of these into <body> on desktop and updates them on breakpoint change. */
+  .dock-edge {
+    position: fixed;
+    z-index: 12;
+    background: transparent;
+    transition: background 120ms ease;
+  }
+  .dock-edge::before {
+    content: '';
+    position: absolute;
+    background: var(--line-2);
+    transition: background 120ms ease, transform 120ms ease;
+  }
+  .dock-edge:hover::before,
+  .dock-edge.dragging::before {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .dock-edge[data-edge="tools-edge"],
+  .dock-edge[data-edge="readings-edge"] {
+    width: 6px;
+    cursor: col-resize;
+    top: 0;
+    bottom: 0;
+  }
+  .dock-edge[data-edge="tools-edge"]::before,
+  .dock-edge[data-edge="readings-edge"]::before {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 0;
+    bottom: 0;
+    width: 1px;
+  }
+  .dock-edge[data-edge="tools-edge"]:hover::before,
+  .dock-edge[data-edge="tools-edge"].dragging::before,
+  .dock-edge[data-edge="readings-edge"]:hover::before,
+  .dock-edge[data-edge="readings-edge"].dragging::before {
+    width: 2px;
+  }
+  .dock-edge[data-edge="educator-edge"] {
+    height: 6px;
+    cursor: row-resize;
+    left: 0;
+    right: 0;
+  }
+  .dock-edge[data-edge="educator-edge"]::before {
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    height: 1px;
+  }
+  .dock-edge[data-edge="educator-edge"]:hover::before,
+  .dock-edge[data-edge="educator-edge"].dragging::before {
+    height: 2px;
+  }
+  /* Hide handles whose adjacent panel is floating (no boundary to drag). */
+  body[data-readings-floating="true"] .dock-edge[data-edge="readings-edge"],
+  body[data-educator-floating="true"] .dock-edge[data-edge="educator-edge"] {
+    display: none;
+  }
+
+  /* Floating panels — absolute inside .canvas-host so they're clipped to the
+     canvas region (does not bleed under topbar or into the tools column). */
+  .canvas-host .panel.floating {
+    position: absolute;
+    z-index: 30;
+    border-radius: 12px;
+    border: 1px solid var(--line-2);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Width/height/top/left set inline by layout.js. */
+  }
+  .canvas-host .panel.floating.active { z-index: 31; }
+  .canvas-host .panel.floating .panel-header {
+    cursor: grab;
+    user-select: none;
+  }
+  .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
+  .canvas-host .panel.floating .resize-corner {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    z-index: 2;
+    background:
+      linear-gradient(135deg, transparent 0 50%, var(--line-2) 50% 60%, transparent 60% 70%, var(--line-2) 70% 80%, transparent 80%);
+  }
+  .canvas-host .panel.floating .resize-edge {
+    display: block;
+    position: absolute;
+    z-index: 1;
+    background: transparent;
+  }
+  .canvas-host .panel.floating .resize-edge[data-edge="n"] { left: 0; right: 14px; top: 0; height: 5px; cursor: ns-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="s"] { left: 0; right: 14px; bottom: 0; height: 5px; cursor: ns-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="e"] { top: 0; bottom: 14px; right: 0; width: 5px; cursor: ew-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="w"] { top: 0; bottom: 0; left: 0; width: 5px; cursor: ew-resize; }
+  /* Educator floating overrides the desktop row-mode panel-body (which is
+     flex-row + horizontal scroll). Reset to vertical for compact float. */
+  .canvas-host #lessonOverlay.floating .panel-body {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    gap: 10px;
+  }
+  .canvas-host #lessonOverlay.floating .panel-body > * { max-width: none; }
+  .canvas-host #lessonOverlay.floating .concepts-touched {
+    border-top: 1px dashed var(--line);
+    padding-top: 10px;
+    padding-left: 0;
+    border-left: 0;
+    margin-top: 4px;
+  }
+
+  /* Dock-zone highlight — appears along the panel's native dock edge while the
+     user drags the floating panel close to it. Two variants for the two panels. */
+  .dock-zone {
+    position: absolute;
+    background: var(--accent);
+    box-shadow: 0 0 16px var(--accent-glow);
+    z-index: 29;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .dock-zone.active { opacity: 1; }
+  .dock-zone[data-zone="readings"] {
+    top: 0; bottom: 0; right: 0;
+    width: 4px;
+  }
+  .dock-zone[data-zone="educator"] {
+    left: 0; right: 0; bottom: 0;
+    height: 4px;
+  }
+
+  /* Pop-out / dock button in panel headers. */
+  .panel-pop {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    width: 26px;
+    height: 22px;
+    padding: 0;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  .panel-pop:hover {
+    color: var(--accent-2);
+    border-color: var(--accent);
+    background: rgba(0, 229, 160, 0.06);
+  }
+  /* When a level-badge is present (educator), keep it before the pop button. */
+  .panel-header .level-badge + .panel-pop { margin-left: 6px; }
+  /* The first-of-class margin-left rule above pushes the badge right; reset
+     so badge stays adjacent to title and only the pop button is far-right. */
+  .panel-header .level-badge { margin-left: auto; }
   #lessonOverlay .panel-body {
     flex-direction: row;
     align-items: stretch;
@@ -1629,7 +1837,7 @@ body {
     right: 0;
     bottom: 60px;
     height: var(--sheet-height, 60vh);
-    max-height: 85vh;
+    max-height: 95vh;
     background: rgba(12, 14, 20, 0.96);
     backdrop-filter: blur(14px) saturate(1.2);
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -1643,7 +1851,12 @@ body {
     will-change: transform;
     pointer-events: none;
   }
-  body[data-sheet-height="tall"] .panel { --sheet-height: 85vh; }
+  body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
+  body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
+  body[data-sheet-height="high"] .panel { --sheet-height: 90vh; }
+  /* Legacy values still resolve sanely. */
+  body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
+  body[data-sheet-height="tall"] .panel { --sheet-height: 90vh; }
   .panel.visible {
     transform: translateY(0);
     pointer-events: auto;
@@ -1668,6 +1881,9 @@ body {
     padding: 8px 10px;
     font-size: 11px;
   }
+
+  /* No floating panels on mobile — hide the pop button entirely. */
+  .panel-pop { display: none; }
 
   .tabbar {
     display: flex;
@@ -1704,4 +1920,78 @@ body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
 }
 .upgrade-foot a { color: var(--muted); text-decoration: none; }
 .upgrade-foot a:hover { color: var(--accent-2); }
+
+/* Resize handles default to hidden — they only show when their parent panel
+   is `.floating` (see desktop @media). */
+.resize-corner,
+.resize-edge { display: none; }
+
+/* =====================================================================
+   CONTAINER QUERIES — internal fluidity for resized + floating panels.
+   Each .panel becomes its own inline-size container; child layouts adapt
+   to the panel's width independent of the viewport breakpoint.
+   ===================================================================== */
+.panel {
+  container-type: inline-size;
+}
+#toolsPanel { container-name: tools-panel; }
+#infoOverlay { container-name: readings-panel; }
+/* Educator queries height too (compact-mode hint when float is short), so it
+   needs `container-type: size` rather than `inline-size`. */
+#lessonOverlay { container-type: size; container-name: educator-panel; }
+
+/* Material grid adapts to available width. */
+#toolsPanel .material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 5px;
+}
+
+/* TOOLS — narrow + wide adaptations. */
+@container tools-panel (max-width: 240px) {
+  #toolsPanel .tool-section .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  #toolsPanel .tool { min-width: 0; padding: 6px 4px; }
+  #toolsPanel .tool svg { display: none; }
+  #toolsPanel .tool span { font-size: 10.5px; }
+}
+@container tools-panel (min-width: 360px) {
+  #toolsPanel .tool-section .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 6px;
+  }
+  #toolsPanel .tool svg { width: 26px; height: 26px; }
+}
+
+/* READINGS — value typography scales with panel width; on narrow we drop to
+   single column. */
+@container readings-panel (max-width: 260px) {
+  #infoOverlay .readout-grid {
+    grid-template-columns: 1fr;
+  }
+  #infoOverlay .metric-val { font-size: 13px; }
+  #infoOverlay .metric-val .unit { font-size: 10px; }
+}
+@container readings-panel (min-width: 380px) {
+  #infoOverlay .metric-val { font-size: 17px; }
+}
+
+/* EDUCATOR — when short (compact float height), tighten the body and hide the
+   "Concepts explored" header so the pill row fills its space without title
+   chrome. The pill list itself stays scrollable. */
+@container educator-panel (max-height: 220px) {
+  #lessonOverlay .lesson-body { line-height: 1.45; }
+  #lessonOverlay .concepts-title { display: none; }
+  #lessonOverlay .concepts-touched { padding-top: 6px; margin-top: 0; }
+  #lessonOverlay .concept-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  #lessonOverlay .concept-pill { white-space: nowrap; flex: 0 0 auto; }
+}
 
