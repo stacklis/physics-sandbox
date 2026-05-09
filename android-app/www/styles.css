@@ -2351,3 +2351,7 @@ body[data-sheet-locked="true"] {
   .panel-header { padding-left: 22px; }
 }
 
+/* Mode-aware tool sections — visible only when body[data-mode] matches. */
+body[data-mode="2d"] [data-mode-only="3d"] { display: none !important; }
+body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
+

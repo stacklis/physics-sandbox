@@ -2,6 +2,152 @@
 // no telemetry — by design (see privacy.html)
 'use strict';
 
+/* =========================== mode router ===========================
+ * Reads localStorage.physicsMode (default '2d'). On '2d', the 2D IIFE
+ * below runs as today. On '3d', the 2D IIFE still initialises (it owns
+ * the renderer and global state for cross-mode UI), but the 3D module
+ * is loaded immediately after and takes ownership of the canvas.
+ * The toggle button calls setPhysicsMode() to switch.
+ * ================================================================ */
+const MODE_KEY = 'physicsMode';
+function getPhysicsMode() {
+  try { return localStorage.getItem(MODE_KEY) === '3d' ? '3d' : '2d'; }
+  catch { return '2d'; }
+}
+let _3dHandle = null;
+let _switching = false;
+
+function _setToggleUI(next) {
+  document.querySelectorAll('#modeSegment .seg').forEach(b => {
+    const on = b.dataset.mode === next;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+async function setPhysicsMode(next) {
+  if (_switching) return;
+  const cur = getPhysicsMode();
+  if (cur === next) return;
+  if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
+  _switching = true;
+  try { localStorage.setItem(MODE_KEY, next); } catch {}
+  _setToggleUI(next);
+  if (next === '3d') {
+    document.body.dataset.mode = '3d';
+    try {
+      const mod = await import('./app3d.js?v=66');
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    } catch (err) {
+      // Roll back so a failed 3D load doesn't permanently brick the page.
+      console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D.');
+    } finally {
+      _switching = false;
+    }
+  } else {
+    document.body.dataset.mode = '2d';
+    if (_3dHandle) {
+      try {
+        const mod = await import('./app3d.js?v=66');
+        mod.teardown3D();
+      } catch {}
+      _3dHandle = null;
+    }
+    // Reload to restore 2D state cleanly. No state-machine gymnastics for now.
+    location.reload();
+  }
+}
+
+// Wire toggle once DOM is ready. The 2D IIFE below also adds listeners; this
+// runs first because it's outside the IIFE and only attaches one click handler.
+document.addEventListener('DOMContentLoaded', () => {
+  const seg = document.getElementById('modeSegment');
+  if (seg) {
+    seg.addEventListener('click', e => {
+      const btn = e.target.closest('[data-mode]');
+      if (btn) setPhysicsMode(btn.dataset.mode);
+    });
+  }
+  // Apply persisted mode (don't prompt — user already chose this previously).
+  if (getPhysicsMode() === '3d') {
+    document.body.dataset.mode = '3d';
+    _setToggleUI('3d');
+    import('./app3d.js?v=66').then(async mod => {
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    }).catch(err => {
+      console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
+    });
+  } else {
+    document.body.dataset.mode = '2d';
+  }
+});
+
+// Mode-aware save/load. The 2D side uses the IIFE-internal serializeScene;
+// the 3D side uses module exports. We attach interceptors in capture phase
+// so 3D mode wins before the IIFE handlers fire.
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const fileInput = document.getElementById('loadFileInput');
+  if (!saveBtn || !loadBtn || !fileInput) return;
+
+  saveBtn.addEventListener('click', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    // stopImmediatePropagation: prevents the 2D bubble-phase handler on this
+    // same button from firing. Plain stopPropagation only blocks ancestors.
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    const mod = await import('./app3d.js?v=66');
+    const scene = mod.serialize3D();
+    const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sandbox-3d-${Date.now()}.json`;
+    // Firefox requires the anchor to be in the DOM for programmatic click.
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+  }, true);
+
+  loadBtn.addEventListener('click', ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    fileInput.click();
+  }, true);
+
+  fileInput.addEventListener('change', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation();
+    const f = fileInput.files[0]; if (!f) return;
+    const text = await f.text();
+    let json;
+    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); fileInput.value = ''; return; }
+    if (json.mode !== '3d') {
+      alert('That scene is a 2D scene. Switch to 2D mode to load it.');
+      fileInput.value = '';
+      return;
+    }
+    const mod = await import('./app3d.js?v=66');
+    try { mod.deserialize3D(json); }
+    catch (e) { alert('Failed to load scene: ' + e.message); }
+    finally { fileInput.value = ''; }
+  }, true);
+});
+
 (function () {
 const { Vec2, World, Body, DistanceConstraint, makeBox, makeCircle, makePolygon, SHAPE } = window.PSandbox;
 const { Educator } = window.PEdu;
