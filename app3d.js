@@ -24,6 +24,8 @@ export async function init3D({ canvas, hostEl }) {
 }
 
 function loop() {
+  // Guard: a queued frame could fire after teardown nulls the globals.
+  if (!world || !renderer) return;
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
