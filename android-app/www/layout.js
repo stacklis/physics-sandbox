@@ -1,7 +1,7 @@
 // layout.js — Physics Sandbox layout controller (2026-05-09 rework).
 //
-// Drives the bottom-tab/sheet UX on mobile (<=1024px) and the resizable +
-// floating-panels desktop layout (>1024px). app.js never sees the difference:
+// Drives the bottom-tab/sheet UX on mobile (<=768px) and the resizable +
+// floating-panels desktop layout (>768px). app.js never sees the difference:
 // it just queries `.visible` on `#infoOverlay` / `#lessonOverlay` / `#tipsOverlay`,
 // and calls `window.toggleInfoOverlay()` / `toggleLessonOverlay()` / `toggleTipsOverlay()`
 // for keyboard shortcuts. This module exposes those globals and toggles `.visible`
@@ -22,8 +22,8 @@
 
 const TABS = ['tools', 'readings', 'educator'];
 const PANEL_BY_TAB = { tools: 'toolsPanel', readings: 'infoOverlay', educator: 'lessonOverlay' };
-const MOBILE_QUERY = '(max-width: 1024px)';
-const LANDSCAPE_MOBILE_QUERY = '(max-width: 1024px) and (orientation: landscape) and (max-height: 600px)';
+const MOBILE_QUERY = '(max-width: 768px)';
+const LANDSCAPE_MOBILE_QUERY = '(max-width: 768px) and (orientation: landscape) and (max-height: 600px)';
 
 const body = document.body;
 const tabbar = document.querySelector('.tabbar');
@@ -572,18 +572,27 @@ function dockPanel(key) {
   const panelEl = panels[key];
   if (!panelEl) return;
   if (!panelEl.classList.contains('floating')) return;
-  panelEl.classList.remove('floating', 'active');
-  clearFloatStyles(panelEl);
-  delete body.dataset[key + 'Floating'];
-  // Move back into the panel-host so the grid takes ownership.
-  const host = document.querySelector('.panel-host');
-  if (host) host.appendChild(panelEl);
-  writeState(key, 'docked');
-  if (activeFloatKey === key) activeFloatKey = null;
-  // Hide any active dock-zone.
+  if (panelEl.classList.contains('dock-exit')) return; // already animating out
+  // Hide dock-zone hint immediately so it doesn't linger during exit anim.
   if (dockZones[key]) dockZones[key].classList.remove('active');
-  updatePopButton(key);
-  schedulePositionEdges();
+  // Play exit animation, then complete the dock when it ends.
+  panelEl.classList.add('dock-exit');
+  const finalize = () => {
+    panelEl.removeEventListener('animationend', finalize);
+    clearTimeout(fallback);
+    panelEl.classList.remove('floating', 'active', 'dock-exit');
+    clearFloatStyles(panelEl);
+    delete body.dataset[key + 'Floating'];
+    const host = document.querySelector('.panel-host');
+    if (host) host.appendChild(panelEl);
+    writeState(key, 'docked');
+    if (activeFloatKey === key) activeFloatKey = null;
+    updatePopButton(key);
+    schedulePositionEdges();
+  };
+  panelEl.addEventListener('animationend', finalize, { once: true });
+  // Fallback in case animationend doesn't fire (reduced-motion, etc.).
+  const fallback = setTimeout(finalize, 220);
 }
 
 function ensureFloatHandles(panelEl) {
