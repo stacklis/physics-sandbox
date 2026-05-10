@@ -1668,7 +1668,31 @@ body {
     display: flex;
     flex-direction: column;
     /* Width/height/top/left set inline by layout.js. */
+    animation: float-pop-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform-origin: center center;
   }
+  .canvas-host .panel.floating.dock-exit {
+    animation: float-pop-out 180ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes float-pop-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes float-pop-out {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.94); }
+  }
+  /* Smooth dock collapse / expand when a panel pops out or back in.
+     Animating grid-template-* requires concrete numeric tracks, which we have
+     (var --tools-w, --readings-w, --educator-h are all px values). */
+  body {
+    transition: grid-template-columns 240ms cubic-bezier(0.32, 0.72, 0, 1),
+                grid-template-rows 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Skip the body-grid transition while user is actively dragging a dock-edge
+     handle — those drags should track the cursor 1:1, not lag behind. */
+  body.resizing-dock { transition: none; }
   .canvas-host .panel.floating.active { z-index: 31; }
   /* Header gets a subtle dark chip so the drag handle and pop-out button stay
      findable over an arbitrary canvas background. */
