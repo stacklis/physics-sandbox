@@ -1,7 +1,7 @@
 // layout.js — Physics Sandbox layout controller (2026-05-09 rework).
 //
-// Drives the bottom-tab/sheet UX on mobile (<=1024px) and the resizable +
-// floating-panels desktop layout (>1024px). app.js never sees the difference:
+// Drives the bottom-tab/sheet UX on mobile (<=768px) and the resizable +
+// floating-panels desktop layout (>768px). app.js never sees the difference:
 // it just queries `.visible` on `#infoOverlay` / `#lessonOverlay` / `#tipsOverlay`,
 // and calls `window.toggleInfoOverlay()` / `toggleLessonOverlay()` / `toggleTipsOverlay()`
 // for keyboard shortcuts. This module exposes those globals and toggles `.visible`
@@ -22,8 +22,8 @@
 
 const TABS = ['tools', 'readings', 'educator'];
 const PANEL_BY_TAB = { tools: 'toolsPanel', readings: 'infoOverlay', educator: 'lessonOverlay' };
-const MOBILE_QUERY = '(max-width: 1024px)';
-const LANDSCAPE_MOBILE_QUERY = '(max-width: 1024px) and (orientation: landscape) and (max-height: 600px)';
+const MOBILE_QUERY = '(max-width: 768px)';
+const LANDSCAPE_MOBILE_QUERY = '(max-width: 768px) and (orientation: landscape) and (max-height: 600px)';
 
 const body = document.body;
 const tabbar = document.querySelector('.tabbar');
