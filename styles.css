@@ -1949,6 +1949,14 @@ body {
 /* ======================= EMBED MODE (preserved) =======================
    The landing page hosts the free demo via /app/?free=1 (no longer iframed
    post-rework, but embed-mode stays in case anyone still embeds /app/?embed=1). */
+body.embed-mode .topbar {
+  display: none !important;
+}
+/* Adjust grid when topbar is hidden in embed mode */
+body.embed-mode {
+  grid-template-rows: 1fr;
+  grid-template-areas: "main";
+}
 body.embed-mode .brand .by,
 body.embed-mode .brand .pro-badge,
 body.embed-mode #saveBtn,

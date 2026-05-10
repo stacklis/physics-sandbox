@@ -2183,15 +2183,16 @@ function updateTipsOverlay() {
 // When that lands, the redeem-code branch becomes the API verification call,
 // and Pro.activate() should also store the token for revocation/expiry checks.
 //
-// STRIPE_PAYMENT_LINK: paste the real Stripe Payment Link URL here once the
-// operator has created the one-time $9 product in the Stripe dashboard.
+// STRIPE_PAYMENT_LINK: replace 'REPLACE_WITH_REAL_LINK' with the Payment Link
+// slug from Stripe Dashboard once the one-time $9 product is created.
 //   - Product:     Physics Sandbox Pro, one-time $9 USD
-//   - Success URL: https://sandbox.stacklis.com/app/?pro=1&src=stripe
+//   - Success URL: https://physics.stacklis.com/app/?pro=1&src=stripe
 //                  (note: /app/, not /, so Pro.checkUrlParam() below runs and
 //                  flips the localStorage flag immediately)
-//   - Cancel URL:  https://sandbox.stacklis.com/app/
-// Until pasted, the upgrade button shows a placeholder alert.
-const STRIPE_PAYMENT_LINK = '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>';
+//   - Cancel URL:  https://physics.stacklis.com/app/
+const STRIPE_CHECKOUT_URL = 'https://buy.stripe.com/REPLACE_WITH_REAL_LINK';
+// Keep legacy alias so any code referencing STRIPE_PAYMENT_LINK still works.
+const STRIPE_PAYMENT_LINK = STRIPE_CHECKOUT_URL;
 // ?free=1 — force the app into free-tier mode regardless of localStorage.
 // Used by the landing page CTA (/app/?free=1) and the /free legacy redirect.
 // Pro features stay locked while this is set; the URL param persists across
@@ -2202,7 +2203,7 @@ const FREE_MODE = (() => {
 })();
 const Pro = (() => {
   const KEY = 'ps.pro';
-  const REDEEM_CODES = new Set(['STACKLIS-EARLY']);
+  const REDEEM_CODES = new Set(['STACKLIS-EARLY', 'STACKLIS-PRO']);
   function isActive() {
     if (FREE_MODE) return false;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
@@ -2269,13 +2270,13 @@ function openUpgradeModal() {
 function closeUpgradeModal() { upgradeDialog?.close(); }
 
 if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
-  if (STRIPE_PAYMENT_LINK && STRIPE_PAYMENT_LINK !== '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>') {
-    window.location.href = STRIPE_PAYMENT_LINK;
+  if (STRIPE_CHECKOUT_URL && !STRIPE_CHECKOUT_URL.includes('REPLACE_WITH_REAL_LINK')) {
+    window.open(STRIPE_CHECKOUT_URL, '_blank');
     return;
   }
-  // Stripe Payment Link not yet configured. Operator must paste the real URL
-  // into STRIPE_PAYMENT_LINK at the top of the Pro module.
-  alert('Stripe link not yet configured — operator must paste Payment Link into app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
+  // Stripe Payment Link not yet configured. Operator must replace
+  // 'REPLACE_WITH_REAL_LINK' in STRIPE_CHECKOUT_URL at the top of the Pro module.
+  alert('Stripe link not yet configured — operator must update STRIPE_CHECKOUT_URL in app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
 });
 if (upgradeLaterBtn) upgradeLaterBtn.addEventListener('click', closeUpgradeModal);
 if (redeemBtnEl) redeemBtnEl.addEventListener('click', () => {
