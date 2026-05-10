@@ -572,18 +572,26 @@ function dockPanel(key) {
   const panelEl = panels[key];
   if (!panelEl) return;
   if (!panelEl.classList.contains('floating')) return;
-  panelEl.classList.remove('floating', 'active');
-  clearFloatStyles(panelEl);
-  delete body.dataset[key + 'Floating'];
-  // Move back into the panel-host so the grid takes ownership.
-  const host = document.querySelector('.panel-host');
-  if (host) host.appendChild(panelEl);
-  writeState(key, 'docked');
-  if (activeFloatKey === key) activeFloatKey = null;
-  // Hide any active dock-zone.
+  // Hide dock-zone hint immediately so it doesn't linger during exit anim.
   if (dockZones[key]) dockZones[key].classList.remove('active');
-  updatePopButton(key);
-  schedulePositionEdges();
+  // Play exit animation, then complete the dock when it ends.
+  panelEl.classList.add('dock-exit');
+  const finalize = () => {
+    panelEl.removeEventListener('animationend', finalize);
+    clearTimeout(fallback);
+    panelEl.classList.remove('floating', 'active', 'dock-exit');
+    clearFloatStyles(panelEl);
+    delete body.dataset[key + 'Floating'];
+    const host = document.querySelector('.panel-host');
+    if (host) host.appendChild(panelEl);
+    writeState(key, 'docked');
+    if (activeFloatKey === key) activeFloatKey = null;
+    updatePopButton(key);
+    schedulePositionEdges();
+  };
+  panelEl.addEventListener('animationend', finalize, { once: true });
+  // Fallback in case animationend doesn't fire (reduced-motion, etc.).
+  const fallback = setTimeout(finalize, 220);
 }
 
 function ensureFloatHandles(panelEl) {
