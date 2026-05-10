@@ -1,0 +1,1348 @@
+{
+  "cur_portrait_412": {
+    "topbar": {
+      "sw": 1292,
+      "cw": 412,
+      "ow": 412,
+      "sh": 60
+    },
+    "children": [
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "brand",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 14,
+          "y": 12,
+          "w": 192.203125,
+          "h": 36
+        },
+        "children": [
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "logo",
+            "rect": {
+              "x": 14,
+              "y": 12,
+              "w": 36,
+              "h": 36
+            }
+          },
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "title",
+            "rect": {
+              "x": 62,
+              "y": 19.5,
+              "w": 136.203125,
+              "h": 21
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 220.203125,
+          "y": 10,
+          "w": 405.09375,
+          "h": 40
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "seg-label",
+            "rect": {
+              "x": 220.203125,
+              "y": 22,
+              "w": 93.40625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "div",
+            "id": "levelSegment",
+            "cls": "segment",
+            "rect": {
+              "x": 323.609375,
+              "y": 10,
+              "w": 301.6875,
+              "h": 40
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 639.296875,
+          "y": 22,
+          "w": 210.171875,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 639.296875,
+              "y": 22,
+              "w": 96.171875,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "gravity",
+            "cls": "",
+            "rect": {
+              "x": 747.46875,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 863.46875,
+          "y": 22,
+          "w": 209.140625,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 863.46875,
+              "y": 22,
+              "w": 95.140625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "timeScale",
+            "cls": "",
+            "rect": {
+              "x": 970.609375,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group btns",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 1086.609375,
+          "y": 11,
+          "w": 43,
+          "h": 38
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "pauseBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1086.609375,
+              "y": 11,
+              "w": 43,
+              "h": 38
+            }
+          },
+          {
+            "tag": "input",
+            "id": "loadFileInput",
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "topbarOverflow",
+        "cls": "topbar-overflow",
+        "display": "none",
+        "position": "absolute",
+        "flex": "0 1 auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "saveBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "loadBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "shareBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "derivationsBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "resetBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "clearBtn",
+            "cls": "btn danger",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          }
+        ]
+      },
+      {
+        "tag": "button",
+        "id": "topbarMore",
+        "cls": "topbar-more",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 1143.609375,
+          "y": 10,
+          "w": 40,
+          "h": 40
+        },
+        "children": []
+      },
+      {
+        "tag": "button",
+        "id": "topbarToggle",
+        "cls": "bar-toggle",
+        "display": "grid",
+        "position": "sticky",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 310,
+          "y": 12,
+          "w": 38,
+          "h": 38
+        },
+        "children": []
+      }
+    ],
+    "overflowEl": {
+      "display": "none",
+      "childCount": 6,
+      "childRects": [
+        {
+          "id": "saveBtn",
+          "txt": "Save",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "loadBtn",
+          "txt": "Load",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "shareBtn",
+          "txt": "Share",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "derivationsBtn",
+          "txt": "Derivations",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "resetBtn",
+          "txt": "Reset",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "clearBtn",
+          "txt": "Clear",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        }
+      ]
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "portrait-mobile",
+      "sheetHeight": "mid"
+    },
+    "viewport": {
+      "w": 412,
+      "h": 915
+    }
+  },
+  "prev_portrait_412": {
+    "topbar": {
+      "sw": 1724,
+      "cw": 412,
+      "ow": 412,
+      "sh": 60
+    },
+    "children": [
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "brand",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 14,
+          "y": 12,
+          "w": 192.203125,
+          "h": 36
+        },
+        "children": [
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "logo",
+            "rect": {
+              "x": 14,
+              "y": 12,
+              "w": 36,
+              "h": 36
+            }
+          },
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "title",
+            "rect": {
+              "x": 62,
+              "y": 19.5,
+              "w": 136.203125,
+              "h": 21
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 220.203125,
+          "y": 10,
+          "w": 405.09375,
+          "h": 40
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "seg-label",
+            "rect": {
+              "x": 220.203125,
+              "y": 22,
+              "w": 93.40625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "div",
+            "id": "levelSegment",
+            "cls": "segment",
+            "rect": {
+              "x": 323.609375,
+              "y": 10,
+              "w": 301.6875,
+              "h": 40
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 639.296875,
+          "y": 22,
+          "w": 210.171875,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 639.296875,
+              "y": 22,
+              "w": 96.171875,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "gravity",
+            "cls": "",
+            "rect": {
+              "x": 747.46875,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 863.46875,
+          "y": 22,
+          "w": 209.140625,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 863.46875,
+              "y": 22,
+              "w": 95.140625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "timeScale",
+            "cls": "",
+            "rect": {
+              "x": 970.609375,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group btns",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 1086.609375,
+          "y": 11,
+          "w": 528.953125,
+          "h": 38
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "saveBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 1086.609375,
+              "y": 11,
+              "w": 77.25,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "loadBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1169.859375,
+              "y": 11,
+              "w": 60.734375,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "shareBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1236.59375,
+              "y": 11,
+              "w": 65.8125,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "derivationsBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 1308.40625,
+              "y": 11,
+              "w": 118.390625,
+              "h": 38
+            }
+          },
+          {
+            "tag": "input",
+            "id": "loadFileInput",
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "pauseBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1432.796875,
+              "y": 11,
+              "w": 43,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "resetBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1481.796875,
+              "y": 11,
+              "w": 65.953125,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "clearBtn",
+            "cls": "btn danger",
+            "rect": {
+              "x": 1553.75,
+              "y": 11,
+              "w": 61.8125,
+              "h": 38
+            }
+          }
+        ]
+      },
+      {
+        "tag": "button",
+        "id": "topbarToggle",
+        "cls": "bar-toggle",
+        "display": "grid",
+        "position": "sticky",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 310,
+          "y": 12,
+          "w": 38,
+          "h": 38
+        },
+        "children": []
+      }
+    ],
+    "overflowEl": null,
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "sheetHeight": "mid"
+    },
+    "viewport": {
+      "w": 412,
+      "h": 915
+    }
+  },
+  "cur_landscape_915": {
+    "topbar": {
+      "sw": 915,
+      "cw": 915,
+      "ow": 915,
+      "sh": 46
+    },
+    "children": [
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "brand",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 10,
+          "y": 5,
+          "w": 192.203125,
+          "h": 36
+        },
+        "children": [
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "logo",
+            "rect": {
+              "x": 10,
+              "y": 5,
+              "w": 36,
+              "h": 36
+            }
+          },
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "title",
+            "rect": {
+              "x": 58,
+              "y": 12.5,
+              "w": 136.203125,
+              "h": 21
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 212.203125,
+          "y": 7,
+          "w": 253.96875,
+          "h": 32
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "seg-label",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "div",
+            "id": "levelSegment",
+            "cls": "segment",
+            "rect": {
+              "x": 212.203125,
+              "y": 7,
+              "w": 253.96875,
+              "h": 32
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 476.171875,
+          "y": 18.5,
+          "w": 84,
+          "h": 9
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "input",
+            "id": "gravity",
+            "cls": "",
+            "rect": {
+              "x": 478.171875,
+              "y": 20.5,
+              "w": 80,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 570.171875,
+          "y": 18.5,
+          "w": 84,
+          "h": 9
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "input",
+            "id": "timeScale",
+            "cls": "",
+            "rect": {
+              "x": 572.171875,
+              "y": 20.5,
+              "w": 80,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group btns",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 664.171875,
+          "y": 7,
+          "w": 33,
+          "h": 32
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "pauseBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 664.171875,
+              "y": 7,
+              "w": 33,
+              "h": 32
+            }
+          },
+          {
+            "tag": "input",
+            "id": "loadFileInput",
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": "topbarOverflow",
+        "cls": "topbar-overflow",
+        "display": "none",
+        "position": "absolute",
+        "flex": "0 1 auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "saveBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "loadBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "shareBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "derivationsBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "resetBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "clearBtn",
+            "cls": "btn danger",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          }
+        ]
+      },
+      {
+        "tag": "button",
+        "id": "topbarMore",
+        "cls": "topbar-more",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 707.171875,
+          "y": 5,
+          "w": 36,
+          "h": 36
+        },
+        "children": []
+      },
+      {
+        "tag": "button",
+        "id": "topbarToggle",
+        "cls": "bar-toggle",
+        "display": "grid",
+        "position": "sticky",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 819,
+          "y": 4,
+          "w": 38,
+          "h": 38
+        },
+        "children": []
+      }
+    ],
+    "overflowEl": {
+      "display": "none",
+      "childCount": 6,
+      "childRects": [
+        {
+          "id": "saveBtn",
+          "txt": "Save",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "loadBtn",
+          "txt": "Load",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "shareBtn",
+          "txt": "Share",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "derivationsBtn",
+          "txt": "Derivations",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "resetBtn",
+          "txt": "Reset",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        },
+        {
+          "id": "clearBtn",
+          "txt": "Clear",
+          "x": 0,
+          "y": 0,
+          "w": 0,
+          "h": 0,
+          "display": "inline-block"
+        }
+      ]
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "landscape-mobile",
+      "sheetHeight": "mid"
+    },
+    "viewport": {
+      "w": 915,
+      "h": 412
+    }
+  },
+  "prev_landscape_915": {
+    "topbar": {
+      "sw": 1724,
+      "cw": 915,
+      "ow": 915,
+      "sh": 60
+    },
+    "children": [
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "brand",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 14,
+          "y": 12,
+          "w": 192.203125,
+          "h": 36
+        },
+        "children": [
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "logo",
+            "rect": {
+              "x": 14,
+              "y": 12,
+              "w": 36,
+              "h": 36
+            }
+          },
+          {
+            "tag": "span",
+            "id": null,
+            "cls": "title",
+            "rect": {
+              "x": 62,
+              "y": 19.5,
+              "w": 136.203125,
+              "h": 21
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 220.203125,
+          "y": 10,
+          "w": 405.09375,
+          "h": 40
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "seg-label",
+            "rect": {
+              "x": 220.203125,
+              "y": 22,
+              "w": 93.40625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "div",
+            "id": "levelSegment",
+            "cls": "segment",
+            "rect": {
+              "x": 323.609375,
+              "y": 10,
+              "w": 301.6875,
+              "h": 40
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 639.296875,
+          "y": 22,
+          "w": 210.171875,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 639.296875,
+              "y": 22,
+              "w": 96.171875,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "gravity",
+            "cls": "",
+            "rect": {
+              "x": 747.46875,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 863.46875,
+          "y": 22,
+          "w": 209.140625,
+          "h": 16
+        },
+        "children": [
+          {
+            "tag": "label",
+            "id": null,
+            "cls": "",
+            "rect": {
+              "x": 863.46875,
+              "y": 22,
+              "w": 95.140625,
+              "h": 16
+            }
+          },
+          {
+            "tag": "input",
+            "id": "timeScale",
+            "cls": "",
+            "rect": {
+              "x": 970.609375,
+              "y": 27.5,
+              "w": 100,
+              "h": 5
+            }
+          }
+        ]
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "bar-group btns",
+        "display": "flex",
+        "position": "static",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 1086.609375,
+          "y": 11,
+          "w": 528.953125,
+          "h": 38
+        },
+        "children": [
+          {
+            "tag": "button",
+            "id": "saveBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 1086.609375,
+              "y": 11,
+              "w": 77.25,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "loadBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1169.859375,
+              "y": 11,
+              "w": 60.734375,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "shareBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1236.59375,
+              "y": 11,
+              "w": 65.8125,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "derivationsBtn",
+            "cls": "btn ghost locked",
+            "rect": {
+              "x": 1308.40625,
+              "y": 11,
+              "w": 118.390625,
+              "h": 38
+            }
+          },
+          {
+            "tag": "input",
+            "id": "loadFileInput",
+            "cls": "",
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "w": 0,
+              "h": 0
+            }
+          },
+          {
+            "tag": "button",
+            "id": "pauseBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1432.796875,
+              "y": 11,
+              "w": 43,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "resetBtn",
+            "cls": "btn ghost",
+            "rect": {
+              "x": 1481.796875,
+              "y": 11,
+              "w": 65.953125,
+              "h": 38
+            }
+          },
+          {
+            "tag": "button",
+            "id": "clearBtn",
+            "cls": "btn danger",
+            "rect": {
+              "x": 1553.75,
+              "y": 11,
+              "w": 61.8125,
+              "h": 38
+            }
+          }
+        ]
+      },
+      {
+        "tag": "button",
+        "id": "topbarToggle",
+        "cls": "bar-toggle",
+        "display": "grid",
+        "position": "sticky",
+        "flex": "0 0 auto",
+        "rect": {
+          "x": 813,
+          "y": 12,
+          "w": 38,
+          "h": 38
+        },
+        "children": []
+      }
+    ],
+    "overflowEl": null,
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "sheetHeight": "mid"
+    },
+    "viewport": {
+      "w": 915,
+      "h": 412
+    }
+  }
+}

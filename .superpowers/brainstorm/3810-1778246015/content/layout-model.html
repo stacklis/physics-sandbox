@@ -1,0 +1,157 @@
+<h2>Mobile layout model — pick one</h2>
+<p class="subtitle">Which structural pattern for the three panels (Tools, Live readings, Educator) on a phone? Desktop will derive from whichever you pick. This is the central decision — it determines what stays and what gets ripped out.</p>
+
+<style>
+  .phone {
+    width: 160px; height: 280px;
+    border: 2px solid #2a2a2a;
+    border-radius: 22px;
+    padding: 8px;
+    background: #050505;
+    margin: 0 auto;
+    position: relative;
+    box-sizing: border-box;
+  }
+  .phone .topbar {
+    height: 22px; border-radius: 5px;
+    background: #181818; margin-bottom: 4px;
+    display: flex; align-items: center; padding: 0 5px; gap: 4px;
+  }
+  .phone .logo { width: 12px; height: 12px; background: #10b981; border-radius: 2px; }
+  .phone .pillrow { display: flex; gap: 2px; }
+  .phone .pill { width: 10px; height: 5px; background: #333; border-radius: 1px; }
+  .phone .pill.active { background: #10b981; }
+  .phone .canvas {
+    background: #1f1f1f; border-radius: 4px;
+    position: relative;
+  }
+  .phone .canvas::after {
+    content: ''; position: absolute; left: 30%; top: 35%;
+    width: 30%; height: 30%; background: #2a2a2a; border-radius: 4px;
+  }
+  .phone .label {
+    color: #888; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .floatcard {
+    position: absolute; background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.3); border-radius: 4px;
+  }
+  .drawer-edge {
+    position: absolute; left: 0; top: 30px; bottom: 8px;
+    width: 4px; background: #10b981; border-radius: 0 2px 2px 0;
+  }
+  .hamburger {
+    width: 12px; height: 9px;
+    background: linear-gradient(to bottom, #888 2px, transparent 2px 4px, #888 4px 6px, transparent 6px 8px, #888 8px 10px);
+  }
+  .hudstrip {
+    height: 18px; background: #141414; border-radius: 3px;
+    margin-top: 4px; display: flex; gap: 3px; padding: 3px;
+  }
+  .hudstrip .num { flex: 1; background: #222; border-radius: 1px; }
+  .sheethandle {
+    position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+    width: 30px; height: 3px; background: #444; border-radius: 2px;
+  }
+  .sheetbody {
+    position: absolute; left: 8px; right: 8px; bottom: 8px;
+    height: 60px; background: #141414; border-radius: 6px 6px 4px 4px;
+    border-top: 2px solid #10b981;
+  }
+  .sheetbody .handle { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); width: 24px; height: 3px; background: #444; border-radius: 2px; }
+  .tabbar {
+    position: absolute; left: 8px; right: 8px; bottom: 8px;
+    height: 26px; background: #141414; border-radius: 4px;
+    display: flex;
+  }
+  .tabbar .tab {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: #666; font-size: 7px; border-right: 1px solid #050505;
+  }
+  .tabbar .tab.active { color: #10b981; border-bottom: 2px solid #10b981; }
+  .tabbar .tab:last-child { border-right: none; }
+  .togglecorner {
+    position: absolute; top: 30px; right: 12px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .togglecorner .dot { width: 6px; height: 6px; border-radius: 1px; background: #10b981; }
+  .togglecorner .dot.off { background: #333; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="drawer" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px 0;">
+      <div class="phone">
+        <div class="drawer-edge"></div>
+        <div class="topbar">
+          <div class="hamburger"></div>
+          <div class="logo"></div>
+          <div class="pillrow"><div class="pill active"></div><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+        </div>
+        <div class="canvas" style="height: 140px;"></div>
+        <div class="hudstrip">
+          <div class="num"></div><div class="num"></div><div class="num"></div><div class="num"></div>
+        </div>
+        <div class="sheethandle"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Drawer + pinned HUD</h3>
+      <p>Tools live in a left off-canvas drawer (hamburger to toggle). Live readings pinned as a thin numeric strip below the canvas. Educator opens as a bottom sheet (handle at bottom). <em>This is what the dead 768px CSS was targeting; restoring it means re-adding the toggle/backdrop HTML.</em></p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="overlays" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px 0;">
+      <div class="phone">
+        <div class="topbar">
+          <div class="logo"></div>
+          <div class="pillrow"><div class="pill active"></div><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+        </div>
+        <div class="canvas" style="height: 230px;">
+          <div class="floatcard" style="top: 8px; right: 8px; width: 50px; height: 32px;"></div>
+          <div class="floatcard" style="top: 50px; right: 8px; width: 50px; height: 32px;"></div>
+          <div class="floatcard" style="bottom: 8px; left: 8px; width: 60px; height: 28px;"></div>
+        </div>
+        <div class="togglecorner" style="top: 32px; right: 4px;">
+          <div class="dot"></div><div class="dot"></div><div class="dot off"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Floating cards (current direction, cleaned up)</h3>
+      <p>Each panel = dismissible card hovering over the canvas. Toggle dots top-right show/hide each. Cards drag freely on desktop; on mobile they go fullscreen-modal when tapped. <em>Keep the current intent of PR #19 / f9af4ea; rip out the dead drawer CSS.</em></p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tabbar" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px 0;">
+      <div class="phone">
+        <div class="topbar">
+          <div class="logo"></div>
+          <div class="pillrow"><div class="pill active"></div><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+        </div>
+        <div class="canvas" style="height: 150px;"></div>
+        <div class="sheetbody">
+          <div class="handle"></div>
+          <div style="position: absolute; top: 14px; left: 6px; right: 6px; height: 6px; background: #222; border-radius: 1px;"></div>
+          <div style="position: absolute; top: 24px; left: 6px; right: 6px; height: 6px; background: #222; border-radius: 1px;"></div>
+          <div style="position: absolute; top: 34px; left: 6px; right: 6px; height: 6px; background: #222; border-radius: 1px;"></div>
+        </div>
+        <div class="tabbar" style="bottom: 78px;">
+          <div class="tab active">TOOLS</div>
+          <div class="tab">READS</div>
+          <div class="tab">LEARN</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Bottom tab bar + sheet</h3>
+      <p>Three bottom tabs (Tools / Readings / Educator); exactly one panel visible at a time as a bottom sheet. Big tap targets, native-feeling on mobile. Desktop adapts: same tabs become pinned sidebars side-by-side. <em>Most opinionated; cleanest break from the layered mess.</em></p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top: 24px;">Click a card to lock in. Or answer in the terminal.</p>

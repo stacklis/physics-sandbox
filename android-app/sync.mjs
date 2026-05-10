@@ -43,9 +43,12 @@ for (const f of codeFiles) {
 const assetFiles = [
   'manifest.json',
   'favicon.ico',
+  'favicon.svg',
   'apple-touch-icon.png',
   'icon-192.png',
+  'icon-192.svg',
   'icon-512.png',
+  'icon-512.svg',
   'icon-512-maskable.png',
 ];
 for (const f of assetFiles) {
