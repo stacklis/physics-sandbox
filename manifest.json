@@ -1,0 +1,54 @@
+{
+  "name": "Physics Sandbox",
+  "short_name": "Sandbox",
+  "description": "Learn physics by playing — drag-to-spawn 2D rigid bodies with live readouts and four knowledge tiers.",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Newton's cradle",
+      "short_name": "Cradle",
+      "description": "Open the sandbox with Newton's cradle preloaded.",
+      "url": "/app/?preset=newton",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Pendulum",
+      "short_name": "Pendulum",
+      "description": "Open the sandbox with a pendulum preloaded.",
+      "url": "/app/?preset=pendulum",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Free fall (stack)",
+      "short_name": "Free fall",
+      "description": "Open the sandbox with a falling stack preloaded.",
+      "url": "/app/?preset=stack",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

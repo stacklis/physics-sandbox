@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — Physics Sandbox</title>
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="stylesheet" href="/styles.css?v=65" />
+<style>
+  /* Long-form text styling — rides on top of the dark site palette.
+     The shared styles.css forces `body { display: grid; ... 3-column grid }`
+     in the desktop media query (it's tuned for the app shell). Reset to
+     a normal block flow here so the doc isn't squeezed into a 280px
+     sidebar column. */
+  html, body { height: auto; width: auto; overflow: auto; display: block; }
+  .doc { max-width: 740px; margin: 48px auto; padding: 0 24px 80px; line-height: 1.65; color: var(--text); }
+  .doc h1 { font-size: 28px; margin: 0 0 6px; }
+  .doc h2 { font-size: 18px; margin: 32px 0 8px; color: var(--accent-2); }
+  .doc p, .doc li { font-size: 15px; color: var(--text); }
+  .doc .meta { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .doc a { color: var(--accent); }
+  .doc ul { padding-left: 22px; }
+  .doc footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .nav-back { display: inline-block; margin-bottom: 18px; color: var(--muted); text-decoration: none; font-size: 13px; }
+  .nav-back:hover { color: var(--accent-2); }
+</style>
+</head>
+<body>
+<main class="doc">
+  <a class="nav-back" href="/">← Back to sandbox.stacklis.com</a>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Effective 2026-05-06 · Physics Sandbox by Stacklis</p>
+
+  <p>Physics Sandbox is a small physics-learning toy that runs entirely in your browser.
+  This page explains, in plain English, what data the app handles and where it goes.</p>
+
+  <h2>What we collect</h2>
+  <p><strong>Nothing personally identifying.</strong> No accounts, no email, no name, no IP-address logging by us, no tracking pixels, no analytics scripts.</p>
+
+  <h2>What is stored on your device</h2>
+  <p>The app uses your browser's <code>localStorage</code> to remember a few preferences. These never leave your device and we cannot read them remotely:</p>
+  <ul>
+    <li><code>ps.pro</code> — a flag indicating whether you've unlocked Pro features.</li>
+    <li>UI preferences — collapsed-panel state, dismissed hint, panel sizes.</li>
+    <li>(Pro) Locally saved scenes you choose to download as <code>.json</code>.</li>
+  </ul>
+  <p>You can clear all of this at any time via your browser's "Clear site data" tools, or by visiting Settings → Privacy in your browser.</p>
+
+  <h2>Payments</h2>
+  <p>If you upgrade to Pro, payment is handled by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe</a>. We do not see, store, or process your card. Stripe's privacy policy applies to the checkout flow: <a href="https://stripe.com/privacy" target="_blank" rel="noopener">stripe.com/privacy</a>.</p>
+  <p>After a successful purchase, Stripe redirects you back to <code>sandbox.stacklis.com/app/</code> with a flag in the URL that activates Pro on your device. We do not retain a customer record beyond what Stripe keeps for tax and refund purposes.</p>
+
+  <h2>Telemetry & analytics</h2>
+  <p><strong>None.</strong> By design. This app ships with no analytics, no error reporting service, and no third-party tracking. If we ever add any, this page will be updated and the change will be announced in-app before it takes effect.</p>
+
+  <h2>Cookies</h2>
+  <p>The app itself does not set cookies. Stripe's checkout page (on Stripe's domain, not ours) may set cookies it needs to process your payment — those are governed by Stripe's policy.</p>
+
+  <h2>Children</h2>
+  <p>Physics Sandbox is suitable for all ages and does not collect personal data from anyone, including children under 13.</p>
+
+  <h2>Refunds</h2>
+  <p>If Pro doesn't work for you, email <a href="mailto:support@stacklis.com">support@stacklis.com</a> within 14 days of purchase for a full refund. Include your Stripe receipt for fastest turnaround.</p>
+
+  <h2>Open source</h2>
+  <p>The client-side code is open and inspectable — you can verify the no-telemetry claim by reading the source on the GitHub repository linked from the landing page.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or requests: <a href="mailto:support@stacklis.com">support@stacklis.com</a>.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We'll update the "Effective" date at the top of this page if anything changes. For substantive changes (e.g., adding analytics), the change will be highlighted in-app the next time you load the sandbox.</p>
+
+  <footer>
+    <a href="/terms.html">Terms</a> · <a href="/">Home</a> · © 2026 Stacklis
+  </footer>
+</main>
+</body>
+</html>

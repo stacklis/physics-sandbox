@@ -94,11 +94,16 @@ input, button { font: inherit; }
   font-weight: 600;
   font-size: 16px;
   letter-spacing: 0.3px;
+  white-space: nowrap;
   background: linear-gradient(135deg, var(--text) 30%, var(--accent-2) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Brand never shrinks below its content (mobile topbar is overflow-x: auto,
+   so the topbar can scroll instead of cramming the brand). */
+.topbar .brand { flex-shrink: 0; }
 
 .bar-group {
   display: flex;
@@ -675,12 +680,113 @@ body.interacting * {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 11px;
-  font-weight: 500;
-  transition: background 0.15s, border-color 0.15s, transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
   position: relative;
   overflow: hidden;
 }
+/* PRO PAYWALL ------------------------------------------------------------- */
+.pro-badge {
+  display: none;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  color: #0b0d12;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.pro-badge.inline { display: inline-block; }
+body.pro .pro-badge { display: inline-block; }
+.locked::before {
+  content: '🔒';
+  font-size: 10px;
+  margin-right: 4px;
+  opacity: 0.7;
+  vertical-align: baseline;
+}
+body.pro .locked::before { content: none; }
+
+.upgrade-dialog {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 22px 24px;
+  max-width: 420px;
+  width: calc(100% - 32px);
+  box-shadow: var(--shadow);
+}
+.upgrade-dialog::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+.upgrade-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: var(--text);
+}
+.upgrade-sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.upgrade-features {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.upgrade-features li { margin-bottom: 6px; }
+.upgrade-features strong { color: var(--accent-2); }
+.upgrade-price {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent-2);
+  margin: 0 0 14px;
+}
+.upgrade-price-period { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.upgrade-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.upgrade-cta {
+  background: linear-gradient(180deg, rgba(106,166,255,0.28), rgba(106,166,255,0.10));
+  border: 1px solid rgba(106,166,255,0.5);
+  color: var(--accent-2);
+  flex: 1;
+  font-weight: 600;
+}
+.upgrade-cta:hover { background: linear-gradient(180deg, rgba(106,166,255,0.36), rgba(106,166,255,0.14)); }
+.upgrade-actions .btn.ghost { flex: 0 0 auto; }
+.upgrade-redeem {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 12px;
+}
+.upgrade-redeem summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin-bottom: 8px;
+  user-select: none;
+}
+.upgrade-redeem summary:hover { color: var(--text); }
+.redeem-row { display: flex; gap: 6px; }
+.redeem-row input {
+  flex: 1;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.redeem-msg { margin-top: 8px; font-size: 11px; min-height: 14px; }
+.redeem-msg.ok { color: var(--good); }
+.redeem-msg.err { color: var(--bad); }
 
 .tool:hover {
   background: var(--bg-3);
@@ -887,12 +993,15 @@ body.interacting * {
   padding: 8px 10px 8px 14px;
   border-radius: 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   backdrop-filter: blur(12px);
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
+
+/* Allow the hint text to shrink and wrap so the × stays inside the hint. */
+.hint > span { min-width: 0; flex: 1 1 auto; }
 
 .hint:hover {
   border-color: var(--accent);
@@ -1147,6 +1256,8 @@ body.interacting * {
   color: var(--text);
   padding: 24px 28px;
   max-width: 450px;
+  width: calc(100% - 32px);
+  box-sizing: border-box;
   box-shadow: var(--shadow), var(--shadow-glow);
 }
 
@@ -1250,798 +1361,1067 @@ body.interacting * {
 .tool:nth-child(5) { animation-delay: 0.10s; }
 .tool:nth-child(6) { animation-delay: 0.12s; }
 
-/* ======================= RESPONSIVE ======================= */
+/* =====================================================================
+   LAYOUT REWORK 2026-05-08 — bottom-tab/sheet (mobile) + derived
+   sidebars (desktop). Single breakpoint at 768px.
+   ===================================================================== */
 
-/* Desktop Large - optimized for wide screens */
-@media (min-width: 1400px) {
-  .topbar {
-    padding: 14px 32px;
-    gap: 28px;
-  }
-  
-  .bar-group input[type=range] {
-    width: 140px;
-    max-width: 180px;
-  }
-  
-  .tools {
-    padding: 14px 12px;
-    padding-top: 48px;
-  }
-  
-  .tool {
-    padding: 9px 12px;
-    gap: 8px;
-  }
-  
-  .tool svg {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .tool span {
-    font-size: 12px;
-  }
-  
-  .section-title {
-    font-size: 10px;
-    letter-spacing: 1.4px;
-  }
-}
-
-/* Desktop Medium */
-@media (min-width: 1100px) and (max-width: 1399px) {
-  .topbar {
-    padding: 12px 24px;
-    gap: 20px;
-  }
-}
-
-@media (max-width: 1100px) {
-  .layout {
-    grid-template-columns: var(--tools-size, 160px) auto 1fr;
-  }
-}
-
-@media (max-width: 860px) {
-  .topbar-divider {
-    display: none;
-  }
-  
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
-  }
-  
-  /* Replace vertical divider with horizontal swipe indicator */
-  .tools-divider {
-    display: none;
-  }
-  
-  .tools-collapse-btn {
-    display: none;
-  }
-  
-  .bar-toggle {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
-    background: rgba(0, 229, 160, 0.12);
-    color: var(--accent);
-    border-color: rgba(0, 229, 160, 0.3);
-    flex-shrink: 0;
-  }
-  
-  .topbar {
-    padding: 10px 14px;
-    gap: 10px;
-    flex-wrap: nowrap;
-    min-height: auto;
-    position: relative;
-  }
-  
-  .topbar.collapsed { 
-    gap: 8px; 
-    padding: 8px 14px;
-  }
-  
-  .topbar.collapsed > :not(.brand):not(.bar-toggle) { 
-    display: none; 
-  }
-  
-  /* Topbar dynamic content - scrollable on mobile */
-  .topbar:not(.collapsed) {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .topbar:not(.collapsed)::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .bar-group {
-    flex-shrink: 0;
-    flex-wrap: nowrap;
-  }
-  
-  .brand {
-    font-size: 15px;
-    gap: 8px;
-  }
-  
-  .brand svg {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .bar-toggle { 
-    margin-left: auto; 
-  }
-  
-  .stage { 
-    min-height: 50vh; 
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  
-  /* Tools horizontal scrolling strip */
-  .tools {
-    display: flex;
-    flex-wrap: nowrap;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 10px 12px;
-    gap: 8px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    position: relative;
-    background: var(--bg-1);
-  }
-  
-  .tools::-webkit-scrollbar {
-    display: none;
-  }
-  
-  /* Horizontal scroll indicator gradient */
-  .tools::after {
-    content: '';
-    position: sticky;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 40px;
-    flex-shrink: 0;
-    background: linear-gradient(90deg, transparent, var(--bg-1) 80%);
-    pointer-events: none;
-  }
-  
-  .tools.collapsed {
-    height: 0;
-    padding: 0;
-    overflow: hidden;
-    border-bottom: none;
-  }
-  
-  .tool-section {
-    margin: 0;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex: 0 0 auto;
-    border-right: 1px solid var(--line);
-    padding-right: 10px;
-    margin-right: 2px;
-  }
-  
-  .tool-section:last-child {
-    border-right: 0;
-    padding-right: 40px; /* Space for fade gradient */
-  }
-  
-  /* Tool grid flows horizontally on mobile */
-  .tool-grid {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 6px;
-    align-items: center;
-  }
-  
-  .tool-grid > * {
-    flex: 0 0 auto;
-  }
-  
-  .section-title {
-    display: none;
-  }
-  
-  .section-title::after {
-    display: none;
-  }
-  
-  /* Mobile tool/preset buttons - compact icon-only for tools */
-  .tool {
-    width: auto;
-    flex: 0 0 auto;
-    padding: 8px;
-    margin: 0;
-    min-width: 40px;
-    flex-direction: column;
-    gap: 2px;
-  }
-  
-  .tool svg {
-    width: 18px;
-    height: 18px;
-  }
-  
-  .tool span {
-    font-size: 9px;
-  }
-  
-  .preset, .material {
-    flex: 0 0 auto;
-    font-size: 10px;
-    padding: 6px 10px;
-    min-width: auto;
-    white-space: nowrap;
-  }
-  
-  .check {
-    padding: 8px 12px;
-    white-space: nowrap;
-    font-size: 12px;
-  }
-  
-  .check input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-  }
-  
-  /* Destruction toggle on mobile */
-  .destruction-toggle {
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-  
-  /* Slider rows in mobile */
-  .slider-row {
-    padding: 6px 10px;
-    min-width: 100px;
-  }
-  
-  .slider-row span {
-    font-size: 10px;
-  }
-  
-  /* Grab strength slider on mobile */
-  .grab-strength {
-    min-width: 90px;
-    padding: 6px 8px;
-  }
-  
-  .grab-strength input[type=range] {
-    width: 50px;
-  }
-  
-  /* Overlay toggles repositioned */
-  .overlay-toggles {
-    top: auto;
-    bottom: 12px;
-    right: 12px;
-    flex-direction: row;
-    gap: 8px;
-  }
-  
-  .overlay-toggle {
-    width: 42px;
-    height: 42px;
-  }
-  
-  .overlay-toggle svg {
-    width: 18px;
-    height: 18px;
-  }
-  
-  /* Floating overlays on mobile */
-  .floating-overlay {
-    max-width: calc(100vw - 24px);
-    max-height: 55vh;
-    font-size: 13px;
-    touch-action: none !important;
-  }
-  
-  /* Only allow scrolling inside the content, not the entire overlay */
-  .floating-overlay .lesson-body,
-  .floating-overlay .readout-grid {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    max-height: 40vh;
-    touch-action: pan-y;
-  }
-  
-  .floating-overlay .metric {
-    padding: 6px 8px;
-  }
-  
-  .floating-overlay .metric-val {
-    font-size: 14px;
-  }
-  
-  .readout-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
-  }
-  
-  /* Info overlay header */
-  .floating-overlay .overlay-header h3 {
-    font-size: 11px;
-  }
-  
-  /* Lesson panel mobile */
-  .lesson-body {
-    font-size: 12px;
-    line-height: 1.55;
-  }
-  
-  .formula {
-    font-size: 11px;
-    padding: 10px 12px;
-  }
-}
-
-/* Very small phones */
-@media (max-width: 480px) {
-  .topbar {
-    padding: 8px 10px;
-    gap: 8px;
-  }
-  
-  .brand {
-    font-size: 14px;
-    gap: 6px;
-  }
-  
-  .brand svg {
-    width: 18px;
-    height: 18px;
-  }
-  
-  .bar-toggle {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
-  }
-  
-  .tools {
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  
-  .tool, .preset, .material {
-    padding: 8px 10px;
-  }
-  
-  .tool {
-    min-width: 54px;
-  }
-  
-  .tool svg {
-    width: 14px;
-    height: 14px;
-  }
-  
-  .tool span {
-    font-size: 10px;
-  }
-  
-  .overlay-toggles {
-    bottom: 10px;
-    right: 10px;
-    gap: 6px;
-  }
-  
-  .overlay-toggle {
-    width: 38px;
-    height: 38px;
-  }
-  
-  .overlay-toggle svg {
-    width: 16px;
-    height: 16px;
-  }
-  
-  .floating-overlay {
-    max-width: calc(100vw - 20px);
-    max-height: 50vh;
-    padding: 10px;
-  }
-  
-  .readout-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-  }
-  
-  .floating-overlay .metric {
-    padding: 5px 6px;
-  }
-  
-  .floating-overlay .metric-val {
-    font-size: 13px;
-  }
-  
-  .floating-overlay .metric-label {
-    font-size: 8px;
-  }
-}
-
-/* ======================= FLOATING OVERLAYS ======================= */
+/* --- Hide legacy resize/collapse affordances (removed in rework). ---
+   Kept hidden globally so existing app.js init paths that set classes on
+   these targets remain harmless if they ever fire. */
+.topbar-divider,
+.tools-divider,
+.tools-collapse-btn,
+.drawer-toggle,
+.drawer-backdrop,
+.hud-toggle,
+.lesson-toast,
+.overlay-toggles,
 .floating-overlay {
-  --overlay-opacity: 0.92;
-  --overlay-scale: 1;
-  position: fixed;
-  z-index: 100;
-  background: rgba(12, 14, 20, var(--overlay-opacity));
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4), 
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  max-width: calc(340px * var(--overlay-scale));
-  min-width: calc(180px * var(--overlay-scale));
-  cursor: grab;
-  user-select: none;
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.95) translateY(8px);
-  transform-origin: center center;
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
-              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              background 0.15s ease,
-              box-shadow 0.15s ease,
-              max-width 0.15s ease-out,
-              min-width 0.15s ease-out;
+  display: none !important;
+}
+
+/* --- Body becomes the layout grid. The `body { display:flex; ... }`
+   from the top of this file is overridden here. --- */
+body {
+  display: grid;
+  flex-direction: unset;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "topbar"
+    "main";
+  height: 100vh;
+  width: 100vw;
+}
+
+.topbar { grid-area: topbar; }
+
+.canvas-host {
+  position: relative;
+  grid-area: main;
+  background: var(--bg);
+  overflow: hidden;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 0;
+}
+
+.canvas-host #canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
   touch-action: none;
 }
 
-/* Glass/transparent mode - no background */
-.floating-overlay.glass-mode {
-  --overlay-opacity: 0;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
+.panel-host {
+  display: contents;
 }
 
-.floating-overlay.glass-mode .metric,
-.floating-overlay.glass-mode .formula {
-  background: rgba(15, 17, 24, 0.7);
-}
-
-.floating-overlay.glass-mode .floating-overlay-header {
-  border-bottom-color: rgba(255, 255, 255, 0.15);
-}
-
-/* Focused/active overlay gets higher z-index */
-.floating-overlay.focused {
-  z-index: 110;
-}
-
-.floating-overlay.visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: scale(1) translateY(0);
-}
-
-.floating-overlay.dragging {
-  cursor: grabbing;
-  transition: none !important;
-  transform: none !important;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 229, 160, 0.4);
-}
-
-.floating-overlay.pinching {
-  transition: none;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(100, 220, 255, 0.5);
-}
-
-.floating-overlay-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
-}
-
-.floating-overlay-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--accent);
-  font-weight: 600;
-  flex: 1;
-}
-
-.floating-overlay-header .level-badge {
-  font-size: 9px;
-  padding: 3px 8px;
-}
-
-.floating-overlay-close {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: var(--muted);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.floating-overlay-close:hover {
-  background: var(--bad);
-  border-color: var(--bad);
-  color: var(--bg);
-}
-
-.floating-overlay .readout-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.floating-overlay .metric {
-  padding: 8px 10px;
-  background: rgba(30, 34, 48, 0.6);
-  border: 1px solid rgba(255,255,255,0.04);
-}
-
-.floating-overlay .metric-label {
-  font-size: 8px;
-  letter-spacing: 0.5px;
-}
-
-.floating-overlay .metric-val {
-  font-size: 13px;
-  margin-top: 3px;
-}
-
-.floating-overlay .totals-mini {
-  display: flex;
-  gap: 16px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--line);
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.floating-overlay .totals-mini b {
-  color: var(--accent-2);
-  font-weight: 600;
-}
-
-/* Overlay controls row (opacity + glass toggle) */
-.floating-overlay .overlay-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
-}
-
-.floating-overlay .overlay-controls input[type=range] {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.15);
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.floating-overlay .overlay-controls input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.floating-overlay .overlay-controls input[type=range]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.floating-overlay .overlay-controls input[type=range]::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
-  background: linear-gradient(to right, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
-}
-
-.floating-overlay .overlay-controls input[type=range]:hover::-webkit-slider-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 2px 10px rgba(0, 229, 160, 0.4);
-}
-
-.floating-overlay .glass-toggle {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.floating-overlay .glass-toggle svg {
-  width: 12px;
-  height: 12px;
-}
-
-.floating-overlay .glass-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text);
-}
-
-.floating-overlay.glass-mode .glass-toggle {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
-}
-
-/* Overlay toggle buttons cluster */
-.overlay-toggles {
-  position: fixed;
-  top: 70px;
-  right: 16px;
-  z-index: 99;
+.panel {
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  border-left: 0;
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 0;
 }
 
-.overlay-toggle {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  background: rgba(15, 17, 24, 0.9);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+.panel-grabber {
+  flex: 0 0 auto;
+  height: 14px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
 }
-
-.overlay-toggle svg {
-  width: 18px;
-  height: 18px;
+.panel-grabber::before {
+  content: '';
+  width: 42px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  opacity: 0.5;
 }
+.panel.dragging .panel-grabber::before { opacity: 1; }
+.panel.dragging { transition: none !important; }
 
-.overlay-toggle:hover {
-  background: var(--bg-3);
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: scale(1.08);
-}
-
-.overlay-toggle.active {
-  background: rgba(0, 229, 160, 0.15);
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 4px 20px rgba(0, 229, 160, 0.2);
-}
-
-/* Lesson overlay specifics */
-.lesson-overlay .lesson-body {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text);
-  margin: 0;
-}
-
-.lesson-overlay .formula {
-  background: var(--bg-3);
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-top: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: var(--accent-2);
-  border-left: 3px solid var(--accent);
-}
-
-.lesson-overlay .lesson-tags {
+.panel-header {
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--line);
 }
-
-/* Tips overlay specifics */
-.tips-overlay .tips-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--text);
-}
-
-.tips-overlay .tips-list kbd {
-  background: var(--bg-3);
-  border: 1px solid var(--line);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  margin-right: 4px;
-}
-
-.tips-overlay .concepts-touched {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line);
-}
-
-.tips-overlay .concepts-title {
-  font-size: 9px;
+.panel-title {
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--muted);
-  margin-bottom: 8px;
+  color: var(--accent);
   font-weight: 600;
 }
+.panel-header .level-badge { margin-left: auto; }
 
-.tips-overlay .concept-list {
+.panel-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 14px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+#toolsPanel .panel-body { gap: 16px; }
+#toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+
+#infoOverlay .panel-body { gap: 10px; }
+#infoOverlay .readout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+#infoOverlay .totals-mini {
+  display: flex; gap: 16px; padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px; color: var(--muted);
+}
+#infoOverlay .totals-mini b { color: var(--accent-2); font-weight: 600; }
+
+#lessonOverlay .lesson-body { font-size: 13px; line-height: 1.6; color: var(--text); margin: 0; }
+#lessonOverlay .formula {
+  background: var(--bg-3); padding: 10px 12px; border-radius: 8px;
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px; color: var(--accent-2);
+  border-left: 3px solid var(--accent);
+}
+#lessonOverlay .lesson-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+#lessonOverlay .concepts-touched {
+  margin-top: 4px; padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+#lessonOverlay .concepts-title {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); margin-bottom: 8px; font-weight: 600;
+}
+#lessonOverlay .concept-list { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.panel.flash { box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--accent-glow); }
+
+/* ======================= TABBAR (mobile only) ======================= */
+.tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: 60px;
+  padding: 6px max(8px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+  background: rgba(10, 10, 15, 0.94);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border-top: 1px solid var(--line);
+}
+
+.tabbar .tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  transition: color 0.15s, background 0.15s;
+  min-height: 48px;
+  white-space: nowrap;
+}
+.tabbar .tab svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.tabbar .tab.active {
+  color: var(--accent-2);
+  background: rgba(0, 229, 160, 0.12);
+}
+.tabbar .tab:active { transform: scale(0.96); }
+
+/* ===================== DESKTOP (>=768px) ===================== */
+@media (min-width: 769px) {
+  :root {
+    --tools-w: 280px;
+    --readings-w: 320px;
+    --educator-h: 180px;
+  }
+  body {
+    grid-template-columns: var(--tools-w) 1fr var(--readings-w);
+    grid-template-rows: auto 1fr var(--educator-h);
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   readings"
+      "tools  educator educator";
+  }
+  /* When Readings is floating, collapse the right column so canvas + educator
+     expand into the freed space. */
+  body[data-readings-floating="true"] {
+    grid-template-columns: var(--tools-w) 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   main"
+      "tools  educator educator";
+  }
+  /* When Educator is floating, collapse the bottom row. */
+  body[data-educator-floating="true"] {
+    grid-template-rows: auto 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   readings"
+      "tools  main   readings";
+  }
+  /* Both floating: full-bleed canvas + tools column only. */
+  body[data-readings-floating="true"][data-educator-floating="true"] {
+    grid-template-columns: var(--tools-w) 1fr 0;
+    grid-template-rows: auto 1fr 0;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "tools  main   main"
+      "tools  main   main";
+  }
+  .canvas-host { grid-area: main; }
+  #toolsPanel { grid-area: tools; border-right: 1px solid var(--line); }
+  #infoOverlay { grid-area: readings; border-left: 1px solid var(--line); }
+  #lessonOverlay {
+    grid-area: educator;
+    border-top: 1px solid var(--line);
+  }
+  /* Hide docked panels' grid-area presence when they're floating
+     (the grid still allocates 0 for the row/column thanks to the body data attrs). */
+  body[data-readings-floating="true"] #infoOverlay:not(.floating) { display: none; }
+  body[data-educator-floating="true"] #lessonOverlay:not(.floating) { display: none; }
+
+  /* Dock-edge resize handles. Placed absolutely so they sit ON the boundary
+     between dock + canvas without disturbing the grid math. JS injects three
+     of these into <body> on desktop and updates them on breakpoint change. */
+  .dock-edge {
+    position: fixed;
+    z-index: 12;
+    background: transparent;
+    transition: background 120ms ease;
+  }
+  .dock-edge::before {
+    content: '';
+    position: absolute;
+    background: var(--line-2);
+    transition: background 120ms ease, transform 120ms ease;
+  }
+  .dock-edge:hover::before,
+  .dock-edge.dragging::before {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .dock-edge[data-edge="tools-edge"],
+  .dock-edge[data-edge="readings-edge"] {
+    width: 8px;
+    cursor: col-resize;
+    top: 0;
+    bottom: 0;
+  }
+  .dock-edge[data-edge="tools-edge"]::before,
+  .dock-edge[data-edge="readings-edge"]::before {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 0;
+    bottom: 0;
+    width: 1px;
+  }
+  .dock-edge[data-edge="tools-edge"]:hover::before,
+  .dock-edge[data-edge="tools-edge"].dragging::before,
+  .dock-edge[data-edge="readings-edge"]:hover::before,
+  .dock-edge[data-edge="readings-edge"].dragging::before {
+    width: 2px;
+  }
+  .dock-edge[data-edge="educator-edge"] {
+    height: 8px;
+    cursor: row-resize;
+    left: 0;
+    right: 0;
+  }
+  .dock-edge[data-edge="educator-edge"]::before {
+    top: 50%;
+    transform: translateY(-50%);
+    left: 0;
+    right: 0;
+    height: 1px;
+  }
+  .dock-edge[data-edge="educator-edge"]:hover::before,
+  .dock-edge[data-edge="educator-edge"].dragging::before {
+    height: 2px;
+  }
+  /* Hide handles whose adjacent panel is floating (no boundary to drag). */
+  body[data-readings-floating="true"] .dock-edge[data-edge="readings-edge"],
+  body[data-educator-floating="true"] .dock-edge[data-edge="educator-edge"] {
+    display: none;
+  }
+
+  /* Floating panels — absolute inside .canvas-host so they're clipped to the
+     canvas region (does not bleed under topbar or into the tools column). */
+  .canvas-host .panel.floating {
+    position: absolute;
+    z-index: 30;
+    border-radius: 12px;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Width/height/top/left set inline by layout.js. */
+    animation: float-pop-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform-origin: center center;
+  }
+  .canvas-host .panel.floating.dock-exit {
+    animation: float-pop-out 180ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes float-pop-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes float-pop-out {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.94); }
+  }
+  /* Smooth dock collapse / expand when a panel pops out or back in.
+     Animating grid-template-* requires concrete numeric tracks, which we have
+     (var --tools-w, --readings-w, --educator-h are all px values). */
+  body {
+    transition: grid-template-columns 240ms cubic-bezier(0.32, 0.72, 0, 1),
+                grid-template-rows 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Skip the body-grid transition while user is actively dragging a dock-edge
+     handle — those drags should track the cursor 1:1, not lag behind. */
+  body.resizing-dock { transition: none; }
+  .canvas-host .panel.floating.active { z-index: 31; }
+  /* Header gets a subtle dark chip so the drag handle and pop-out button stay
+     findable over an arbitrary canvas background. */
+  .canvas-host .panel.floating .panel-header {
+    cursor: grab;
+    user-select: none;
+    background: rgba(8, 12, 20, 0.55);
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    border-radius: 8px 8px 0 0;
+  }
+  /* Body content sits directly on canvas — text-shadow keeps values legible
+     over busy scenes without painting a background box. */
+  .canvas-host .panel.floating .panel-body,
+  .canvas-host .panel.floating .panel-body * {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.6);
+  }
+  /* When user is actively dragging or resizing, fade in a faint background
+     so they can see the panel boundary they're moving. */
+  .canvas-host .panel.floating.dragging,
+  .canvas-host .panel.floating.resizing {
+    background: rgba(8, 12, 20, 0.25);
+  }
+  .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
+  .canvas-host .panel.floating .resize-corner {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    z-index: 2;
+    background:
+      linear-gradient(135deg, transparent 0 50%, var(--line-2) 50% 60%, transparent 60% 70%, var(--line-2) 70% 80%, transparent 80%);
+  }
+  .canvas-host .panel.floating .resize-edge {
+    display: block;
+    position: absolute;
+    z-index: 1;
+    background: transparent;
+  }
+  .canvas-host .panel.floating .resize-edge[data-edge="n"] { left: 0; right: 14px; top: 0; height: 5px; cursor: ns-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="s"] { left: 0; right: 14px; bottom: 0; height: 5px; cursor: ns-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="e"] { top: 0; bottom: 14px; right: 0; width: 5px; cursor: ew-resize; }
+  .canvas-host .panel.floating .resize-edge[data-edge="w"] { top: 0; bottom: 0; left: 0; width: 5px; cursor: ew-resize; }
+  /* Educator floating overrides the desktop row-mode panel-body (which is
+     flex-row + horizontal scroll). Reset to vertical for compact float. */
+  .canvas-host #lessonOverlay.floating .panel-body {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    gap: 10px;
+  }
+  .canvas-host #lessonOverlay.floating .panel-body > * { max-width: none; }
+  .canvas-host #lessonOverlay.floating .concepts-touched {
+    border-top: 1px dashed var(--line);
+    padding-top: 10px;
+    padding-left: 0;
+    border-left: 0;
+    margin-top: 4px;
+  }
+
+  /* Dock-zone highlight — appears along the panel's native dock edge while the
+     user drags the floating panel close to it. Two variants for the two panels. */
+  .dock-zone {
+    position: absolute;
+    background: var(--accent);
+    box-shadow: 0 0 16px var(--accent-glow);
+    z-index: 29;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .dock-zone.active { opacity: 1; }
+  .dock-zone[data-zone="readings"] {
+    top: 0; bottom: 0; right: 0;
+    width: 4px;
+  }
+  .dock-zone[data-zone="educator"] {
+    left: 0; right: 0; bottom: 0;
+    height: 4px;
+  }
+
+  /* Pop-out / dock button in panel headers. */
+  .panel-pop {
+    margin-left: auto;
+    background: rgba(0, 229, 160, 0.10);
+    border: 1px solid var(--accent);
+    color: var(--accent-2);
+    width: 32px;
+    height: 26px;
+    padding: 0;
+    border-radius: 6px;
+    font-size: 15px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
+  }
+  .panel-pop:hover {
+    color: var(--bg);
+    border-color: var(--accent);
+    background: var(--accent);
+    transform: scale(1.08);
+  }
+  .panel-pop:active { transform: scale(0.96); }
+  /* When a level-badge is present (educator), keep it before the pop button. */
+  .panel-header .level-badge + .panel-pop { margin-left: 6px; }
+  /* The first-of-class margin-left rule above pushes the badge right; reset
+     so badge stays adjacent to title and only the pop button is far-right. */
+  .panel-header .level-badge { margin-left: auto; }
+  #lessonOverlay .panel-body {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 18px;
+    overflow-x: auto;
+  }
+  #lessonOverlay .panel-body > * { flex: 0 0 auto; max-width: 360px; }
+  #lessonOverlay .lesson-body { max-width: 480px; flex: 1 1 320px; }
+  #lessonOverlay .concepts-touched {
+    flex: 1 1 280px;
+    min-width: 200px;
+    max-width: none;
+    border-top: 0;
+    padding-top: 0;
+    padding-left: 14px;
+    border-left: 1px dashed var(--line);
+    margin-top: 0;
+  }
+
+  .tabbar { display: none; }
+}
+
+/* ===================== MOBILE (<=768px) ===================== */
+@media (max-width: 768px) {
+  body {
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "main";
+    padding-bottom: 60px;
+  }
+
+  /* Topbar becomes scrollable strip so the action bar always fits. */
+  .topbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 14px;
+    padding: 10px 14px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-right: 56px;
+  }
+  /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
+  .topbar .seg { padding: 8px 12px; font-size: 12px; }
+  .topbar .bar-group label { font-size: 12px; }
+  .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
+  .topbar .bar-group.btns { margin-left: 0; }
+  .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
+  /* Pin the collapse/expand toggle to the right viewport edge of the topbar.
+     `position: absolute` (default) would scroll with the row content; sticky
+     keeps it visible while the horizontal scroll moves the bar-groups. */
+  .topbar .bar-toggle {
+    position: sticky;
+    right: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+    /* Make it visually float above the scroll content so labels behind it
+       are obscured rather than visually colliding. */
+    box-shadow: -10px 0 14px rgba(10,10,15,0.85);
+  }
+
+  .canvas-host { grid-area: main; }
+
+  .panel-host { display: contents; }
+  .panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    height: var(--sheet-height, 60vh);
+    max-height: 95vh;
+    background: rgba(12, 14, 20, 0.96);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55);
+    z-index: 25;
+    transform: translateY(100%);
+    transition:
+      transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+    pointer-events: none;
+  }
+  body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
+  body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
+  body[data-sheet-height="high"] .panel { --sheet-height: 80vh; }
+  /* Legacy values still resolve sanely. */
+  body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
+  body[data-sheet-height="tall"] .panel { --sheet-height: 80vh; }
+  .panel.visible {
+    transform: translateY(0);
+    pointer-events: auto;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .panel-grabber { display: flex; }
+  .panel-header { padding: 4px 14px 8px; }
+
+  #toolsPanel .panel-body { gap: 14px; padding: 10px 14px 18px; }
+  #toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+  #toolsPanel .tool-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  #toolsPanel .tool {
+    flex: 1 1 calc(33.33% - 6px);
+    min-width: 78px;
+    padding: 9px 6px;
+    flex-direction: column;
+    gap: 4px;
+  }
+  #toolsPanel .tool svg { width: 20px; height: 20px; }
+  #toolsPanel .tool span { font-size: 10px; }
+  #toolsPanel .preset, #toolsPanel .material {
+    flex: 1 1 calc(50% - 6px);
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  /* No floating panels on mobile — hide the pop button entirely. */
+  .panel-pop { display: none; }
+
+  .tabbar {
+    display: flex;
+    gap: 4px;
+  }
+
+  .canvas-host .hint {
+    left: 12px;
+    bottom: 72px;
+    max-width: calc(100% - 24px);
+  }
+}
+
+/* ======================= EMBED MODE (preserved) =======================
+   The landing page hosts the free demo via /app/?free=1 (no longer iframed
+   post-rework, but embed-mode stays in case anyone still embeds /app/?embed=1). */
+body.embed-mode .brand .by,
+body.embed-mode .brand .pro-badge,
+body.embed-mode #saveBtn,
+body.embed-mode #derivationsBtn,
+body.embed-mode #upgradeDialog {
+  display: none !important;
+}
+body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
+
+/* Upgrade dialog footer — privacy/terms links under the redeem details. */
+.upgrade-foot {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.upgrade-foot a { color: var(--muted); text-decoration: none; }
+.upgrade-foot a:hover { color: var(--accent-2); }
+
+/* Resize handles default to hidden — they only show when their parent panel
+   is `.floating` (see desktop @media). */
+.resize-corner,
+.resize-edge { display: none; }
+
+/* =====================================================================
+   CONTAINER QUERIES — internal fluidity for resized + floating panels.
+   Each .panel becomes its own inline-size container; child layouts adapt
+   to the panel's width independent of the viewport breakpoint.
+   ===================================================================== */
+.panel {
+  container-type: inline-size;
+}
+/* Tools queries height too (compact-mode at short heights), needs `size`. */
+#toolsPanel { container-type: size; container-name: tools-panel; }
+#infoOverlay { container-name: readings-panel; }
+/* Educator queries height too (compact-mode hint when float is short), so it
+   needs `container-type: size` rather than `inline-size`. */
+#lessonOverlay { container-type: size; container-name: educator-panel; }
+
+/* Material grid adapts to available width. */
+#toolsPanel .material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 5px;
 }
 
-.tips-overlay .concept-pill {
-  font-size: 10px;
-  padding: 4px 10px;
+/* TOOLS — narrow + wide adaptations. */
+@container tools-panel (max-width: 240px) {
+  #toolsPanel .tool-section .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+  #toolsPanel .tool { min-width: 0; padding: 6px 4px; }
+  #toolsPanel .tool svg { display: none; }
+  #toolsPanel .tool span { font-size: 10.5px; }
+}
+@container tools-panel (min-width: 360px) {
+  #toolsPanel .tool-section .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 6px;
+  }
+  #toolsPanel .tool svg { width: 26px; height: 26px; }
 }
 
-.tips-overlay .concept-pill.empty {
-  border-style: dashed;
+/* READINGS — value typography scales with panel width; on narrow we drop to
+   single column. */
+@container readings-panel (max-width: 260px) {
+  #infoOverlay .readout-grid {
+    grid-template-columns: 1fr;
+  }
+  #infoOverlay .metric-val { font-size: 13px; }
+  #infoOverlay .metric-val .unit { font-size: 10px; }
+}
+@container readings-panel (min-width: 380px) {
+  #infoOverlay .metric-val { font-size: 17px; }
 }
 
-/* Focus states for accessibility */
-.tool:focus-visible,
-.btn:focus-visible,
-.seg:focus-visible,
-.preset:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* EDUCATOR — when short (compact float height), tighten the body and hide the
+   "Concepts explored" header so the pill row fills its space without title
+   chrome. The pill list itself stays scrollable. */
+@container educator-panel (max-height: 220px) {
+  #lessonOverlay .lesson-body { line-height: 1.45; }
+  #lessonOverlay .concepts-title { display: none; }
+  #lessonOverlay .concepts-touched { padding-top: 6px; margin-top: 0; }
+  #lessonOverlay .concept-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  #lessonOverlay .concept-pill { white-space: nowrap; flex: 0 0 auto; }
 }
+
+/* TOOLS — compact mode at short heights (e.g. low-snap mobile sheet at 30vh).
+   Each tool-section becomes a horizontal scroller so users still get the full
+   tool palette in a small slice. Tool buttons stay >=44px tall (touch floor). */
+@container tools-panel (max-height: 300px) {
+  #toolsPanel .panel-body { gap: 8px; }
+  #toolsPanel .tool-section { gap: 4px; }
+  #toolsPanel .section-title {
+    font-size: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+  }
+  #toolsPanel .tool-grid,
+  #toolsPanel .material-grid {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  #toolsPanel .tool-grid > *,
+  #toolsPanel .material-grid > * {
+    flex: 0 0 auto;
+  }
+  #toolsPanel .tool {
+    min-height: 44px;
+    min-width: 56px;
+    padding: 6px 8px;
+    flex-direction: column;
+    gap: 2px;
+  }
+  #toolsPanel .tool svg { width: 18px; height: 18px; }
+  #toolsPanel .tool span { font-size: 10px; }
+  #toolsPanel .preset,
+  #toolsPanel .material {
+    min-height: 44px;
+    min-width: 64px;
+    padding: 6px 10px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  #toolsPanel .check {
+    min-height: 44px;
+    min-width: 88px;
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  #toolsPanel .slider-row {
+    min-height: 44px;
+    min-width: 140px;
+    padding: 4px 8px;
+  }
+  /* Custom slim scrollbar for the inline horizontal scrollers. */
+  #toolsPanel .tool-grid::-webkit-scrollbar,
+  #toolsPanel .material-grid::-webkit-scrollbar {
+    height: 2px;
+  }
+  #toolsPanel .tool-grid::-webkit-scrollbar-track,
+  #toolsPanel .material-grid::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  #toolsPanel .tool-grid::-webkit-scrollbar-thumb,
+  #toolsPanel .material-grid::-webkit-scrollbar-thumb {
+    background: var(--bg-4);
+    border-radius: 2px;
+  }
+}
+
+/* =====================================================================
+   SCROLL LOCK + OVERSCROLL — when sheet is open, the body is frozen so
+   browser-level rubber-band scroll on the topbar / canvas-host doesn't
+   compete with the sheet drag. .canvas-host stays interactive (pan/zoom).
+   ===================================================================== */
+body[data-sheet-locked="true"] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@media (max-width: 768px) {
+  html { overscroll-behavior: none; }
+}
+
+/* =====================================================================
+   PANEL ANIMATION POLISH — sheet open/close + height/width snap easing.
+   Keeps `.panel.dragging` snappy (existing rule disables transition).
+   ===================================================================== */
+.panel {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    height 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* =====================================================================
+   ACTIVE TAB PILL — animated accent under the active tab in the mobile
+   tabbar. ::before sits behind the icon+label and pulses with a glow.
+   ===================================================================== */
+.tabbar .tab {
+  position: relative;
+  isolation: isolate;
+}
+.tabbar .tab::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  opacity: 0;
+  z-index: -1;
+  transform: scale(0.92);
+  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  pointer-events: none;
+}
+.tabbar .tab.active::before {
+  opacity: 0.16;
+  transform: scale(1);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.tabbar .tab svg {
+  transition: transform 180ms ease;
+}
+.tabbar .tab.active svg {
+  transform: scale(1.05);
+}
+
+/* =====================================================================
+   HINT CLOSE — bigger touch target without changing the visual chip size.
+   Visual stays 26x26; ::before extends the hit area to 44x44. (Spec G.)
+   ===================================================================== */
+.hint-close {
+  position: relative;
+  min-width: 26px;
+  min-height: 26px;
+}
+.hint-close::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 12px;
+}
+
+/* =====================================================================
+   TOPBAR OVERFLOW MENU
+   - Desktop (>=769px): .topbar-overflow uses display:contents so its
+     children flow inline with the topbar exactly as before. The ⋯ button
+     hides.
+   - Mobile (<=768px): .topbar-overflow becomes an absolute dropdown
+     panel anchored under the ⋯ button; default hidden, shown when
+     body[data-topbar-overflow-open="true"].
+   ===================================================================== */
+.topbar { position: relative; }
+
+.topbar-overflow { display: contents; }
+.topbar-more { display: none; }
+
+@media (min-width: 769px) {
+  .topbar-overflow { display: contents; }
+  .topbar-more { display: none; }
+}
+
+@media (max-width: 768px) {
+  .topbar-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .topbar-more:hover,
+  .topbar-more:focus-visible {
+    background: var(--bg-4);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  body[data-topbar-overflow-open="true"] .topbar-more {
+    background: rgba(0, 229, 160, 0.12);
+    border-color: var(--accent);
+    color: var(--accent-2);
+  }
+  .topbar-overflow {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 8px;
+    z-index: 40;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 180px;
+    padding: 8px;
+    background: rgba(15, 15, 22, 0.97);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    gap: 4px;
+  }
+  body[data-topbar-overflow-open="true"] .topbar-overflow {
+    display: flex;
+  }
+  .topbar-overflow .btn {
+    width: 100%;
+    min-height: 40px;
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: left;
+    justify-content: flex-start;
+    border-radius: 8px;
+  }
+}
+
+/* =====================================================================
+   LANDSCAPE MOBILE — phones held sideways. Sheet pulls from the right,
+   tabbar moves to a vertical strip on the right edge, topbar shrinks.
+   Triggered via body[data-layout-mode="landscape-mobile"] from layout.js
+   (matched against (max-width:768px) + landscape + max-height:600px).
+   ===================================================================== */
+@media (max-width: 768px) and (orientation: landscape) and (max-height: 600px) {
+  body {
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  /* Compress topbar — shorter, tighter, kill the slider <label> text since
+     the slider track itself communicates value. */
+  .topbar {
+    gap: 10px;
+    padding: 4px 10px;
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-right: 50px;
+    min-height: 36px;
+  }
+  .topbar .btn {
+    padding: 6px 10px;
+    font-size: 11px;
+    min-height: 32px;
+  }
+  .topbar .seg { padding: 5px 8px; font-size: 11px; }
+  .topbar .bar-group label { font-size: 10px; }
+  .topbar .bar-group:not(:has(.segment)) label {
+    display: none;
+  }
+  .topbar .seg-label { display: none; }
+  .topbar .bar-group input[type=range] {
+    width: 80px;
+    max-width: 100px;
+  }
+  .topbar-more {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 16px;
+  }
+
+  /* Tabbar — vertical strip on the right edge. */
+  .tabbar {
+    flex-direction: column;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 40px;
+    height: auto;
+    padding: max(6px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) 4px;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+    gap: 6px;
+  }
+  .tabbar .tab {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 56px;
+    padding: 4px;
+    font-size: 10px;
+    gap: 2px;
+  }
+  .tabbar .tab svg { width: 20px; height: 20px; }
+  .tabbar .tab span {
+    /* Stay readable but compress so they fit a 40px column. */
+    font-size: 9px;
+    letter-spacing: 0.2px;
+  }
+
+  /* Hint pinned bottom-left, but clear the right-side tabbar. */
+  .canvas-host .hint {
+    left: 12px;
+    bottom: 12px;
+    right: 52px;
+    max-width: calc(100% - 64px);
+  }
+
+  /* Sheet — pulls from the right, vertical drag handle on its left edge,
+     respects 40px tabbar gutter. */
+  .panel {
+    top: 0;
+    bottom: 0;
+    right: 40px;
+    left: auto;
+    height: 100%;
+    width: var(--sheet-width, 60vw);
+    max-height: none;
+    max-width: 95vw;
+    border-radius: 16px 0 0 16px;
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.55);
+    transform: translateX(100%);
+  }
+  body[data-sheet-height="low"] .panel { --sheet-width: 30vw; }
+  body[data-sheet-height="mid"] .panel { --sheet-width: 60vw; }
+  body[data-sheet-height="high"] .panel { --sheet-width: 80vw; }
+  body[data-sheet-height="default"] .panel { --sheet-width: 60vw; }
+  body[data-sheet-height="tall"] .panel { --sheet-width: 80vw; }
+  .panel.visible {
+    transform: translateX(0);
+  }
+
+  /* Vertical grabber — left edge of the sheet. */
+  .panel-grabber {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    height: auto;
+  }
+  .panel-grabber::before {
+    width: 4px;
+    height: 42px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  }
+  .panel-header { padding-left: 22px; }
+}
+
+/* Mode-aware tool sections — visible only when body[data-mode] matches. */
+body[data-mode="2d"] [data-mode-only="3d"] { display: none !important; }
+body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
+

@@ -1,5 +1,166 @@
 // app.js — main app: renderer, input, tools, presets, UI wiring
+// no telemetry — by design (see privacy.html)
 'use strict';
+
+/* =========================== mode router ===========================
+ * Reads localStorage.physicsMode (default '2d'). On '2d', the 2D IIFE
+ * below runs as today. On '3d', the 2D IIFE still initialises (it owns
+ * the renderer and global state for cross-mode UI), but the 3D module
+ * is loaded immediately after and takes ownership of the canvas.
+ * The toggle button calls setPhysicsMode() to switch.
+ * ================================================================ */
+const MODE_KEY = 'physicsMode';
+function getPhysicsMode() {
+  try { return localStorage.getItem(MODE_KEY) === '3d' ? '3d' : '2d'; }
+  catch { return '2d'; }
+}
+let _3dHandle = null;
+let _switching = false;
+
+function _setToggleUI(next) {
+  document.querySelectorAll('#modeSegment .seg').forEach(b => {
+    const on = b.dataset.mode === next;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+async function setPhysicsMode(next) {
+  if (_switching) return;
+  const cur = getPhysicsMode();
+  if (cur === next) return;
+  if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
+  _switching = true;
+  try { localStorage.setItem(MODE_KEY, next); } catch {}
+  _setToggleUI(next);
+  if (next === '3d') {
+    document.body.dataset.mode = '3d';
+    try {
+      const mod = await import('./app3d.js?v=66');
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    } catch (err) {
+      // Roll back so a failed 3D load doesn't permanently brick the page.
+      console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D.');
+    } finally {
+      _switching = false;
+    }
+  } else {
+    document.body.dataset.mode = '2d';
+    if (_3dHandle) {
+      try {
+        const mod = await import('./app3d.js?v=66');
+        mod.teardown3D();
+      } catch {}
+      _3dHandle = null;
+    }
+    // Reload to restore 2D state cleanly. No state-machine gymnastics for now.
+    location.reload();
+  }
+}
+
+// Wire toggle once DOM is ready. The 2D IIFE below also adds listeners; this
+// runs first because it's outside the IIFE and only attaches one click handler.
+document.addEventListener('DOMContentLoaded', () => {
+  const seg = document.getElementById('modeSegment');
+  if (seg) {
+    seg.addEventListener('click', e => {
+      const btn = e.target.closest('[data-mode]');
+      if (!btn) return;
+      // 3D mode is a Pro feature — intercept before setPhysicsMode.
+      if (btn.dataset.mode === '3d' && !Pro.isActive()) {
+        openUpgradeModal();
+        return;
+      }
+      setPhysicsMode(btn.dataset.mode);
+    });
+  }
+  // Apply persisted mode (don't prompt — user already chose this previously).
+  // But re-check Pro: a lapsed-Pro user with a stale '3d' flag should boot 2D.
+  if (getPhysicsMode() === '3d' && !Pro.isActive()) {
+    try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+  }
+  if (getPhysicsMode() === '3d') {
+    document.body.dataset.mode = '3d';
+    _setToggleUI('3d');
+    import('./app3d.js?v=66').then(async mod => {
+      _3dHandle = await mod.init3D({
+        canvas: document.getElementById('canvas'),
+        hostEl: document.querySelector('main.canvas-host'),
+      });
+    }).catch(err => {
+      console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      document.body.dataset.mode = '2d';
+      _setToggleUI('2d');
+      alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
+    });
+  } else {
+    document.body.dataset.mode = '2d';
+  }
+});
+
+// Mode-aware save/load. The 2D side uses the IIFE-internal serializeScene;
+// the 3D side uses module exports. We attach interceptors in capture phase
+// so 3D mode wins before the IIFE handlers fire.
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const fileInput = document.getElementById('loadFileInput');
+  if (!saveBtn || !loadBtn || !fileInput) return;
+
+  saveBtn.addEventListener('click', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    // stopImmediatePropagation: prevents the 2D bubble-phase handler on this
+    // same button from firing. Plain stopPropagation only blocks ancestors.
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    // Save is a Pro feature (matches the existing 2D gate that we just silenced
+    // by stopping propagation). Re-check Pro here so non-Pro users hit the
+    // upsell instead of getting a free download.
+    if (!Pro.isActive()) { openUpgradeModal(); return; }
+    const mod = await import('./app3d.js?v=66');
+    const scene = mod.serialize3D();
+    const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sandbox-3d-${Date.now()}.json`;
+    // Firefox requires the anchor to be in the DOM for programmatic click.
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+  }, true);
+
+  loadBtn.addEventListener('click', ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    fileInput.click();
+  }, true);
+
+  fileInput.addEventListener('change', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation();
+    const f = fileInput.files[0]; if (!f) return;
+    const text = await f.text();
+    let json;
+    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); fileInput.value = ''; return; }
+    if (json.mode !== '3d') {
+      alert('That scene is a 2D scene. Switch to 2D mode to load it.');
+      fileInput.value = '';
+      return;
+    }
+    const mod = await import('./app3d.js?v=66');
+    try { mod.deserialize3D(json); }
+    catch (e) { alert('Failed to load scene: ' + e.message); }
+    finally { fileInput.value = ''; }
+  }, true);
+});
 
 (function () {
 const { Vec2, World, Body, DistanceConstraint, makeBox, makeCircle, makePolygon, SHAPE } = window.PSandbox;
@@ -365,13 +526,11 @@ function applyMaterialToBody(body, materialKey) {
   const mat = MATERIALS[materialKey];
   if (!mat) return false;
   
-  // Store original area for mass recalculation
-  const area = body.mass / (body.density || 1);
-  
-  // Apply material properties
+  // Apply material properties. Update density and let the engine recompute
+  // mass/inertia (and their inverses) from shape — hand-rolling those was
+  // writing to body.invMass, which the solver doesn't read (it uses inverseMass).
   body.density = mat.density;
-  body.mass = mat.density * area;
-  body.invMass = body.mass > 0 ? 1 / body.mass : 0;
+  body.computeMass();
   body.friction = mat.friction;
   body.restitution = mat.restitution;
   
@@ -492,7 +651,7 @@ canvas.addEventListener('pointerdown', (ev) => {
       resetBodyMaterial(body);
       state.activeMaterial = null;
       document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
-      AudioFx.toggleOff();
+      AudioFx.pin();
       triggerHaptic('medium');
       return;
     } else if (ev.pointerType !== 'mouse' || ev.button === 0) {
@@ -1351,6 +1510,12 @@ function fmtNum(n) {
   if (a >= 1e6 || a < 1e-3) return n.toExponential(2);
   return n.toFixed(2);
 }
+// Display deadband for per-body readouts: solver leaves residual jitter on
+// resting bodies; below `threshold` we render '0.00' instead of fmtNum's raw
+// scientific-notation result, so a body that looks at rest reads at rest.
+function fmtNumRest(n, threshold) {
+  return Math.abs(n) < threshold ? '0.00' : fmtNum(n);
+}
 
 // PE reference: floor's top surface (matches the visual floor the user sees).
 // Measured against the body's lowest point (aabb.maxY in screen-down coords)
@@ -1441,13 +1606,13 @@ document.querySelectorAll('.material').forEach(el => {
     if (state.activeMaterial === matKey) {
       state.activeMaterial = null;
       el.classList.remove('active');
-      AudioFx.toggleOff();
+      AudioFx.pin();
     } else {
       // Deselect previous and select new
       document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
       state.activeMaterial = matKey;
-      AudioFx.toolSelect();
+      AudioFx.spawn();
     }
     triggerHaptic('light');
   });
@@ -1503,7 +1668,6 @@ document.querySelectorAll('#levelSegment .seg').forEach(el => {
 
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
-const layoutEl = document.querySelector('.layout');
 const hintEl = document.getElementById('hint');
 document.getElementById('topbarToggle').addEventListener('click', () => {
   topbarEl.classList.toggle('collapsed');
@@ -1519,175 +1683,25 @@ try {
   if (localStorage.getItem('ps.hintDismissed') === '1') hintEl.classList.add('dismissed');
 } catch (e) { /* ignore */ }
 
-// ======================= TOOLS PANEL COLLAPSE =======================
-const toolsPanel = document.getElementById('toolsPanel');
-const toolsCollapseBtn = document.getElementById('toolsCollapseBtn');
+// ======================= LAYOUT GLUE (REMOVED 2026-05-08) =======================
+// The tools-collapse button, the draggable tools/topbar dividers, and the
+// FloatingOverlay class previously defined here have been removed in the
+// layout rework. layout.js now drives panel visibility (mobile bottom sheet
+// / desktop derived sidebars). The floating-overlay panels became regular
+// .panel sections inside .panel-host; their IDs (#infoOverlay, #lessonOverlay,
+// #tipsOverlay shim) are preserved so the update*Overlay functions below and
+// the educator's ui.* element refs continue to work unmodified.
 
-function toggleToolsCollapse() {
-  triggerHaptic('light');
-  toolsPanel.classList.toggle('collapsed');
-  const isCollapsed = toolsPanel.classList.contains('collapsed');
-  try { localStorage.setItem('ps.toolsCollapsed', isCollapsed ? '1' : '0'); } catch (e) {}
-  requestAnimationFrame(resize);
-}
-
-toolsCollapseBtn.addEventListener('click', toggleToolsCollapse);
-
-// Restore collapsed state
-try {
-  if (localStorage.getItem('ps.toolsCollapsed') === '1') {
-    toolsPanel.classList.add('collapsed');
-  }
-} catch (e) {}
-
-// ======================= DRAGGABLE DIVIDERS =======================
-function setupDivider(divider, computeSize, varName, storeKey) {
-  if (!divider) return;
-  let dragging = false;
-  
-  // Prevent flicker on hover by adding interacting class
-  divider.addEventListener('pointerenter', () => {
-    document.body.classList.add('interacting');
-  });
-  
-  divider.addEventListener('pointerleave', () => {
-    if (!dragging) {
-      document.body.classList.remove('interacting');
-    }
-  });
-  
-  divider.addEventListener('pointerdown', (e) => {
-    // Un-collapse tools when starting to drag
-    if (toolsPanel.classList.contains('collapsed')) {
-      toolsPanel.classList.remove('collapsed');
-    }
-    e.preventDefault();
-    try { divider.setPointerCapture(e.pointerId); } catch (err) {}
-    divider.classList.add('dragging');
-    layoutEl.classList.add('resizing');
-    document.body.classList.add('interacting');
-    dragging = true;
-    triggerHaptic('light');
-  });
-  
-  divider.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const isMobile = window.matchMedia('(max-width: 860px)').matches;
-    const r = layoutEl.getBoundingClientRect();
-    const size = computeSize(e, r, isMobile);
-    layoutEl.style.setProperty(varName, size + 'px');
-  });
-  
-  divider.addEventListener('pointerup', () => {
-    if (!dragging) return;
-    dragging = false;
-    divider.classList.remove('dragging');
-    layoutEl.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-    resize();
-    triggerHaptic('medium');
-    try { localStorage.setItem(storeKey, layoutEl.style.getPropertyValue(varName)); } catch (e) {}
-  });
-  
-  divider.addEventListener('pointercancel', () => {
-    if (!dragging) return;
-    dragging = false;
-    divider.classList.remove('dragging');
-    layoutEl.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-  });
-}
-
-// Tools divider setup
-const toolsDividerEl = document.getElementById('toolsDivider');
-setupDivider(
-  toolsDividerEl,
-  (e, r, mobile) => {
-    const minSize = mobile ? 36 : 80;
-    const maxSize = mobile ? r.height * 0.4 : r.width * 0.4;
-    const rawSize = mobile ? e.clientY - r.top : e.clientX - r.left;
-    return Math.max(minSize, Math.min(maxSize, rawSize));
-  },
-  '--tools-size', 'ps.toolsSize'
-);
-
-// Restore tools size
-try {
-  const ts = localStorage.getItem('ps.toolsSize');
-  if (ts && !toolsPanel.classList.contains('collapsed')) {
-    layoutEl.style.setProperty('--tools-size', ts);
-  }
-} catch (e) {}
-
-// ======================= TOPBAR DIVIDER =======================
-const topbarDivider = document.getElementById('topbarDivider');
-const topbar = document.querySelector('.topbar');
-
-function setupTopbarDivider() {
-  if (!topbarDivider || !topbar) return;
-  
-  let dragging = false;
-  let startY = 0;
-  let startHeight = 0;
-  
-  topbarDivider.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    try { topbarDivider.setPointerCapture(e.pointerId); } catch (err) {}
-    topbarDivider.classList.add('dragging');
-    topbar.classList.add('resizing');
-    document.body.classList.add('interacting');
-    dragging = true;
-    startY = e.clientY;
-    startHeight = topbar.offsetHeight;
-    triggerHaptic('light');
-  });
-  
-  topbarDivider.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const deltaY = e.clientY - startY;
-    const newHeight = Math.max(48, Math.min(200, startHeight + deltaY));
-    topbar.style.minHeight = newHeight + 'px';
-  });
-  
-  topbarDivider.addEventListener('pointerup', () => {
-    if (!dragging) return;
-    dragging = false;
-    topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-    triggerHaptic('medium');
-    try { localStorage.setItem('ps.topbarHeight', topbar.style.minHeight); } catch (e) {}
-  });
-  
-  topbarDivider.addEventListener('pointercancel', () => {
-    if (!dragging) return;
-    dragging = false;
-    topbarDivider.classList.remove('dragging');
-    topbar.classList.remove('resizing');
-    document.body.classList.remove('interacting');
-  });
-  
-  // Double-click to reset
-  topbarDivider.addEventListener('dblclick', () => {
-    topbar.style.minHeight = '';
-    triggerHaptic('double');
-    try { localStorage.removeItem('ps.topbarHeight'); } catch (e) {}
-  });
-}
-
-setupTopbarDivider();
-
-// Restore topbar height
-try {
-  const th = localStorage.getItem('ps.topbarHeight');
-  if (th && topbar) topbar.style.minHeight = th;
-} catch (e) {}
-
-// ======================= MODULAR OVERLAY SYSTEM =======================
-// Reusable overlay manager with fluid touch dragging and inertia
-// Track all overlay instances for z-index management
-const overlayInstances = [];
-
+// ======================= OVERLAY/PANEL TOGGLES (DELEGATED) =======================
+// The FloatingOverlay class that lived here (touch-dragged free-floating panels
+// with inertia + pinch zoom) was removed in the 2026-05-08 layout rework. Panel
+// visibility is now driven by layout.js (bottom-sheet on mobile, fixed sidebars
+// on desktop). app.js's update*Overlay functions still write content into the
+// same #ov-* / #infoOverlay / #lessonOverlay element IDs; layout.js toggles the
+// `.visible` class those functions check before doing work. The keyboard
+// shortcuts (I / L / T) call window.toggleInfoOverlay / toggleLessonOverlay /
+// toggleTipsOverlay which layout.js installs on window.
+/* legacy FloatingOverlay class removed — see git history if you need to revive it.
 class FloatingOverlay {
   constructor(id, toggleId, storageKey) {
     this.el = document.getElementById(id);
@@ -2041,16 +2055,10 @@ class FloatingOverlay {
     } catch (e) {}
   }
 }
-
-// Create overlay instances
-const infoOverlayManager = new FloatingOverlay('infoOverlay', 'infoOverlayToggle', 'ps.infoOverlay');
-const lessonOverlayManager = new FloatingOverlay('lessonOverlay', 'lessonOverlayToggle', 'ps.lessonOverlay');
-const tipsOverlayManager = new FloatingOverlay('tipsOverlay', 'tipsOverlayToggle', 'ps.tipsOverlay');
-
-// Toggle functions for keyboard shortcuts
-function toggleInfoOverlay() { infoOverlayManager.toggleVisibility(); }
-function toggleLessonOverlay() { lessonOverlayManager.toggleVisibility(); }
-function toggleTipsOverlay() { tipsOverlayManager.toggleVisibility(); }
+*/
+// toggleInfoOverlay / toggleLessonOverlay / toggleTipsOverlay are installed on
+// `window` by layout.js. The keyboard handler below calls them as bare
+// identifiers, which resolve to the window globals.
 
 // Element refs for updates
 const ovSelected = document.getElementById('ov-selected');
@@ -2164,6 +2172,601 @@ function updateTipsOverlay() {
   if (panelConcepts) {
     ovConceptList.innerHTML = panelConcepts.innerHTML;
   }
+}
+
+/* =========================== Pro paywall =========================== */
+// Pro is gated client-side via localStorage 'ps.pro'. Activation paths today:
+//   1. ?pro=1 URL param (one-shot; param consumed, flag persists)
+//   2. Redeem code in the upgrade modal (e.g. STACKLIS-EARLY)
+//   3. Devtools: localStorage.setItem('ps.pro', '1'); location.reload()
+// PAYMENT PLUG-POINT: real activation will come from a server-issued token.
+// When that lands, the redeem-code branch becomes the API verification call,
+// and Pro.activate() should also store the token for revocation/expiry checks.
+//
+// STRIPE_PAYMENT_LINK: paste the real Stripe Payment Link URL here once the
+// operator has created the one-time $9 product in the Stripe dashboard.
+//   - Product:     Physics Sandbox Pro, one-time $9 USD
+//   - Success URL: https://sandbox.stacklis.com/app/?pro=1&src=stripe
+//                  (note: /app/, not /, so Pro.checkUrlParam() below runs and
+//                  flips the localStorage flag immediately)
+//   - Cancel URL:  https://sandbox.stacklis.com/app/
+// Until pasted, the upgrade button shows a placeholder alert.
+const STRIPE_PAYMENT_LINK = '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>';
+// ?free=1 — force the app into free-tier mode regardless of localStorage.
+// Used by the landing page CTA (/app/?free=1) and the /free legacy redirect.
+// Pro features stay locked while this is set; the URL param persists across
+// the session so a refresh keeps the user in free mode.
+const FREE_MODE = (() => {
+  try { return new URL(window.location.href).searchParams.get('free') === '1'; }
+  catch (e) { return false; }
+})();
+const Pro = (() => {
+  const KEY = 'ps.pro';
+  const REDEEM_CODES = new Set(['STACKLIS-EARLY']);
+  function isActive() {
+    if (FREE_MODE) return false;
+    try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
+  }
+  function activate() {
+    try { localStorage.setItem(KEY, '1'); } catch (e) {}
+    updateUI();
+  }
+  function deactivate() {
+    try { localStorage.setItem(KEY, '0'); } catch (e) {}
+    updateUI();
+  }
+  function redeem(code) {
+    const trimmed = String(code || '').trim().toUpperCase();
+    if (REDEEM_CODES.has(trimmed)) { activate(); return true; }
+    return false;
+  }
+  function checkUrlParam() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('pro') === '1') {
+        activate();
+        url.searchParams.delete('pro');
+        // Also strip the Stripe attribution token so we don't leak it.
+        url.searchParams.delete('src');
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch (e) {}
+  }
+  function updateUI() {
+    document.body.classList.toggle('pro', isActive());
+  }
+  return { isActive, activate, deactivate, redeem, checkUrlParam, updateUI };
+})();
+Pro.checkUrlParam();
+Pro.updateUI();
+if (FREE_MODE) document.body.classList.add('free-mode');
+window.PSandboxPro = Pro;
+
+// ?embed=1 — landing page iframe demo. Hides the brand title, the PRO badge,
+// the upgrade dialog auto-pop, and any locked Pro CTAs. The free demo embedded
+// inside the marketing page must not show its own paywall.
+const EMBED_MODE = (() => {
+  try { return new URL(window.location.href).searchParams.get('embed') === '1'; }
+  catch (e) { return false; }
+})();
+if (EMBED_MODE) {
+  document.body.classList.add('embed-mode');
+}
+
+const upgradeDialog = document.getElementById('upgradeDialog');
+const upgradeCtaBtn = document.getElementById('upgradeBtn');
+const upgradeLaterBtn = document.getElementById('upgradeLater');
+const redeemInputEl = document.getElementById('redeemInput');
+const redeemBtnEl = document.getElementById('redeemBtn');
+const redeemMsgEl = document.getElementById('redeemMsg');
+
+function openUpgradeModal() {
+  if (!upgradeDialog) return;
+  if (redeemMsgEl) { redeemMsgEl.textContent = ''; redeemMsgEl.className = 'redeem-msg'; }
+  if (redeemInputEl) redeemInputEl.value = '';
+  upgradeDialog.showModal();
+}
+function closeUpgradeModal() { upgradeDialog?.close(); }
+
+if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
+  if (STRIPE_PAYMENT_LINK && STRIPE_PAYMENT_LINK !== '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>') {
+    window.location.href = STRIPE_PAYMENT_LINK;
+    return;
+  }
+  // Stripe Payment Link not yet configured. Operator must paste the real URL
+  // into STRIPE_PAYMENT_LINK at the top of the Pro module.
+  alert('Stripe link not yet configured — operator must paste Payment Link into app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
+});
+if (upgradeLaterBtn) upgradeLaterBtn.addEventListener('click', closeUpgradeModal);
+if (redeemBtnEl) redeemBtnEl.addEventListener('click', () => {
+  if (!redeemMsgEl) return;
+  const ok = Pro.redeem(redeemInputEl?.value);
+  if (ok) {
+    redeemMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
+    redeemMsgEl.className = 'redeem-msg ok';
+    setTimeout(closeUpgradeModal, 1200);
+  } else {
+    redeemMsgEl.textContent = 'Code not recognized.';
+    redeemMsgEl.className = 'redeem-msg err';
+  }
+});
+if (redeemInputEl) redeemInputEl.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') { ev.preventDefault(); redeemBtnEl?.click(); }
+});
+// Close on backdrop click (event target is the dialog itself, not the inner box).
+if (upgradeDialog) upgradeDialog.addEventListener('click', (ev) => {
+  if (ev.target === upgradeDialog) closeUpgradeModal();
+});
+
+/* =========================== derivations export (Pro) =========================== */
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+function buildDerivationsDoc() {
+  const CONCEPTS = (window.PEdu && window.PEdu.CONCEPTS) || {};
+  const encountered = [...(educator.encountered || [])].filter(k => CONCEPTS[k]);
+  const date = new Date().toISOString().slice(0, 10);
+  const articles = encountered.map(key => {
+    const c = CONCEPTS[key];
+    const l3 = (c.levels && c.levels[3]) || '';
+    const l4 = (c.levels && c.levels[4]) || '';
+    const f3 = (c.formula && c.formula[3]) || '';
+    const f4 = (c.formula && c.formula[4]) || '';
+    const tags = (c.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    return `<article class="concept">
+  <h2>${escapeHtml(c.title)}</h2>
+  ${tags ? `<div class="tags">${tags}</div>` : ''}
+  ${l3 ? `<section><h3>University</h3><p>${escapeHtml(l3)}</p>${f3 ? `<pre class="formula">${escapeHtml(f3)}</pre>` : ''}</section>` : ''}
+  ${l4 ? `<section><h3>Expert</h3><p>${escapeHtml(l4)}</p>${f4 ? `<pre class="formula">${escapeHtml(f4)}</pre>` : ''}</section>` : ''}
+</article>`;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Physics Sandbox — Derivations (${date})</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 24px; line-height: 1.6; color: #1a1d24; background: #fff; }
+  header { border-bottom: 2px solid #444; padding-bottom: 16px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: #6b7280; font-size: 13px; }
+  .concept { margin-bottom: 28px; page-break-inside: avoid; }
+  .concept h2 { margin: 0 0 6px; font-size: 17px; color: #2c5282; }
+  .tags { margin-bottom: 8px; font-size: 11px; color: #6b7280; }
+  .tag { display: inline-block; padding: 1px 7px; margin-right: 4px; border: 1px solid #cbd5e0; border-radius: 999px; }
+  section { margin: 8px 0; }
+  section h3 { margin: 8px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: #444; }
+  section p { margin: 4px 0; font-size: 14px; }
+  .formula { margin: 6px 0 12px; padding: 10px 12px; background: #f6f7fb; border: 1px solid #d6dae3; border-radius: 6px; font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 13px; color: #2a3a5e; white-space: pre-wrap; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
+  @media print { body { margin: 0; max-width: none; } .concept { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Physics Sandbox — Derivations</h1>
+  <p>${encountered.length} concept${encountered.length === 1 ? '' : 's'} encountered · exported ${date} · Stacklis</p>
+</header>
+${articles}
+<footer>Generated by Physics Sandbox. Print to PDF via your browser (Ctrl/Cmd + P → Save as PDF).</footer>
+</body>
+</html>`;
+}
+
+function exportDerivations() {
+  if (!educator.encountered || educator.encountered.size === 0) {
+    alert('No concepts encountered yet.\n\nSpawn objects, drop them, push them around — the educator surfaces concepts as you interact, and they will be included here.');
+    return;
+  }
+  const html = buildDerivationsDoc();
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `derivations-${new Date().toISOString().slice(0, 10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+const derivationsBtn = document.getElementById('derivationsBtn');
+if (derivationsBtn) derivationsBtn.addEventListener('click', () => {
+  if (!Pro.isActive()) { openUpgradeModal(); return; }
+  exportDerivations();
+});
+
+/* =========================== save / load =========================== */
+const SCHEMA_VERSION = 1;
+
+function migrateScene(json) {
+  // Forward-transform old scenes to the current schema. Warns; never rejects.
+  let v = json && json.version;
+  if (v == null) {
+    console.warn('[Sandbox] Scene file has no version; assuming v1.');
+    v = 1;
+    if (json) json.version = 1;
+  }
+  if (v > SCHEMA_VERSION) {
+    console.warn(`[Sandbox] Scene file is v${v}; this build supports v${SCHEMA_VERSION}. Loading best-effort.`);
+  }
+  // Future migrations chain here:
+  //   if (v === 1) { /* v1 → v2 */ json = transformV1ToV2(json); v = 2; }
+  return json;
+}
+
+function serializeBody(b, idMap, fileId) {
+  idMap.set(b, fileId);
+  const out = {
+    id: fileId,
+    shape: b.shape,
+    position: [b.position.x, b.position.y],
+    velocity: [b.velocity.x, b.velocity.y],
+    angle: b.angle,
+    angularVelocity: b.angularVelocity,
+    isStatic: b.isStatic,
+    color: b.color,
+    density: b.density,
+    restitution: b.restitution,
+    friction: b.friction,
+    linearDamping: b.linearDamping,
+    angularDamping: b.angularDamping,
+    gravityScale: b.gravityScale,
+    label: b.label,
+  };
+  if (b.shape === SHAPE.CIRCLE) {
+    out.radius = b.radius;
+  } else {
+    out.vertices = b.localVertices.map(v => [v.x, v.y]);
+  }
+  return out;
+}
+
+function serializeConstraint(c, idMap) {
+  const aId = idMap.get(c.A);
+  const bId = idMap.get(c.B);
+  if (aId == null || bId == null) return null; // body filtered out (e.g. grab anchor)
+  return {
+    type: 'distance',
+    a: aId,
+    b: bId,
+    anchorA: [c.anchorA.x, c.anchorA.y],
+    anchorB: [c.anchorB.x, c.anchorB.y],
+    length: c.length,
+    stiffness: c.stiffness,
+    damping: c.damping,
+    isSpring: !!c.isSpring,
+    springK: c.springK,
+    dampAllAxes: !!c.dampAllAxes,
+    maxForce: Number.isFinite(c.maxForce) ? c.maxForce : null,
+  };
+}
+
+function serializeScene(opts = {}) {
+  const idMap = new Map();
+  const bodies = [];
+  let i = 0;
+  for (const b of world.bodies) {
+    if (walls.includes(b)) continue; // skip auto-generated boundaries
+    bodies.push(serializeBody(b, idMap, 'b' + i));
+    i++;
+  }
+  const constraints = [];
+  for (const c of world.constraints) {
+    if (c === state.grabConstraint) continue; // skip live grab
+    const sc = serializeConstraint(c, idMap);
+    if (sc) constraints.push(sc);
+  }
+  return {
+    type: 'physics-sandbox/scene',
+    version: SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    name: opts.name || null,
+    description: opts.description || null,
+    settings: {
+      gravity: world.gravity,
+      timeScale: state.timeScale,
+      paused: true, // scenes are built artifacts; load paused so user can examine
+    },
+    view: {
+      level: educator.level,
+      showVectors: ui.showVectors.checked,
+      showContacts: ui.showContacts.checked,
+      showTrails: ui.showTrails.checked,
+      showAABB: ui.showAABB.checked,
+      showHeatmap: ui.showHeatmap.checked,
+      showFPS: ui.showFPS.checked,
+    },
+    bodies,
+    constraints,
+  };
+}
+
+function deserializeBody(b) {
+  const opts = {
+    angle: b.angle ?? 0,
+    isStatic: !!b.isStatic,
+    color: b.color,
+    density: b.density,
+    restitution: b.restitution,
+    friction: b.friction,
+    linearDamping: b.linearDamping,
+    angularDamping: b.angularDamping,
+    gravityScale: b.gravityScale,
+    label: b.label,
+  };
+  let body;
+  if (b.shape === 'circle') {
+    body = makeCircle(b.position[0], b.position[1], b.radius, opts);
+  } else if (b.shape === 'polygon') {
+    const verts = (b.vertices || []).map(v => new Vec2(v[0], v[1]));
+    if (verts.length < 3) throw new Error('polygon needs >= 3 vertices');
+    body = new Body({
+      ...opts,
+      shape: SHAPE.POLYGON,
+      position: new Vec2(b.position[0], b.position[1]),
+      vertices: verts,
+    });
+  } else {
+    throw new Error(`unknown shape: ${b.shape}`);
+  }
+  body.velocity = new Vec2(b.velocity?.[0] || 0, b.velocity?.[1] || 0);
+  body.angularVelocity = b.angularVelocity ?? 0;
+  return body;
+}
+
+function deserializeScene(json) {
+  if (!json || json.type !== 'physics-sandbox/scene') {
+    throw new Error('Not a Physics Sandbox scene file.');
+  }
+  json = migrateScene(json);
+
+  // Cancel transient state before we wipe the world.
+  if (state.grabConstraint) endGrab();
+  state.dragStart = null; state.dragCurrent = null;
+  state.springStart = null; state.springStartLocal = null;
+  state.impulseBody = null; state.impulseStart = null; state.impulseEnd = null;
+  state.slicePath = null;
+  state.selected = null;
+  state.trails.clear();
+
+  // Wipe and re-floor the world. rebuildBoundaries resets walls[] and re-adds
+  // canvas-sized boundaries; this keeps the scene framed regardless of where it was saved.
+  world.clear();
+  rebuildBoundaries();
+
+  // Bodies — collect by file id so constraints can resolve refs.
+  const idToBody = new Map();
+  for (const b of (json.bodies || [])) {
+    try {
+      const body = deserializeBody(b);
+      world.add(body);
+      if (b.id != null) idToBody.set(b.id, body);
+    } catch (err) {
+      console.warn('[Sandbox] Skipping malformed body:', b, err);
+    }
+  }
+
+  // Constraints.
+  for (const c of (json.constraints || [])) {
+    const A = idToBody.get(c.a);
+    const B = idToBody.get(c.b);
+    if (!A || !B) {
+      console.warn('[Sandbox] Skipping constraint with unresolved body refs:', c);
+      continue;
+    }
+    try {
+      const con = new DistanceConstraint(
+        A, B,
+        new Vec2(c.anchorA[0], c.anchorA[1]),
+        new Vec2(c.anchorB[0], c.anchorB[1]),
+        {
+          length: c.length,
+          stiffness: c.stiffness,
+          damping: c.damping,
+          isSpring: !!c.isSpring,
+          springK: c.springK,
+          dampAllAxes: !!c.dampAllAxes,
+          maxForce: c.maxForce == null ? Infinity : c.maxForce,
+        }
+      );
+      world.addConstraint(con);
+    } catch (err) {
+      console.warn('[Sandbox] Skipping malformed constraint:', c, err);
+    }
+  }
+
+  // Settings.
+  const s = json.settings || {};
+  if (Number.isFinite(s.gravity)) {
+    world.gravity = s.gravity;
+    ui.gravity.value = s.gravity;
+    ui.gravityVal.textContent = s.gravity.toFixed(2);
+  }
+  if (Number.isFinite(s.timeScale)) {
+    state.timeScale = s.timeScale;
+    ui.timeScale.value = s.timeScale;
+    ui.timeVal.textContent = s.timeScale.toFixed(2);
+  }
+  // Default to paused unless the file explicitly says otherwise.
+  state.paused = (s.paused !== false);
+  ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
+
+  // View block (optional). All keys validated; unknown fields ignored.
+  const v = json.view || {};
+  if ([1, 2, 3, 4].includes(v.level)) {
+    const seg = document.querySelector(`#levelSegment .seg[data-level="${v.level}"]`);
+    if (seg) seg.click();
+  }
+  for (const key of ['showVectors', 'showContacts', 'showTrails', 'showAABB', 'showHeatmap', 'showFPS']) {
+    if (typeof v[key] === 'boolean' && ui[key]) ui[key].checked = v[key];
+  }
+}
+
+function downloadJSON(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+const saveBtn = document.getElementById('saveBtn');
+const loadBtn = document.getElementById('loadBtn');
+const loadFileInput = document.getElementById('loadFileInput');
+
+if (saveBtn) saveBtn.addEventListener('click', () => {
+  if (!Pro.isActive()) { openUpgradeModal(); return; }
+  const scene = serializeScene();
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '');
+  downloadJSON(scene, `scene-${stamp}.json`);
+});
+if (loadBtn) loadBtn.addEventListener('click', () => loadFileInput && loadFileInput.click());
+if (loadFileInput) loadFileInput.addEventListener('change', (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      deserializeScene(JSON.parse(reader.result));
+    } catch (err) {
+      console.error('[Sandbox] Failed to load scene:', err);
+      alert('Could not load scene: ' + err.message);
+    } finally {
+      ev.target.value = ''; // allow reloading the same file
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Exposed for share-by-link work to come.
+window.PSandboxScene = {
+  serialize: serializeScene,
+  deserialize: deserializeScene,
+  migrate: migrateScene,
+  SCHEMA_VERSION,
+};
+
+/* =========================== share-by-link =========================== */
+// Token format: "<prefix>:<base64url-payload>"
+//   v1 = gzip(JSON), the normal case
+//   r1 = raw  JSON,  fallback when CompressionStream is unavailable
+// The token prefix is independent of SCHEMA_VERSION — it lets us swap
+// compression / encoding without conflicting with schema migrations.
+
+function bytesToBase64Url(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function base64UrlToBytes(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function gzipString(str) {
+  const cs = new CompressionStream('gzip');
+  const w = cs.writable.getWriter();
+  w.write(new TextEncoder().encode(str));
+  w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function gunzipBytes(bytes) {
+  const ds = new DecompressionStream('gzip');
+  const w = ds.writable.getWriter();
+  w.write(bytes);
+  w.close();
+  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
+}
+
+async function encodeShareToken(scene) {
+  const json = JSON.stringify(scene);
+  if (typeof CompressionStream === 'undefined') {
+    return 'r1:' + bytesToBase64Url(new TextEncoder().encode(json));
+  }
+  return 'v1:' + bytesToBase64Url(await gzipString(json));
+}
+async function decodeShareToken(token) {
+  if (typeof token !== 'string') throw new Error('Invalid share token.');
+  const colon = token.indexOf(':');
+  if (colon < 0) throw new Error('Invalid share token format.');
+  const prefix = token.slice(0, colon);
+  const bytes = base64UrlToBytes(token.slice(colon + 1));
+  let json;
+  if (prefix === 'r1') {
+    json = new TextDecoder().decode(bytes);
+  } else if (prefix === 'v1') {
+    if (typeof DecompressionStream === 'undefined') {
+      throw new Error('This browser cannot decompress share links.');
+    }
+    json = await gunzipBytes(bytes);
+  } else {
+    throw new Error(`Unknown share token version: ${prefix}`);
+  }
+  return JSON.parse(json);
+}
+
+function buildShareUrl(token) {
+  return window.location.origin + window.location.pathname + '#scene=' + token;
+}
+
+async function applyHashIfPresent() {
+  const m = (window.location.hash || '').match(/^#scene=(.+)$/);
+  if (!m) return;
+  try {
+    deserializeScene(await decodeShareToken(m[1]));
+  } catch (err) {
+    console.error('[Sandbox] Failed to load shared scene:', err);
+    // Drop the bad fragment so a reload doesn't loop on the failure.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    loadPreset('default');
+  }
+}
+
+const shareBtn = document.getElementById('shareBtn');
+if (shareBtn) shareBtn.addEventListener('click', async () => {
+  try {
+    const token = await encodeShareToken(serializeScene());
+    const url = buildShareUrl(token);
+    if (url.length > 8000) {
+      console.warn(`[Sandbox] Share URL is ${url.length} chars; some platforms may truncate.`);
+    }
+    // Reflect the token in the URL bar so a reload re-loads the same scene.
+    window.history.replaceState(null, '', '#scene=' + token);
+
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(url); copied = true; } catch (_) { /* fall through */ }
+    }
+    if (copied) {
+      const orig = shareBtn.textContent;
+      shareBtn.textContent = 'Copied!';
+      shareBtn.disabled = true;
+      setTimeout(() => { shareBtn.textContent = orig; shareBtn.disabled = false; }, 1500);
+    } else {
+      // Clipboard blocked (often the case on http:// origins) — show URL to copy by hand.
+      prompt('Copy this URL:', url);
+    }
+  } catch (err) {
+    console.error('[Sandbox] Share failed:', err);
+    alert('Could not generate share link: ' + err.message);
+  }
+});
+
+// Extend the public API so future tooling (e.g. embedded iframes) can reuse it.
+if (window.PSandboxScene) {
+  window.PSandboxScene.encode = encodeShareToken;
+  window.PSandboxScene.decode = decodeShareToken;
+  window.PSandboxScene.buildShareUrl = buildShareUrl;
+  window.PSandboxScene.applyHashIfPresent = applyHashIfPresent;
 }
 
 // keyboard
@@ -2429,18 +3032,34 @@ function init() {
     setTimeout(init, 50);
     return;
   }
-  // On mobile, auto-collapse the heavy chrome so the canvas dominates.
-  // The user can still expand via the toggle buttons.
-  if (window.matchMedia('(max-width: 860px)').matches) {
-    topbarEl.classList.add('collapsed');
-    layoutEl.classList.add('panel-collapsed');
+  // (Removed 2026-05-08): mobile auto-collapse glue. layout.js now manages
+  // mobile chrome — the topbar stays as-is and the bottom-sheet UX gives the
+  // canvas the full main cell.
+  const hasShareHash = /^#scene=/.test(window.location.hash || '');
+  // ?preset=<name> deep-link (used by manifest shortcuts + landing-page CTAs).
+  // Whitelist the names against the existing preset switch so we don't blow up
+  // on garbage input. Falls back to 'default' if missing or unknown.
+  let urlPreset = null;
+  try {
+    const v = new URL(window.location.href).searchParams.get('preset');
+    if (v) urlPreset = String(v).toLowerCase();
+  } catch (e) {}
+  const VALID_PRESETS = new Set([
+    'stack', 'pendulum', 'newton', 'ramp', 'orbit', 'dominoes', 'tower', 'wreckingball'
+  ]);
+  if (!hasShareHash) {
+    if (urlPreset && VALID_PRESETS.has(urlPreset)) {
+      loadPreset(urlPreset);
+    } else {
+      loadPreset('default');
+    }
   }
-  loadPreset('default');
   educator.setLevel(1);
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => resize()).observe(canvas.parentElement);
   }
   requestAnimationFrame(loop);
+  if (hasShareHash) applyHashIfPresent();
 }
 if (document.readyState === 'complete') init();
 else window.addEventListener('load', init);
