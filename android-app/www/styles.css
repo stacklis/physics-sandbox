@@ -1338,7 +1338,7 @@ body.pro .locked::before { content: none; }
 
 /* =====================================================================
    LAYOUT REWORK 2026-05-08 — bottom-tab/sheet (mobile) + derived
-   sidebars (desktop). Single breakpoint at 1024px.
+   sidebars (desktop). Single breakpoint at 768px.
    ===================================================================== */
 
 /* --- Hide legacy resize/collapse affordances (removed in rework). ---
@@ -1538,8 +1538,8 @@ body {
 }
 .tabbar .tab:active { transform: scale(0.96); }
 
-/* ===================== DESKTOP (>1024px) ===================== */
-@media (min-width: 1025px) {
+/* ===================== DESKTOP (>=768px) ===================== */
+@media (min-width: 769px) {
   :root {
     --tools-w: 280px;
     --readings-w: 320px;
@@ -1613,7 +1613,7 @@ body {
   }
   .dock-edge[data-edge="tools-edge"],
   .dock-edge[data-edge="readings-edge"] {
-    width: 6px;
+    width: 8px;
     cursor: col-resize;
     top: 0;
     bottom: 0;
@@ -1633,7 +1633,7 @@ body {
     width: 2px;
   }
   .dock-edge[data-edge="educator-edge"] {
-    height: 6px;
+    height: 8px;
     cursor: row-resize;
     left: 0;
     right: 0;
@@ -1661,18 +1661,60 @@ body {
     position: absolute;
     z-index: 30;
     border-radius: 12px;
-    border: 1px solid var(--line-2);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    border: none;
+    box-shadow: none;
+    background: transparent;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     /* Width/height/top/left set inline by layout.js. */
+    animation: float-pop-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform-origin: center center;
   }
+  .canvas-host .panel.floating.dock-exit {
+    animation: float-pop-out 180ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes float-pop-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes float-pop-out {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.94); }
+  }
+  /* Smooth dock collapse / expand when a panel pops out or back in.
+     Animating grid-template-* requires concrete numeric tracks, which we have
+     (var --tools-w, --readings-w, --educator-h are all px values). */
+  body {
+    transition: grid-template-columns 240ms cubic-bezier(0.32, 0.72, 0, 1),
+                grid-template-rows 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Skip the body-grid transition while user is actively dragging a dock-edge
+     handle — those drags should track the cursor 1:1, not lag behind. */
+  body.resizing-dock { transition: none; }
   .canvas-host .panel.floating.active { z-index: 31; }
+  /* Header gets a subtle dark chip so the drag handle and pop-out button stay
+     findable over an arbitrary canvas background. */
   .canvas-host .panel.floating .panel-header {
     cursor: grab;
     user-select: none;
+    background: rgba(8, 12, 20, 0.55);
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    border-radius: 8px 8px 0 0;
+  }
+  /* Body content sits directly on canvas — text-shadow keeps values legible
+     over busy scenes without painting a background box. */
+  .canvas-host .panel.floating .panel-body,
+  .canvas-host .panel.floating .panel-body * {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.6);
+  }
+  /* When user is actively dragging or resizing, fade in a faint background
+     so they can see the panel boundary they're moving. */
+  .canvas-host .panel.floating.dragging,
+  .canvas-host .panel.floating.resizing {
+    background: rgba(8, 12, 20, 0.25);
   }
   .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
   .canvas-host .panel.floating .resize-corner {
@@ -1738,26 +1780,28 @@ body {
   /* Pop-out / dock button in panel headers. */
   .panel-pop {
     margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    width: 26px;
-    height: 22px;
+    background: rgba(0, 229, 160, 0.10);
+    border: 1px solid var(--accent);
+    color: var(--accent-2);
+    width: 32px;
+    height: 26px;
     padding: 0;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
   }
   .panel-pop:hover {
-    color: var(--accent-2);
+    color: var(--bg);
     border-color: var(--accent);
-    background: rgba(0, 229, 160, 0.06);
+    background: var(--accent);
+    transform: scale(1.08);
   }
+  .panel-pop:active { transform: scale(0.96); }
   /* When a level-badge is present (educator), keep it before the pop button. */
   .panel-header .level-badge + .panel-pop { margin-left: 6px; }
   /* The first-of-class margin-left rule above pushes the badge right; reset
@@ -1785,14 +1829,15 @@ body {
   .tabbar { display: none; }
 }
 
-/* ===================== MOBILE (<=1024px) ===================== */
-@media (max-width: 1024px) {
+/* ===================== MOBILE (<=768px) ===================== */
+@media (max-width: 768px) {
   body {
     grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       "topbar"
       "main";
+    padding-bottom: 60px;
   }
 
   /* Topbar becomes scrollable strip so the action bar always fits. */
@@ -2084,7 +2129,7 @@ body[data-sheet-locked="true"] {
   overscroll-behavior: none;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   html { overscroll-behavior: none; }
 }
 
@@ -2149,10 +2194,10 @@ body[data-sheet-locked="true"] {
 
 /* =====================================================================
    TOPBAR OVERFLOW MENU
-   - Desktop (>=1025px): .topbar-overflow uses display:contents so its
+   - Desktop (>=769px): .topbar-overflow uses display:contents so its
      children flow inline with the topbar exactly as before. The ⋯ button
      hides.
-   - Mobile (<=1024px): .topbar-overflow becomes an absolute dropdown
+   - Mobile (<=768px): .topbar-overflow becomes an absolute dropdown
      panel anchored under the ⋯ button; default hidden, shown when
      body[data-topbar-overflow-open="true"].
    ===================================================================== */
@@ -2161,12 +2206,12 @@ body[data-sheet-locked="true"] {
 .topbar-overflow { display: contents; }
 .topbar-more { display: none; }
 
-@media (min-width: 1025px) {
+@media (min-width: 769px) {
   .topbar-overflow { display: contents; }
   .topbar-more { display: none; }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .topbar-more {
     display: inline-flex;
     align-items: center;
@@ -2232,9 +2277,9 @@ body[data-sheet-locked="true"] {
    LANDSCAPE MOBILE — phones held sideways. Sheet pulls from the right,
    tabbar moves to a vertical strip on the right edge, topbar shrinks.
    Triggered via body[data-layout-mode="landscape-mobile"] from layout.js
-   (matched against (max-width:1024px) + landscape + max-height:600px).
+   (matched against (max-width:768px) + landscape + max-height:600px).
    ===================================================================== */
-@media (max-width: 1024px) and (orientation: landscape) and (max-height: 600px) {
+@media (max-width: 768px) and (orientation: landscape) and (max-height: 600px) {
   body {
     grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
