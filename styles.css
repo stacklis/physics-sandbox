@@ -1661,18 +1661,36 @@ body {
     position: absolute;
     z-index: 30;
     border-radius: 12px;
-    border: 1px solid var(--line-2);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    border: none;
+    box-shadow: none;
+    background: transparent;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     /* Width/height/top/left set inline by layout.js. */
   }
   .canvas-host .panel.floating.active { z-index: 31; }
+  /* Header gets a subtle dark chip so the drag handle and pop-out button stay
+     findable over an arbitrary canvas background. */
   .canvas-host .panel.floating .panel-header {
     cursor: grab;
     user-select: none;
+    background: rgba(8, 12, 20, 0.55);
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    border-radius: 8px 8px 0 0;
+  }
+  /* Body content sits directly on canvas — text-shadow keeps values legible
+     over busy scenes without painting a background box. */
+  .canvas-host .panel.floating .panel-body,
+  .canvas-host .panel.floating .panel-body * {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.6);
+  }
+  /* When user is actively dragging or resizing, fade in a faint background
+     so they can see the panel boundary they're moving. */
+  .canvas-host .panel.floating.dragging,
+  .canvas-host .panel.floating.resizing {
+    background: rgba(8, 12, 20, 0.25);
   }
   .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
   .canvas-host .panel.floating .resize-corner {
@@ -1738,26 +1756,28 @@ body {
   /* Pop-out / dock button in panel headers. */
   .panel-pop {
     margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    width: 26px;
-    height: 22px;
+    background: rgba(0, 229, 160, 0.10);
+    border: 1px solid var(--accent);
+    color: var(--accent-2);
+    width: 32px;
+    height: 26px;
     padding: 0;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
   }
   .panel-pop:hover {
-    color: var(--accent-2);
+    color: var(--bg);
     border-color: var(--accent);
-    background: rgba(0, 229, 160, 0.06);
+    background: var(--accent);
+    transform: scale(1.08);
   }
+  .panel-pop:active { transform: scale(0.96); }
   /* When a level-badge is present (educator), keep it before the pop button. */
   .panel-header .level-badge + .panel-pop { margin-left: 6px; }
   /* The first-of-class margin-left rule above pushes the badge right; reset
