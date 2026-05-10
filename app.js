@@ -72,10 +72,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (seg) {
     seg.addEventListener('click', e => {
       const btn = e.target.closest('[data-mode]');
-      if (btn) setPhysicsMode(btn.dataset.mode);
+      if (!btn) return;
+      // 3D mode is a Pro feature — intercept before setPhysicsMode.
+      if (btn.dataset.mode === '3d' && !Pro.isActive()) {
+        openUpgradeModal();
+        return;
+      }
+      setPhysicsMode(btn.dataset.mode);
     });
   }
   // Apply persisted mode (don't prompt — user already chose this previously).
+  // But re-check Pro: a lapsed-Pro user with a stale '3d' flag should boot 2D.
+  if (getPhysicsMode() === '3d' && !Pro.isActive()) {
+    try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+  }
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
     _setToggleUI('3d');
@@ -94,6 +104,62 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     document.body.dataset.mode = '2d';
   }
+});
+
+// Mode-aware save/load. The 2D side uses the IIFE-internal serializeScene;
+// the 3D side uses module exports. We attach interceptors in capture phase
+// so 3D mode wins before the IIFE handlers fire.
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+  const fileInput = document.getElementById('loadFileInput');
+  if (!saveBtn || !loadBtn || !fileInput) return;
+
+  saveBtn.addEventListener('click', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    // stopImmediatePropagation: prevents the 2D bubble-phase handler on this
+    // same button from firing. Plain stopPropagation only blocks ancestors.
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    // Save is a Pro feature (matches the existing 2D gate that we just silenced
+    // by stopping propagation). Re-check Pro here so non-Pro users hit the
+    // upsell instead of getting a free download.
+    if (!Pro.isActive()) { openUpgradeModal(); return; }
+    const mod = await import('./app3d.js?v=66');
+    const scene = mod.serialize3D();
+    const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sandbox-3d-${Date.now()}.json`;
+    // Firefox requires the anchor to be in the DOM for programmatic click.
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+  }, true);
+
+  loadBtn.addEventListener('click', ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation(); ev.preventDefault();
+    fileInput.click();
+  }, true);
+
+  fileInput.addEventListener('change', async ev => {
+    if (getPhysicsMode() !== '3d') return;
+    ev.stopImmediatePropagation();
+    const f = fileInput.files[0]; if (!f) return;
+    const text = await f.text();
+    let json;
+    try { json = JSON.parse(text); } catch { alert('Not a JSON file.'); fileInput.value = ''; return; }
+    if (json.mode !== '3d') {
+      alert('That scene is a 2D scene. Switch to 2D mode to load it.');
+      fileInput.value = '';
+      return;
+    }
+    const mod = await import('./app3d.js?v=66');
+    try { mod.deserialize3D(json); }
+    catch (e) { alert('Failed to load scene: ' + e.message); }
+    finally { fileInput.value = ''; }
+  }, true);
 });
 
 (function () {
