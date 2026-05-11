@@ -202,7 +202,7 @@ class Educator {
 
   setLevel(level) {
     this.level = level;
-    if (this.ui.levelBadge) this.ui.levelBadge.textContent = LEVEL_NAMES[level];
+    this.ui.levelBadge.textContent = LEVEL_NAMES[level];
     if (this.currentConcept && CONCEPTS[this.currentConcept]) {
       this._renderConcept(this.currentConcept);
     } else {
@@ -276,33 +276,25 @@ class Educator {
   }
 
   show(key, title, body, formula, tags) {
-    // Update global lesson state for floating overlays
-    global.currentLesson = { title, body, formula };
-    
-    if (this.ui.lessonTitle) this.ui.lessonTitle.textContent = title;
-    if (this.ui.lessonBody) this.ui.lessonBody.textContent = body;
-    if (this.ui.lessonFormula) {
-      if (formula) {
-        this.ui.lessonFormula.textContent = formula;
-        this.ui.lessonFormula.hidden = false;
-      } else {
-        this.ui.lessonFormula.hidden = true;
-      }
+    this.ui.lessonTitle.textContent = title;
+    this.ui.lessonBody.textContent = body;
+    if (formula) {
+      this.ui.lessonFormula.textContent = formula;
+      this.ui.lessonFormula.hidden = false;
+    } else {
+      this.ui.lessonFormula.hidden = true;
     }
-    if (this.ui.lessonTags) {
-      this.ui.lessonTags.innerHTML = '';
-      for (const t of tags) {
-        const span = document.createElement('span');
-        span.className = 'lesson-tag';
-        span.textContent = t;
-        this.ui.lessonTags.appendChild(span);
-      }
+    this.ui.lessonTags.innerHTML = '';
+    for (const t of tags) {
+      const span = document.createElement('span');
+      span.className = 'lesson-tag';
+      span.textContent = t;
+      this.ui.lessonTags.appendChild(span);
     }
   }
 
   _renderConceptList() {
     const list = this.ui.conceptList;
-    if (!list) return;
     list.innerHTML = '';
     if (this.encountered.size === 0) {
       const empty = document.createElement('span');
@@ -322,9 +314,6 @@ class Educator {
     }
   }
 }
-
-// Expose current lesson for floating overlays
-global.currentLesson = { title: '', body: '', formula: null };
 
 global.PEdu = { CONCEPTS, LEVEL_NAMES, Educator };
 

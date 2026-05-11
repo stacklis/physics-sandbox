@@ -1,465 +1,158 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 :root {
-  --bg: #0a0a0f;
-  --bg-1: #0f0f16;
-  --bg-2: #16161f;
-  --bg-3: #1e1e2a;
-  --bg-4: #262635;
-  --line: #2a2a3a;
-  --line-2: #3a3a50;
-  --text: #f0f0f8;
-  --muted: #8888a0;
-  --accent: #00e5a0;
-  --accent-2: #00ffc8;
-  --accent-glow: rgba(0, 229, 160, 0.4);
-  --secondary: #ff6b9d;
-  --secondary-2: #ff8bb8;
-  --tertiary: #6b8bff;
-  --tertiary-2: #8ba8ff;
-  --good: #00e5a0;
+  --bg: #0b0d12;
+  --bg-1: #11141b;
+  --bg-2: #161a23;
+  --bg-3: #1d2230;
+  --line: #232a3a;
+  --line-2: #2c3447;
+  --text: #e7ecf5;
+  --muted: #8a93a6;
+  --accent: #6aa6ff;
+  --accent-2: #8ad0ff;
+  --good: #6ee29a;
   --warn: #ffc46a;
-  --bad: #ff6b9d;
-  --shadow: 0 8px 32px rgba(0,0,0,0.5);
-  --shadow-glow: 0 0 40px rgba(0, 229, 160, 0.15);
-  --radius: 14px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --bad: #ff7a8a;
+  --shadow: 0 8px 28px rgba(0,0,0,0.4);
+  --radius: 10px;
+  --radius-sm: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 700px at 80% -10%, rgba(106,166,255,0.06), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(138,208,255,0.05), transparent 60%),
+    var(--bg);
   color: var(--text);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-
-/* Removed ambient background gradients to prevent compositing flicker */
 
 button { font: inherit; color: inherit; cursor: pointer; }
 input, button { font: inherit; }
 
-/* ======================= TOPBAR ======================= */
+/* TOPBAR ------------------------------------------------------------------ */
 .topbar {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px 20px;
-  padding: 12px 20px;
-  padding-right: 60px;
-  background: var(--bg-1);
+  gap: 18px;
+  padding: 10px 16px;
+  padding-right: 56px; /* room for absolute toggle */
+  background: linear-gradient(180deg, var(--bg-1), var(--bg));
   border-bottom: 1px solid var(--line);
   z-index: 10;
-  contain: layout style paint;
-  will-change: auto;
 }
-
 .bar-toggle {
   position: absolute;
-  top: 8px;
-  right: 14px;
+  top: 8px; right: 12px;
   z-index: 11;
 }
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-right: 8px;
-}
-
+.brand { display: flex; align-items: center; gap: 10px; padding-right: 6px; }
 .logo {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border-radius: 10px;
-  font-size: 18px;
-  color: var(--bg);
-  font-weight: 700;
-  box-shadow: 
-    0 0 0 1px rgba(255,255,255,0.1),
-    0 4px 20px var(--accent-glow),
-    inset 0 1px 0 rgba(255,255,255,0.2);
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 30% 30%, var(--accent-2), var(--accent));
+  border-radius: 50%;
+  font-size: 16px; color: #0b0d12;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 6px 18px rgba(106,166,255,0.35);
 }
+.title { font-weight: 600; letter-spacing: 0.2px; }
 
-.title {
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-  background: linear-gradient(135deg, var(--text) 30%, var(--accent-2) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.bar-group { display: flex; align-items: center; gap: 10px; }
+.bar-group label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.bar-group input[type=range] { width: 130px; }
+.bar-group.btns { margin-left: auto; gap: 8px; }
 
-/* Brand never shrinks below its content (mobile topbar is overflow-x: auto,
-   so the topbar can scroll instead of cramming the brand). */
-.topbar .brand { flex-shrink: 0; }
-
-.bar-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  min-width: 0;
-}
-
-.bar-group label {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.bar-group input[type=range] {
-  width: 100px;
-  min-width: 60px;
-  flex: 1 1 auto;
-  max-width: 140px;
-}
-
-.bar-group.btns {
-  margin-left: auto;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.seg-label {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.segment {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding: 3px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-
+.seg-label { font-size: 12px; color: var(--muted); }
+.segment { display: flex; gap: 2px; padding: 2px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; }
 .seg {
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 7px;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  background: transparent; border: 0; color: var(--muted);
+  padding: 6px 10px; font-size: 12px; border-radius: 6px;
+  transition: background 120ms, color 120ms;
 }
-
-.seg:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-}
-
+.seg:hover { color: var(--text); }
 .seg.active {
-  background: linear-gradient(135deg, rgba(0, 229, 160, 0.2), rgba(0, 255, 200, 0.1));
+  background: linear-gradient(180deg, rgba(106,166,255,0.18), rgba(106,166,255,0.08));
   color: var(--accent-2);
-  box-shadow: 
-    inset 0 0 0 1px rgba(0, 229, 160, 0.4),
-    0 2px 12px rgba(0, 229, 160, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(106,166,255,0.35);
 }
 
 .btn {
-  background: var(--bg-3);
+  background: var(--bg-2);
   border: 1px solid var(--line);
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
   color: var(--text);
-  font-weight: 500;
-  font-size: 13px;
-  transition: all 0.15s ease;
 }
+.btn:hover { border-color: var(--line-2); background: var(--bg-3); }
+.btn.ghost { background: transparent; }
+.btn.danger:hover { color: var(--bad); border-color: rgba(255,122,138,0.4); }
 
-.btn:hover {
-  border-color: var(--line-2);
-  background: var(--bg-4);
-  transform: translateY(-1px);
-}
-
-.btn:active {
-  transform: translateY(0);
-}
-
-.btn.ghost {
-  background: transparent;
-}
-
-.btn.ghost:hover {
-  background: var(--bg-3);
-}
-
-.btn.danger:hover {
-  color: var(--bad);
-  border-color: rgba(255, 107, 157, 0.5);
-  background: rgba(255, 107, 157, 0.1);
-}
-
-/* ======================= TOGGLES ======================= */
-.bar-toggle {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  background: var(--bg-3);
+/* COLLAPSE TOGGLES -------------------------------------------------------- */
+.bar-toggle, .panel-toggle {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 16px; line-height: 1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 120ms, color 120ms;
   touch-action: manipulation;
 }
-
-.bar-toggle:hover {
-  background: var(--bg-4);
-  color: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 20px rgba(0, 229, 160, 0.15);
-}
-
+.bar-toggle:hover, .panel-toggle:hover { background: var(--bg-3); color: var(--text); border-color: var(--accent); }
 .bar-toggle::before { content: '▴'; }
 .topbar.collapsed .bar-toggle::before { content: '▾'; }
 .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
-.topbar.collapsed { padding: 8px 20px; }
+.topbar.collapsed { padding: 6px 16px; }
 
-/* ======================= TOPBAR DIVIDER ======================= */
-.topbar-divider {
-  width: 100%;
-  height: 8px;
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--line);
-  cursor: ns-resize;
+.panel-toggle {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 3;
+}
+
+/* DRAGGABLE DIVIDER ------------------------------------------------------- */
+.resize-divider {
+  position: absolute;
+  z-index: 5;
   touch-action: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  contain: strict;
-  isolation: isolate;
-}
-
-.topbar-divider:hover {
-  background: var(--bg-2);
-}
-
-.divider-handle-h {
-  width: 48px;
-  height: 4px;
-  background: linear-gradient(90deg, var(--accent), var(--secondary));
-  border-radius: 2px;
-  opacity: 0.35;
-}
-
-.topbar-divider:hover .divider-handle-h,
-.topbar-divider.dragging .divider-handle-h {
-  opacity: 1;
-  box-shadow: 0 0 16px var(--accent-glow);
-}
-
-.topbar-divider.dragging {
-  background: var(--bg-3);
-}
-
-
-
-/* ======================= RANGE INPUTS ======================= */
-input[type=range] {
-  -webkit-appearance: none;
-  height: 5px;
-  background: var(--bg-4);
-  border-radius: 6px;
-  outline: none;
-}
-
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 
-    0 0 0 3px rgba(0, 229, 160, 0.2),
-    0 2px 10px rgba(0, 229, 160, 0.3);
-  cursor: pointer;
-}
-
-input[type=range]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border: 0;
-  cursor: pointer;
-}
-
-/* ======================= TOOLS DIVIDER ======================= */
-.tools-divider {
-  position: relative;
-  width: 12px;
-  min-width: 12px;
-  height: 100%;
+  /* Desktop: vertical bar abutting the panel's left edge. */
+  right: var(--panel-size, 340px);
+  top: 0; bottom: 0;
+  width: 14px;
+  cursor: ew-resize;
   background: var(--bg-1);
   border-left: 1px solid var(--line);
-  border-right: 1px solid var(--line);
-  cursor: ew-resize;
-  touch-action: none;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  contain: strict;
-  isolation: isolate;
 }
-
-.tools-divider:hover {
-  background: var(--bg-2);
-}
-
-.divider-handle {
-  width: 4px;
-  height: 60px;
-  background: linear-gradient(180deg, var(--accent), var(--secondary));
-  border-radius: 3px;
-  opacity: 0.5;
-}
-
-.tools-divider:hover .divider-handle,
-.tools-divider.dragging .divider-handle {
-  opacity: 1;
-  box-shadow: 0 0 20px var(--accent-glow);
-}
-
-.tools-divider.dragging {
-  background: var(--bg-3);
-}
-
-/* Tools collapse button */
-.tools-collapse-btn {
+.resize-divider::before {
+  content: '';
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 10;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  background: var(--bg-3);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px; height: 44px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.6;
+  transition: opacity 120ms, height 120ms;
+}
+.resize-divider:hover::before, .resize-divider.dragging::before { opacity: 1; height: 64px; }
+.layout.panel-collapsed #panelDivider { display: none; }
+
+/* Tools divider — mirrored on the left side (desktop) / above the stage (mobile). */
+.divider-tools {
+  right: auto;
+  left: var(--tools-size, 220px);
+  border-left: 0;
+  border-right: 1px solid var(--line);
 }
 
-.tools-collapse-btn svg {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tools-collapse-btn:hover {
-  background: var(--bg-4);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.tools.collapsed .tools-collapse-btn svg {
-  transform: rotate(180deg);
-}
-
-/* Collapsed tools state */
-.tools.collapsed {
-  --tools-size: 48px !important;
-  width: 48px;
-  min-width: 48px;
-  padding: 8px 6px;
-  padding-top: 44px;
-}
-
-.tools.collapsed .tool-section {
-  flex-direction: column;
-  align-items: center;
-}
-
-.tools.collapsed .section-title {
-  display: none;
-}
-
-.tools.collapsed .tool-grid {
-  flex-direction: column;
-  gap: 4px;
-}
-
-.tools.collapsed .tool {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  padding: 6px;
-  justify-content: center;
-}
-
-.tools.collapsed .tool span {
-  display: none;
-}
-
-.tools.collapsed .tool svg {
-  width: 18px;
-  height: 18px;
-}
-
-.tools.collapsed .preset {
-  width: 36px;
-  min-width: 36px;
-  padding: 6px;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-}
-
-.tools.collapsed .check {
-  width: 36px;
-  min-width: 36px;
-  padding: 6px;
-  justify-content: center;
-  font-size: 0;
-}
-
-.tools.collapsed .check input {
-  margin: 0;
-}
-
-.tools.collapsed .slider-row {
-  flex-direction: column;
-  padding: 4px 0;
-}
-
-.tools.collapsed .slider-row span {
-  display: none;
-}
-
-.tools.collapsed .slider-row input {
-  width: 32px;
-  transform: rotate(-90deg);
-  transform-origin: center;
-}
-
-/* ======================= CARD COLLAPSE ======================= */
+/* PER-CARD COLLAPSE ------------------------------------------------------- */
 .card-title { cursor: pointer; user-select: none; }
 .card-chevron {
   margin-left: 8px;
@@ -470,1888 +163,348 @@ input[type=range]::-moz-range-thumb {
 }
 .card.collapsed .card-chevron { transform: rotate(-90deg); }
 .card.collapsed > :not(.card-title) { display: none; }
-.card.collapsed { padding-bottom: 14px; }
+.card.collapsed { padding-bottom: 12px; }
 .card.collapsed .card-title { margin-bottom: 0; }
 .level-badge { margin-left: auto; }
+.panel-toggle::before { content: '▸'; }
+.layout.panel-collapsed .panel-toggle::before { content: '◂'; }
+.layout.panel-collapsed .panel > .card { display: none; }
+.layout.panel-collapsed .panel { padding: 6px; gap: 0; }
+.layout.panel-collapsed { grid-template-columns: var(--tools-size, 220px) 1fr 48px; }
+@media (max-width: 1100px) {
+  .layout.panel-collapsed { grid-template-columns: var(--tools-size, 180px) 1fr 48px; }
+}
 
+/* Range styling */
+input[type=range] {
+  -webkit-appearance: none;
+  height: 4px; background: var(--line); border-radius: 4px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 3px rgba(106,166,255,0.18);
+  cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
+  border: 0; cursor: pointer;
+}
 
-
-
-/* ======================= LAYOUT ======================= */
+/* LAYOUT ------------------------------------------------------------------ */
 .layout {
   flex: 1;
   position: relative;
   display: grid;
-  grid-template-columns: var(--tools-size, 200px) auto 1fr;
+  grid-template-columns: var(--tools-size, 220px) 1fr var(--panel-size, 340px);
   min-height: 0;
-  contain: layout style;
-  isolation: isolate;
 }
 
-/* Disable ALL transitions during resize/interaction to prevent flicker */
-.layout.resizing,
-.layout.resizing *,
-.layout.resizing .tools,
-.layout.resizing .tool-section,
-.layout.resizing .tool-grid,
-.layout.resizing .tool-grid > *,
-.layout.resizing .stage {
-  transition: none !important;
-}
-
-.topbar.resizing,
-.topbar.resizing * {
-  transition: none !important;
-}
-
-/* ======================= ANTI-FLICKER RULES ======================= */
-/* Completely disable ALL transitions on layout-critical elements */
-.layout,
-.layout *,
-.stage,
-.stage *,
-.tools,
-.tools *,
-.topbar,
-.topbar *,
-.topbar-divider,
-.topbar-divider *,
-.tools-divider,
-.tools-divider *,
-#canvas {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* Prevent any rendering glitches with GPU layers - but NOT on stage (breaks pointer coords) */
-.layout,
-.tools,
-.topbar,
-.topbar-divider,
-.tools-divider {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-/* Global interaction class - extra safety during pointer activity */
-body.interacting * {
-  transition: none !important;
-  animation: none !important;
-}
-
-/* Only allow micro-transitions on interactive elements that don't affect layout */
-.tool:hover,
-.preset:hover,
-.material:hover,
-.check:hover,
-.overlay-toggle:hover {
-  transition: none !important;
-}
-
-/* Destruction mode toggle - special styling */
-.destruction-toggle {
-  background: var(--bg-2);
-  border-color: var(--line);
-}
-
-.destruction-toggle:has(input:checked) {
-  background: rgba(255, 80, 80, 0.15);
-  border-color: rgba(255, 80, 80, 0.5);
-  color: #ff6b6b;
-}
-
-.destruction-toggle input:checked + *::before,
-.destruction-toggle:has(input:checked)::after {
-  color: #ff6b6b;
-}
-
-/* Grab strength slider in physics section */
-.grab-strength {
-  flex: 1 1 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  background: var(--bg-2);
-  border-radius: 6px;
-}
-
-.grab-strength span {
-  font-size: 10px;
-  color: var(--muted);
-  min-width: 32px;
-}
-
-.grab-strength input[type=range] {
-  flex: 1;
-  accent-color: var(--accent);
-}
-
-/* ======================= TOOLS ======================= */
+/* TOOLS ------------------------------------------------------------------- */
 .tools {
-  position: relative;
-  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  background: var(--bg-1);
   border-right: 1px solid var(--line);
-  padding: 12px 10px;
-  padding-top: 44px;
+  padding: 14px 12px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  contain: layout style paint;
-  isolation: isolate;
 }
-
-.tool-section {
-  margin-bottom: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Tool grid container - wraps when narrow with smooth settling */
-.tool-section .tool-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  transition: gap 0.2s ease;
-}
-
-/* Smooth settling animation for all tool items */
-.tool-grid > * {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
+.tool-section { margin-bottom: 18px; }
 .section-title {
-  font-size: 9px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--muted);
-  margin-bottom: 6px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--line), transparent);
-}
-
-.tool {
-  flex: 1 1 auto;
-  min-width: 65px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 7px 8px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
-  position: relative;
-  overflow: hidden;
-}
-/* PRO PAYWALL ------------------------------------------------------------- */
-.pro-badge {
-  display: none;
-  background: linear-gradient(90deg, var(--accent-2), var(--accent));
-  color: #0b0d12;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  margin-left: 4px;
-  vertical-align: middle;
-}
-.pro-badge.inline { display: inline-block; }
-body.pro .pro-badge { display: inline-block; }
-.locked::before {
-  content: '🔒';
-  font-size: 10px;
-  margin-right: 4px;
-  opacity: 0.7;
-  vertical-align: baseline;
-}
-body.pro .locked::before { content: none; }
-
-.upgrade-dialog {
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 22px 24px;
-  max-width: 420px;
-  width: calc(100% - 32px);
-  box-shadow: var(--shadow);
-}
-.upgrade-dialog::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
-.upgrade-dialog h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  color: var(--text);
-}
-.upgrade-sub {
-  margin: 0 0 14px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.upgrade-features {
-  margin: 0 0 16px;
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text);
-}
-.upgrade-features li { margin-bottom: 6px; }
-.upgrade-features strong { color: var(--accent-2); }
-.upgrade-price {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--accent-2);
-  margin: 0 0 14px;
-}
-.upgrade-price-period { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 4px; }
-.upgrade-actions {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.upgrade-cta {
-  background: linear-gradient(180deg, rgba(106,166,255,0.28), rgba(106,166,255,0.10));
-  border: 1px solid rgba(106,166,255,0.5);
-  color: var(--accent-2);
-  flex: 1;
-  font-weight: 600;
-}
-.upgrade-cta:hover { background: linear-gradient(180deg, rgba(106,166,255,0.36), rgba(106,166,255,0.14)); }
-.upgrade-actions .btn.ghost { flex: 0 0 auto; }
-.upgrade-redeem {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-  font-size: 12px;
-}
-.upgrade-redeem summary {
-  cursor: pointer;
+  letter-spacing: 1px;
   color: var(--muted);
   margin-bottom: 8px;
-  user-select: none;
 }
-.upgrade-redeem summary:hover { color: var(--text); }
-.redeem-row { display: flex; gap: 6px; }
-.redeem-row input {
-  flex: 1;
-  background: var(--bg-3);
+.tool {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-2);
   border: 1px solid var(--line);
-  color: var(--text);
-  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  font: inherit;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 6px;
+  transition: background 120ms, border-color 120ms, transform 80ms;
 }
-.redeem-msg { margin-top: 8px; font-size: 11px; min-height: 14px; }
-.redeem-msg.ok { color: var(--good); }
-.redeem-msg.err { color: var(--bad); }
-
-.tool:hover {
-  background: var(--bg-3);
-  border-color: var(--accent);
-}
-
-.tool:active {
-  transform: scale(0.97);
-}
-
+.tool:hover { background: var(--bg-3); border-color: var(--line-2); }
+.tool:active { transform: translateY(1px); }
 .tool.active {
-  background: linear-gradient(135deg, rgba(0, 229, 160, 0.15), rgba(0, 255, 200, 0.08));
-  border-color: rgba(0, 229, 160, 0.5);
+  background: linear-gradient(180deg, rgba(106,166,255,0.16), rgba(106,166,255,0.06));
+  border-color: rgba(106,166,255,0.4);
   color: var(--accent-2);
-  box-shadow: 
-    0 0 20px rgba(0, 229, 160, 0.1),
-    inset 0 0 0 1px rgba(0, 229, 160, 0.2);
 }
-
-.tool.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  background: var(--accent);
-  border-radius: 0 3px 3px 0;
-}
-
 .tool svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  position: relative;
-  z-index: 1;
-  transition: transform 0.2s;
+  width: 18px; height: 18px;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
 }
-
-.tool:hover svg {
-  transform: scale(1.1);
-}
-
-.tool span {
-  position: relative;
-  z-index: 1;
-}
-
-.tool[data-tool=circle] svg,
-.tool[data-tool=box] svg,
-.tool[data-tool=polygon] svg,
-.tool[data-tool=wall] svg,
-.tool[data-tool=triangle] svg {
-  fill: rgba(0, 229, 160, 0.15);
+.tool[data-tool=circle] svg, .tool[data-tool=box] svg, .tool[data-tool=polygon] svg, .tool[data-tool=wall] svg {
+  fill: rgba(106,166,255,0.15);
 }
 
 .preset {
-  flex: 1 1 auto;
-  min-width: 75px;
-  text-align: center;
+  display: block;
+  width: 100%;
+  text-align: left;
   background: transparent;
   border: 1px dashed var(--line);
   color: var(--muted);
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  white-space: nowrap;
+  margin-bottom: 6px;
+  font-size: 12px;
 }
-
-.preset:hover {
-  color: var(--text);
-  border-color: var(--accent);
-  border-style: solid;
-  background: rgba(0, 229, 160, 0.08);
-}
-
-/* Material buttons */
-.material {
-  padding: 5px 8px;
-  font-size: 10px;
-  background: var(--bg-2);
-  border: 1px dashed var(--line);
-  border-radius: 5px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  font-weight: 500;
-}
-
-.material:hover {
-  color: var(--text);
-  border-color: var(--accent);
-  border-style: solid;
-  background: rgba(0, 229, 160, 0.08);
-}
-
-.material.active {
-  background: rgba(0, 229, 160, 0.2);
-  border-color: var(--accent);
-  border-style: solid;
-  color: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
-}
-
-/* Material color indicators */
-.material[data-material="rubber"] { border-left: 3px solid #ff6b9d; }
-.material[data-material="ice"] { border-left: 3px solid #88ddff; }
-.material[data-material="metal"] { border-left: 3px solid #9ba8c0; }
-.material[data-material="wood"] { border-left: 3px solid #c49a6c; }
-.material[data-material="bouncy"] { border-left: 3px solid #00e5a0; }
-.material[data-material="heavy"] { border-left: 3px solid #5a5a6e; }
-.material[data-material="light"] { border-left: 3px solid #ffeaa7; }
-
-.section-hint {
-  font-size: 9px;
-  color: var(--muted);
-  font-weight: 400;
-  opacity: 0.7;
-}
+.preset:hover { color: var(--text); border-color: var(--line-2); background: var(--bg-2); }
 
 .check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-  padding: 5px 8px;
-  background: var(--bg-2);
-  border-radius: 6px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted);
+  padding: 5px 0;
   user-select: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex: 1 1 auto;
-  min-width: fit-content;
 }
-
-.check:hover {
-  color: var(--text);
-  background: var(--bg-3);
-}
-
-.check input {
-  accent-color: var(--accent);
-  width: 14px;
-  height: 14px;
-}
+.check input { accent-color: var(--accent); }
 
 .slider-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 6px 0;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted);
+  padding: 5px 0;
 }
+.slider-row span { min-width: 56px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
 
-.slider-row span {
-  min-width: 56px;
-  font-weight: 500;
-}
-
-.slider-row input[type=range] {
-  flex: 1;
-  accent-color: var(--accent);
-}
-
-/* ======================= STAGE ======================= */
+/* STAGE ------------------------------------------------------------------- */
 .stage {
   position: relative;
-  background: var(--bg);
+  background:
+    linear-gradient(var(--bg) 0 0),
+    radial-gradient(800px 500px at 20% 10%, rgba(106,166,255,0.05), transparent 70%);
   overflow: hidden;
-  contain: layout style paint;
-  isolation: isolate;
 }
-
-/* Removed stage gradient overlay to prevent compositing flicker */
-
-#canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-  will-change: contents;
-  contain: strict;
-  }
-
+#canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .hint {
-  position: absolute;
-  left: 18px;
-  bottom: 18px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: calc(100% - 36px);
-  background: rgba(15, 15, 22, 0.9);
+  position: absolute; left: 16px; bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+  max-width: calc(100% - 32px);
+  background: rgba(17,20,27,0.85);
   border: 1px solid var(--line);
-  padding: 8px 10px 8px 14px;
-  border-radius: 12px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  backdrop-filter: blur(12px);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* Allow the hint text to shrink and wrap so the × stays inside the hint. */
-.hint > span { min-width: 0; flex: 1 1 auto; }
-
-.hint:hover {
-  border-color: var(--accent);
-  background: rgba(0, 229, 160, 0.05);
-}
-
-.hint.dismissed {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(10px);
-}
-
-.hint-close {
-  background: var(--bg-3);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 14px;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
+  padding: 6px 6px 6px 10px;
   border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+  transition: opacity 200ms;
+}
+.hint.dismissed { opacity: 0; pointer-events: none; }
+.hint-close {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 16px;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 4px;
   cursor: pointer;
   flex: 0 0 auto;
-  transition: all 0.15s;
 }
-
-.hint-close:hover {
-  background: var(--bad);
-  border-color: var(--bad);
-  color: var(--bg);
-}
-
+.hint-close:hover { background: var(--bg-3); color: var(--text); }
 .hint kbd {
-  background: var(--bg-3);
-  border: 1px solid var(--line-2);
-  padding: 2px 6px;
-  border-radius: 5px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 500;
+  background: var(--bg-3); border: 1px solid var(--line-2);
+  padding: 1px 5px; border-radius: 4px; font-size: 11px;
 }
 
-/* ======================= PANEL ======================= */
+/* PANEL ------------------------------------------------------------------- */
 .panel {
   position: relative;
-  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  background: var(--bg-1);
   border-left: 1px solid var(--line);
-  padding: 16px;
-  padding-top: 54px;
+  padding: 14px;
+  padding-top: 48px; /* leave room for toggle */
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-
 .card {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  border-color: var(--line-2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.card.mini {
   padding: 12px 14px;
 }
-
+.card.mini { padding: 10px 12px; }
 .card-title {
-  display: flex;
-  align-items: center;
-  font-size: 11px;
+  display: flex; align-items: center;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1px;
   color: var(--muted);
-  margin-bottom: 12px;
-  font-weight: 600;
+  margin-bottom: 10px;
 }
-
 .level-badge {
-  background: linear-gradient(135deg, rgba(0, 229, 160, 0.15), rgba(0, 255, 200, 0.1));
+  background: rgba(106,166,255,0.12);
   color: var(--accent-2);
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
-  font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: none;
-  border: 1px solid rgba(0, 229, 160, 0.3);
 }
 
 .readout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-
 .metric {
   background: var(--bg-3);
   border: 1px solid var(--line);
   padding: 8px 10px;
   border-radius: 8px;
-  transition: all 0.2s ease;
 }
-
-.metric:hover {
-  border-color: var(--accent);
-  background: rgba(0, 229, 160, 0.05);
-}
-
-.metric-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  color: var(--muted);
-  letter-spacing: 0.8px;
-  font-weight: 600;
-}
-
-.metric-val {
-  font-size: 15px;
-  margin-top: 4px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--accent-2);
-}
-
-.metric-val .unit {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-}
+.metric-label { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px; }
+.metric-val { font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.metric-val .unit { color: var(--muted); font-size: 11px; }
 
 .totals {
   margin-top: 10px;
   border-top: 1px dashed var(--line);
-  padding-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  font-size: 11px;
-  color: var(--muted);
-  }
-  
-.totals > div {
-  flex: 1 1 auto;
-  min-width: 80px;
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  }
-
-.totals b {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  white-space: nowrap;
-  }
+  padding-top: 8px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px;
+  font-size: 12px; color: var(--muted);
+}
+.totals b { color: var(--text); float: right; font-variant-numeric: tabular-nums; font-weight: 500; }
 
 .lesson-body {
   margin: 0;
   font-size: 13px;
-  line-height: 1.65;
-  color: var(--text);
+  line-height: 1.55;
+  color: #cfd6e6;
 }
-
 .formula {
-  margin-top: 12px;
-  padding: 12px 14px;
+  margin-top: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg-3);
-  font-family: 'JetBrains Mono', monospace;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.012) 0 8px, transparent 8px 16px),
+    var(--bg-3);
+  font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
   font-size: 13px;
   color: var(--accent-2);
   white-space: pre-wrap;
-  position: relative;
-  overflow: hidden;
 }
-
-.formula::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, var(--accent), var(--secondary));
-}
-
-.lesson-tags {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
+.lesson-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
 .lesson-tag {
   font-size: 10px;
-  padding: 4px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--bg-3);
   border: 1px solid var(--line);
   color: var(--muted);
-  font-weight: 500;
-  transition: all 0.15s;
 }
 
-.lesson-tag:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.concept-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+.concept-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .concept-pill {
   font-size: 11px;
-  padding: 5px 12px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(0, 229, 160, 0.12), rgba(0, 255, 200, 0.08));
-  border: 1px solid rgba(0, 229, 160, 0.3);
+  background: rgba(106,166,255,0.10);
+  border: 1px solid rgba(106,166,255,0.25);
   color: var(--accent-2);
-  font-weight: 500;
-  transition: all 0.2s ease;
 }
+.concept-pill.empty { background: transparent; border-style: dashed; color: var(--muted); }
 
-.concept-pill:hover {
-  background: rgba(0, 229, 160, 0.2);
-  transform: scale(1.05);
-}
-
-.concept-pill.empty {
-  background: transparent;
-  border-style: dashed;
-  color: var(--muted);
-  border-color: var(--line);
-}
-
-/* ======================= HELP DIALOG ======================= */
+/* HELP DIALOG ------------------------------------------------------------- */
 .help {
   background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   color: var(--text);
-  padding: 24px 28px;
-  max-width: 450px;
-  width: calc(100% - 32px);
-  box-sizing: border-box;
-  box-shadow: var(--shadow), var(--shadow-glow);
+  padding: 18px 22px;
+  max-width: 420px;
 }
-
-.help::backdrop {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-}
-
-.help h2 {
-  margin: 0 0 14px;
-  font-size: 18px;
-  font-weight: 600;
-  background: linear-gradient(135deg, var(--text), var(--accent-2));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.help ul {
-  margin: 0;
-  padding-left: 20px;
-  line-height: 1.8;
-  font-size: 13px;
-}
-
+.help::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+.help h2 { margin: 0 0 10px; font-size: 16px; }
+.help ul { margin: 0; padding-left: 18px; line-height: 1.7; font-size: 13px; }
 .help kbd {
+  background: var(--bg-3); border: 1px solid var(--line-2);
+  padding: 1px 5px; border-radius: 4px; font-size: 11px;
+}
+
+/* SCROLLBARS -------------------------------------------------------------- */
+.tools::-webkit-scrollbar, .panel::-webkit-scrollbar { width: 8px; }
+.tools::-webkit-scrollbar-thumb, .panel::-webkit-scrollbar-thumb {
   background: var(--bg-3);
-  border: 1px solid var(--line-2);
-  padding: 2px 6px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 500;
-}
-
-.help .btn {
-  margin-top: 16px;
-  width: 100%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  border: none;
-  color: var(--bg);
-  font-weight: 600;
-  padding: 10px 16px;
-}
-
-.help .btn:hover {
-  box-shadow: 0 4px 20px var(--accent-glow);
-}
-
-/* ======================= SCROLLBARS ======================= */
-.tools::-webkit-scrollbar,
-.panel::-webkit-scrollbar {
-  width: 8px;
-}
-
-.tools::-webkit-scrollbar-track,
-.panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.tools::-webkit-scrollbar-thumb,
-.panel::-webkit-scrollbar-thumb {
-  background: var(--bg-4);
   border-radius: 8px;
 }
 
-.tools::-webkit-scrollbar-thumb:hover,
-.panel::-webkit-scrollbar-thumb:hover {
-  background: var(--line);
+/* RESPONSIVE -------------------------------------------------------------- */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: var(--tools-size, 180px) 1fr var(--panel-size, 300px); }
 }
-
-/* ======================= ANIMATIONS ======================= */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.tool, .preset, .card, .metric {
-  animation: slideIn 0.3s ease backwards;
-}
-
-.tool:nth-child(1) { animation-delay: 0.02s; }
-.tool:nth-child(2) { animation-delay: 0.04s; }
-.tool:nth-child(3) { animation-delay: 0.06s; }
-.tool:nth-child(4) { animation-delay: 0.08s; }
-.tool:nth-child(5) { animation-delay: 0.10s; }
-.tool:nth-child(6) { animation-delay: 0.12s; }
-
-/* =====================================================================
-   LAYOUT REWORK 2026-05-08 — bottom-tab/sheet (mobile) + derived
-   sidebars (desktop). Single breakpoint at 1024px.
-   ===================================================================== */
-
-/* --- Hide legacy resize/collapse affordances (removed in rework). ---
-   Kept hidden globally so existing app.js init paths that set classes on
-   these targets remain harmless if they ever fire. */
-.topbar-divider,
-.tools-divider,
-.tools-collapse-btn,
-.drawer-toggle,
-.drawer-backdrop,
-.hud-toggle,
-.lesson-toast,
-.overlay-toggles,
-.floating-overlay {
-  display: none !important;
-}
-
-/* --- Body becomes the layout grid. The `body { display:flex; ... }`
-   from the top of this file is overridden here. --- */
-body {
-  display: grid;
-  flex-direction: unset;
-  grid-template-rows: auto 1fr;
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "topbar"
-    "main";
-  height: 100vh;
-  width: 100vw;
-}
-
-.topbar { grid-area: topbar; }
-
-.canvas-host {
-  position: relative;
-  grid-area: main;
-  background: var(--bg);
-  overflow: hidden;
-  isolation: isolate;
-  min-width: 0;
-  min-height: 0;
-}
-
-.canvas-host #canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-}
-
-.panel-host {
-  display: contents;
-}
-
-.panel {
-  position: relative;
-  background: linear-gradient(180deg, var(--bg-1), var(--bg));
-  border-left: 0;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  isolation: isolate;
-  min-width: 0;
-  min-height: 0;
-}
-
-.panel-grabber {
-  flex: 0 0 auto;
-  height: 14px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  touch-action: none;
-}
-.panel-grabber::before {
-  content: '';
-  width: 42px;
-  height: 4px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  opacity: 0.5;
-}
-.panel.dragging .panel-grabber::before { opacity: 1; }
-.panel.dragging { transition: none !important; }
-
-.panel-header {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--line);
-}
-.panel-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--accent);
-  font-weight: 600;
-}
-.panel-header .level-badge { margin-left: auto; }
-
-.panel-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 12px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
-}
-
-#toolsPanel .panel-body { gap: 16px; }
-#toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
-
-#infoOverlay .panel-body { gap: 10px; }
-#infoOverlay .readout-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-}
-#infoOverlay .totals-mini {
-  display: flex; gap: 16px; padding-top: 8px;
-  border-top: 1px dashed var(--line);
-  font-size: 12px; color: var(--muted);
-}
-#infoOverlay .totals-mini b { color: var(--accent-2); font-weight: 600; }
-
-#lessonOverlay .lesson-body { font-size: 13px; line-height: 1.6; color: var(--text); margin: 0; }
-#lessonOverlay .formula {
-  background: var(--bg-3); padding: 10px 12px; border-radius: 8px;
-  margin: 0;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 12px; color: var(--accent-2);
-  border-left: 3px solid var(--accent);
-}
-#lessonOverlay .lesson-tags { display: flex; flex-wrap: wrap; gap: 5px; }
-#lessonOverlay .concepts-touched {
-  margin-top: 4px; padding-top: 10px;
-  border-top: 1px dashed var(--line);
-}
-#lessonOverlay .concepts-title {
-  font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
-  color: var(--muted); margin-bottom: 8px; font-weight: 600;
-}
-#lessonOverlay .concept-list { display: flex; flex-wrap: wrap; gap: 5px; }
-
-.panel.flash { box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--accent-glow); }
-
-/* ======================= TABBAR (mobile only) ======================= */
-.tabbar {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  height: 60px;
-  padding: 6px max(8px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
-  background: rgba(10, 10, 15, 0.94);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  border-top: 1px solid var(--line);
-}
-
-.tabbar .tab {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  padding: 4px 6px;
-  border-radius: 10px;
-  transition: color 0.15s, background 0.15s;
-  min-height: 48px;
-  white-space: nowrap;
-}
-.tabbar .tab svg {
-  width: 22px; height: 22px;
-  fill: none; stroke: currentColor; stroke-width: 1.8;
-  stroke-linecap: round; stroke-linejoin: round;
-}
-.tabbar .tab.active {
-  color: var(--accent-2);
-  background: rgba(0, 229, 160, 0.12);
-}
-.tabbar .tab:active { transform: scale(0.96); }
-
-/* ===================== DESKTOP (>1024px) ===================== */
-@media (min-width: 1025px) {
-  :root {
-    --tools-w: 280px;
-    --readings-w: 320px;
-    --educator-h: 180px;
-  }
-  body {
-    grid-template-columns: var(--tools-w) 1fr var(--readings-w);
-    grid-template-rows: auto 1fr var(--educator-h);
-    grid-template-areas:
-      "topbar topbar topbar"
-      "tools  main   readings"
-      "tools  educator educator";
-  }
-  /* When Readings is floating, collapse the right column so canvas + educator
-     expand into the freed space. */
-  body[data-readings-floating="true"] {
-    grid-template-columns: var(--tools-w) 1fr 0;
-    grid-template-areas:
-      "topbar topbar topbar"
-      "tools  main   main"
-      "tools  educator educator";
-  }
-  /* When Educator is floating, collapse the bottom row. */
-  body[data-educator-floating="true"] {
-    grid-template-rows: auto 1fr 0;
-    grid-template-areas:
-      "topbar topbar topbar"
-      "tools  main   readings"
-      "tools  main   readings";
-  }
-  /* Both floating: full-bleed canvas + tools column only. */
-  body[data-readings-floating="true"][data-educator-floating="true"] {
-    grid-template-columns: var(--tools-w) 1fr 0;
-    grid-template-rows: auto 1fr 0;
-    grid-template-areas:
-      "topbar topbar topbar"
-      "tools  main   main"
-      "tools  main   main";
-  }
-  .canvas-host { grid-area: main; }
-  #toolsPanel { grid-area: tools; border-right: 1px solid var(--line); }
-  #infoOverlay { grid-area: readings; border-left: 1px solid var(--line); }
-  #lessonOverlay {
-    grid-area: educator;
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: var(--tools-size, 60px) minmax(35vh, 1fr) var(--panel-size, 38vh); }
+  .layout.panel-collapsed { grid-template-columns: 1fr; grid-template-rows: var(--tools-size, 60px) 1fr 40px; }
+  .resize-divider {
+    left: 0; right: 0;
+    top: auto;
+    bottom: var(--panel-size, 38vh);
+    width: auto; height: 22px;
+    cursor: ns-resize;
+    background: var(--bg-1);
     border-top: 1px solid var(--line);
+    border-bottom: 0;
+    border-left: 0; border-right: 0;
   }
-  /* Hide docked panels' grid-area presence when they're floating
-     (the grid still allocates 0 for the row/column thanks to the body data attrs). */
-  body[data-readings-floating="true"] #infoOverlay:not(.floating) { display: none; }
-  body[data-educator-floating="true"] #lessonOverlay:not(.floating) { display: none; }
-
-  /* Dock-edge resize handles. Placed absolutely so they sit ON the boundary
-     between dock + canvas without disturbing the grid math. JS injects three
-     of these into <body> on desktop and updates them on breakpoint change. */
-  .dock-edge {
-    position: fixed;
-    z-index: 12;
-    background: transparent;
-    transition: background 120ms ease;
-  }
-  .dock-edge::before {
-    content: '';
-    position: absolute;
-    background: var(--line-2);
-    transition: background 120ms ease, transform 120ms ease;
-  }
-  .dock-edge:hover::before,
-  .dock-edge.dragging::before {
-    background: var(--accent);
-    box-shadow: 0 0 8px var(--accent-glow);
-  }
-  .dock-edge[data-edge="tools-edge"],
-  .dock-edge[data-edge="readings-edge"] {
-    width: 6px;
-    cursor: col-resize;
-    top: 0;
-    bottom: 0;
-  }
-  .dock-edge[data-edge="tools-edge"]::before,
-  .dock-edge[data-edge="readings-edge"]::before {
-    left: 50%;
-    transform: translateX(-50%);
-    top: 0;
-    bottom: 0;
-    width: 1px;
-  }
-  .dock-edge[data-edge="tools-edge"]:hover::before,
-  .dock-edge[data-edge="tools-edge"].dragging::before,
-  .dock-edge[data-edge="readings-edge"]:hover::before,
-  .dock-edge[data-edge="readings-edge"].dragging::before {
-    width: 2px;
-  }
-  .dock-edge[data-edge="educator-edge"] {
-    height: 6px;
-    cursor: row-resize;
-    left: 0;
-    right: 0;
-  }
-  .dock-edge[data-edge="educator-edge"]::before {
-    top: 50%;
-    transform: translateY(-50%);
-    left: 0;
-    right: 0;
-    height: 1px;
-  }
-  .dock-edge[data-edge="educator-edge"]:hover::before,
-  .dock-edge[data-edge="educator-edge"].dragging::before {
-    height: 2px;
-  }
-  /* Hide handles whose adjacent panel is floating (no boundary to drag). */
-  body[data-readings-floating="true"] .dock-edge[data-edge="readings-edge"],
-  body[data-educator-floating="true"] .dock-edge[data-edge="educator-edge"] {
-    display: none;
-  }
-
-  /* Floating panels — absolute inside .canvas-host so they're clipped to the
-     canvas region (does not bleed under topbar or into the tools column). */
-  .canvas-host .panel.floating {
-    position: absolute;
-    z-index: 30;
-    border-radius: 12px;
-    border: 1px solid var(--line-2);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    background: linear-gradient(180deg, var(--bg-1), var(--bg));
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    /* Width/height/top/left set inline by layout.js. */
-  }
-  .canvas-host .panel.floating.active { z-index: 31; }
-  .canvas-host .panel.floating .panel-header {
-    cursor: grab;
-    user-select: none;
-  }
-  .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
-  .canvas-host .panel.floating .resize-corner {
-    display: block;
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 14px;
-    height: 14px;
-    cursor: nwse-resize;
-    z-index: 2;
-    background:
-      linear-gradient(135deg, transparent 0 50%, var(--line-2) 50% 60%, transparent 60% 70%, var(--line-2) 70% 80%, transparent 80%);
-  }
-  .canvas-host .panel.floating .resize-edge {
-    display: block;
-    position: absolute;
-    z-index: 1;
-    background: transparent;
-  }
-  .canvas-host .panel.floating .resize-edge[data-edge="n"] { left: 0; right: 14px; top: 0; height: 5px; cursor: ns-resize; }
-  .canvas-host .panel.floating .resize-edge[data-edge="s"] { left: 0; right: 14px; bottom: 0; height: 5px; cursor: ns-resize; }
-  .canvas-host .panel.floating .resize-edge[data-edge="e"] { top: 0; bottom: 14px; right: 0; width: 5px; cursor: ew-resize; }
-  .canvas-host .panel.floating .resize-edge[data-edge="w"] { top: 0; bottom: 0; left: 0; width: 5px; cursor: ew-resize; }
-  /* Educator floating overrides the desktop row-mode panel-body (which is
-     flex-row + horizontal scroll). Reset to vertical for compact float. */
-  .canvas-host #lessonOverlay.floating .panel-body {
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-    gap: 10px;
-  }
-  .canvas-host #lessonOverlay.floating .panel-body > * { max-width: none; }
-  .canvas-host #lessonOverlay.floating .concepts-touched {
-    border-top: 1px dashed var(--line);
-    padding-top: 10px;
-    padding-left: 0;
-    border-left: 0;
-    margin-top: 4px;
-  }
-
-  /* Dock-zone highlight — appears along the panel's native dock edge while the
-     user drags the floating panel close to it. Two variants for the two panels. */
-  .dock-zone {
-    position: absolute;
-    background: var(--accent);
-    box-shadow: 0 0 16px var(--accent-glow);
-    z-index: 29;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 120ms ease;
-  }
-  .dock-zone.active { opacity: 1; }
-  .dock-zone[data-zone="readings"] {
-    top: 0; bottom: 0; right: 0;
-    width: 4px;
-  }
-  .dock-zone[data-zone="educator"] {
-    left: 0; right: 0; bottom: 0;
-    height: 4px;
-  }
-
-  /* Pop-out / dock button in panel headers. */
-  .panel-pop {
-    margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    width: 26px;
-    height: 22px;
-    padding: 0;
-    border-radius: 6px;
-    font-size: 12px;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-  }
-  .panel-pop:hover {
-    color: var(--accent-2);
-    border-color: var(--accent);
-    background: rgba(0, 229, 160, 0.06);
-  }
-  /* When a level-badge is present (educator), keep it before the pop button. */
-  .panel-header .level-badge + .panel-pop { margin-left: 6px; }
-  /* The first-of-class margin-left rule above pushes the badge right; reset
-     so badge stays adjacent to title and only the pop button is far-right. */
-  .panel-header .level-badge { margin-left: auto; }
-  #lessonOverlay .panel-body {
-    flex-direction: row;
-    align-items: stretch;
-    gap: 18px;
-    overflow-x: auto;
-  }
-  #lessonOverlay .panel-body > * { flex: 0 0 auto; max-width: 360px; }
-  #lessonOverlay .lesson-body { max-width: 480px; flex: 1 1 320px; }
-  #lessonOverlay .concepts-touched {
-    flex: 1 1 280px;
-    min-width: 200px;
-    max-width: none;
+  .divider-tools {
+    left: 0; right: 0;
+    top: var(--tools-size, 60px);
+    bottom: auto;
     border-top: 0;
-    padding-top: 0;
-    padding-left: 14px;
-    border-left: 1px dashed var(--line);
-    margin-top: 0;
+    border-bottom: 1px solid var(--line);
+    border-left: 0; border-right: 0;
   }
-
-  .tabbar { display: none; }
-}
-
-/* ===================== MOBILE (<=1024px) ===================== */
-@media (max-width: 1024px) {
-  body {
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "topbar"
-      "main";
+  .resize-divider::before {
+    width: 56px; height: 3px;
   }
-
-  /* Topbar becomes scrollable strip so the action bar always fits. */
-  .topbar {
-    flex-wrap: nowrap;
-    align-items: center;
+  .resize-divider:hover::before, .resize-divider.dragging::before {
+    width: 80px; height: 3px;
+  }
+  .bar-toggle, .panel-toggle {
+    width: 44px; height: 44px;
+    font-size: 20px;
+    background: rgba(106,166,255,0.18);
+    color: var(--accent-2);
+    border-color: rgba(106,166,255,0.5);
+  }
+  .panel-toggle { top: 14px; right: 10px; }
+  .panel { padding-top: 60px; }
+  .topbar { padding-right: 60px; }
+  .layout.panel-collapsed .panel { padding: 4px 10px; max-height: 40px; }
+  .panel-toggle { top: 4px; right: 8px; }
+  .panel-toggle::before { content: '▾'; }
+  .layout.panel-collapsed .panel-toggle::before { content: '▴'; }
+  .topbar.collapsed { gap: 0; }
+  .topbar { position: relative; }
+  .bar-toggle { margin-left: auto; }
+  .stage { min-height: 50vh; }
+  .topbar { flex-wrap: wrap; gap: 10px; }
+  .tools {
+    display: flex; flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 14px;
-    padding: 10px 14px;
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-right: 56px;
-  }
-  /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
-  .topbar .seg { padding: 8px 12px; font-size: 12px; }
-  .topbar .bar-group label { font-size: 12px; }
-  .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
-  .topbar::-webkit-scrollbar { display: none; }
-  .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
-  .topbar .bar-group.btns { margin-left: 0; }
-  .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
-  /* Pin the collapse/expand toggle to the right viewport edge of the topbar.
-     `position: absolute` (default) would scroll with the row content; sticky
-     keeps it visible while the horizontal scroll moves the bar-groups. */
-  .topbar .bar-toggle {
-    position: sticky;
-    right: 8px;
-    margin-left: auto;
-    flex-shrink: 0;
-    /* Make it visually float above the scroll content so labels behind it
-       are obscured rather than visually colliding. */
-    box-shadow: -10px 0 14px rgba(10,10,15,0.85);
-  }
-
-  .canvas-host { grid-area: main; }
-
-  .panel-host { display: contents; }
-  .panel {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 60px;
-    height: var(--sheet-height, 60vh);
-    max-height: 95vh;
-    background: rgba(12, 14, 20, 0.96);
-    backdrop-filter: blur(14px) saturate(1.2);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55);
-    z-index: 25;
-    transform: translateY(100%);
-    transition:
-      transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
-      height 220ms cubic-bezier(0.32, 0.72, 0, 1),
-      width 220ms cubic-bezier(0.32, 0.72, 0, 1);
-    will-change: transform;
-    pointer-events: none;
-  }
-  body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
-  body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="high"] .panel { --sheet-height: 80vh; }
-  /* Legacy values still resolve sanely. */
-  body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="tall"] .panel { --sheet-height: 80vh; }
-  .panel.visible {
-    transform: translateY(0);
-    pointer-events: auto;
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
-  }
-  .panel-grabber { display: flex; }
-  .panel-header { padding: 4px 14px 8px; }
-
-  #toolsPanel .panel-body { gap: 14px; padding: 10px 14px 18px; }
-  #toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
-  #toolsPanel .tool-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-  #toolsPanel .tool {
-    flex: 1 1 calc(33.33% - 6px);
-    min-width: 78px;
-    padding: 9px 6px;
-    flex-direction: column;
-    gap: 4px;
-  }
-  #toolsPanel .tool svg { width: 20px; height: 20px; }
-  #toolsPanel .tool span { font-size: 10px; }
-  #toolsPanel .preset, #toolsPanel .material {
-    flex: 1 1 calc(50% - 6px);
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-
-  /* No floating panels on mobile — hide the pop button entirely. */
-  .panel-pop { display: none; }
-
-  .tabbar {
-    display: flex;
-    gap: 4px;
-  }
-
-  .canvas-host .hint {
-    left: 12px;
-    bottom: 72px;
-    max-width: calc(100% - 24px);
-  }
-}
-
-/* ======================= EMBED MODE (preserved) =======================
-   The landing page hosts the free demo via /app/?free=1 (no longer iframed
-   post-rework, but embed-mode stays in case anyone still embeds /app/?embed=1). */
-body.embed-mode .brand .by,
-body.embed-mode .brand .pro-badge,
-body.embed-mode #saveBtn,
-body.embed-mode #derivationsBtn,
-body.embed-mode #upgradeDialog {
-  display: none !important;
-}
-body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
-
-/* Upgrade dialog footer — privacy/terms links under the redeem details. */
-.upgrade-foot {
-  margin: 14px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-size: 11px;
-  color: var(--muted);
-  text-align: center;
-}
-.upgrade-foot a { color: var(--muted); text-decoration: none; }
-.upgrade-foot a:hover { color: var(--accent-2); }
-
-/* Resize handles default to hidden — they only show when their parent panel
-   is `.floating` (see desktop @media). */
-.resize-corner,
-.resize-edge { display: none; }
-
-/* =====================================================================
-   CONTAINER QUERIES — internal fluidity for resized + floating panels.
-   Each .panel becomes its own inline-size container; child layouts adapt
-   to the panel's width independent of the viewport breakpoint.
-   ===================================================================== */
-.panel {
-  container-type: inline-size;
-}
-/* Tools queries height too (compact-mode at short heights), needs `size`. */
-#toolsPanel { container-type: size; container-name: tools-panel; }
-#infoOverlay { container-name: readings-panel; }
-/* Educator queries height too (compact-mode hint when float is short), so it
-   needs `container-type: size` rather than `inline-size`. */
-#lessonOverlay { container-type: size; container-name: educator-panel; }
-
-/* Material grid adapts to available width. */
-#toolsPanel .material-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 5px;
-}
-
-/* TOOLS — narrow + wide adaptations. */
-@container tools-panel (max-width: 240px) {
-  #toolsPanel .tool-section .tool-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 4px;
-  }
-  #toolsPanel .tool { min-width: 0; padding: 6px 4px; }
-  #toolsPanel .tool svg { display: none; }
-  #toolsPanel .tool span { font-size: 10.5px; }
-}
-@container tools-panel (min-width: 360px) {
-  #toolsPanel .tool-section .tool-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    padding: 8px;
     gap: 6px;
-  }
-  #toolsPanel .tool svg { width: 26px; height: 26px; }
-}
-
-/* READINGS — value typography scales with panel width; on narrow we drop to
-   single column. */
-@container readings-panel (max-width: 260px) {
-  #infoOverlay .readout-grid {
-    grid-template-columns: 1fr;
-  }
-  #infoOverlay .metric-val { font-size: 13px; }
-  #infoOverlay .metric-val .unit { font-size: 10px; }
-}
-@container readings-panel (min-width: 380px) {
-  #infoOverlay .metric-val { font-size: 17px; }
-}
-
-/* EDUCATOR — when short (compact float height), tighten the body and hide the
-   "Concepts explored" header so the pill row fills its space without title
-   chrome. The pill list itself stays scrollable. */
-@container educator-panel (max-height: 220px) {
-  #lessonOverlay .lesson-body { line-height: 1.45; }
-  #lessonOverlay .concepts-title { display: none; }
-  #lessonOverlay .concepts-touched { padding-top: 6px; margin-top: 0; }
-  #lessonOverlay .concept-list {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-  #lessonOverlay .concept-pill { white-space: nowrap; flex: 0 0 auto; }
-}
-
-/* TOOLS — compact mode at short heights (e.g. low-snap mobile sheet at 30vh).
-   Each tool-section becomes a horizontal scroller so users still get the full
-   tool palette in a small slice. Tool buttons stay >=44px tall (touch floor). */
-@container tools-panel (max-height: 300px) {
-  #toolsPanel .panel-body { gap: 8px; }
-  #toolsPanel .tool-section { gap: 4px; }
-  #toolsPanel .section-title {
-    font-size: 10px;
-    font-weight: 500;
-    white-space: nowrap;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0;
-  }
-  #toolsPanel .tool-grid,
-  #toolsPanel .material-grid {
-    display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    gap: 6px;
-    padding-bottom: 2px;
+    border-right: 0; border-bottom: 1px solid var(--line);
     scrollbar-width: thin;
   }
-  #toolsPanel .tool-grid > *,
-  #toolsPanel .material-grid > * {
+  .tool-section {
+    margin: 0;
+    display: flex; gap: 4px; align-items: center;
     flex: 0 0 auto;
+    border-right: 1px solid var(--line);
+    padding-right: 8px;
   }
-  #toolsPanel .tool {
-    min-height: 44px;
-    min-width: 56px;
-    padding: 6px 8px;
-    flex-direction: column;
-    gap: 2px;
-  }
-  #toolsPanel .tool svg { width: 18px; height: 18px; }
-  #toolsPanel .tool span { font-size: 10px; }
-  #toolsPanel .preset,
-  #toolsPanel .material {
-    min-height: 44px;
-    min-width: 64px;
-    padding: 6px 10px;
-    font-size: 10px;
-    white-space: nowrap;
-  }
-  #toolsPanel .check {
-    min-height: 44px;
-    min-width: 88px;
-    padding: 6px 8px;
-    font-size: 11px;
-    white-space: nowrap;
-  }
-  #toolsPanel .slider-row {
-    min-height: 44px;
-    min-width: 140px;
-    padding: 4px 8px;
-  }
-  /* Custom slim scrollbar for the inline horizontal scrollers. */
-  #toolsPanel .tool-grid::-webkit-scrollbar,
-  #toolsPanel .material-grid::-webkit-scrollbar {
-    height: 2px;
-  }
-  #toolsPanel .tool-grid::-webkit-scrollbar-track,
-  #toolsPanel .material-grid::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  #toolsPanel .tool-grid::-webkit-scrollbar-thumb,
-  #toolsPanel .material-grid::-webkit-scrollbar-thumb {
-    background: var(--bg-4);
-    border-radius: 2px;
-  }
+  .tool-section:last-child { border-right: 0; }
+  .section-title { display: none; }
+  .tool, .preset { width: auto; flex: 0 0 auto; padding: 6px 10px; margin: 0; }
+  .tool span, .preset { font-size: 12px; }
+  .check { padding: 4px 8px; white-space: nowrap; }
+  .panel { max-height: 38vh; padding: 10px; }
+  .readout-grid { grid-template-columns: 1fr 1fr 1fr; }
 }
-
-/* =====================================================================
-   SCROLL LOCK + OVERSCROLL — when sheet is open, the body is frozen so
-   browser-level rubber-band scroll on the topbar / canvas-host doesn't
-   compete with the sheet drag. .canvas-host stays interactive (pan/zoom).
-   ===================================================================== */
-body[data-sheet-locked="true"] {
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-@media (max-width: 1024px) {
-  html { overscroll-behavior: none; }
-}
-
-/* =====================================================================
-   PANEL ANIMATION POLISH — sheet open/close + height/width snap easing.
-   Keeps `.panel.dragging` snappy (existing rule disables transition).
-   ===================================================================== */
-.panel {
-  transition:
-    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
-    height 220ms cubic-bezier(0.32, 0.72, 0, 1),
-    width 220ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-/* =====================================================================
-   ACTIVE TAB PILL — animated accent under the active tab in the mobile
-   tabbar. ::before sits behind the icon+label and pulses with a glow.
-   ===================================================================== */
-.tabbar .tab {
-  position: relative;
-  isolation: isolate;
-}
-.tabbar .tab::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border-radius: 8px;
-  background: var(--accent);
-  opacity: 0;
-  z-index: -1;
-  transform: scale(0.92);
-  transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-  pointer-events: none;
-}
-.tabbar .tab.active::before {
-  opacity: 0.16;
-  transform: scale(1);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-.tabbar .tab svg {
-  transition: transform 180ms ease;
-}
-.tabbar .tab.active svg {
-  transform: scale(1.05);
-}
-
-/* =====================================================================
-   HINT CLOSE — bigger touch target without changing the visual chip size.
-   Visual stays 26x26; ::before extends the hit area to 44x44. (Spec G.)
-   ===================================================================== */
-.hint-close {
-  position: relative;
-  min-width: 26px;
-  min-height: 26px;
-}
-.hint-close::before {
-  content: '';
-  position: absolute;
-  inset: -9px;
-  border-radius: 12px;
-}
-
-/* =====================================================================
-   TOPBAR OVERFLOW MENU
-   - Desktop (>=1025px): .topbar-overflow uses display:contents so its
-     children flow inline with the topbar exactly as before. The ⋯ button
-     hides.
-   - Mobile (<=1024px): .topbar-overflow becomes an absolute dropdown
-     panel anchored under the ⋯ button; default hidden, shown when
-     body[data-topbar-overflow-open="true"].
-   ===================================================================== */
-.topbar { position: relative; }
-
-.topbar-overflow { display: contents; }
-.topbar-more { display: none; }
-
-@media (min-width: 1025px) {
-  .topbar-overflow { display: contents; }
-  .topbar-more { display: none; }
-}
-
-@media (max-width: 1024px) {
-  .topbar-more {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    padding: 0;
-    background: var(--bg-3);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    color: var(--text);
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-  }
-  .topbar-more:hover,
-  .topbar-more:focus-visible {
-    background: var(--bg-4);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  body[data-topbar-overflow-open="true"] .topbar-more {
-    background: rgba(0, 229, 160, 0.12);
-    border-color: var(--accent);
-    color: var(--accent-2);
-  }
-  .topbar-overflow {
-    display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 8px;
-    z-index: 40;
-    flex-direction: column;
-    align-items: stretch;
-    min-width: 180px;
-    padding: 8px;
-    background: rgba(15, 15, 22, 0.97);
-    backdrop-filter: blur(14px) saturate(1.2);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    border: 1px solid var(--line-2);
-    border-radius: 12px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-    gap: 4px;
-  }
-  body[data-topbar-overflow-open="true"] .topbar-overflow {
-    display: flex;
-  }
-  .topbar-overflow .btn {
-    width: 100%;
-    min-height: 40px;
-    padding: 10px 14px;
-    font-size: 13px;
-    text-align: left;
-    justify-content: flex-start;
-    border-radius: 8px;
-  }
-}
-
-/* =====================================================================
-   LANDSCAPE MOBILE — phones held sideways. Sheet pulls from the right,
-   tabbar moves to a vertical strip on the right edge, topbar shrinks.
-   Triggered via body[data-layout-mode="landscape-mobile"] from layout.js
-   (matched against (max-width:1024px) + landscape + max-height:600px).
-   ===================================================================== */
-@media (max-width: 1024px) and (orientation: landscape) and (max-height: 600px) {
-  body {
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 1fr;
-  }
-
-  /* Compress topbar — shorter, tighter, kill the slider <label> text since
-     the slider track itself communicates value. */
-  .topbar {
-    gap: 10px;
-    padding: 4px 10px;
-    padding-top: max(4px, env(safe-area-inset-top));
-    padding-right: 50px;
-    min-height: 36px;
-  }
-  .topbar .btn {
-    padding: 6px 10px;
-    font-size: 11px;
-    min-height: 32px;
-  }
-  .topbar .seg { padding: 5px 8px; font-size: 11px; }
-  .topbar .bar-group label { font-size: 10px; }
-  .topbar .bar-group:not(:has(.segment)) label {
-    display: none;
-  }
-  .topbar .seg-label { display: none; }
-  .topbar .bar-group input[type=range] {
-    width: 80px;
-    max-width: 100px;
-  }
-  .topbar-more {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    font-size: 16px;
-  }
-
-  /* Tabbar — vertical strip on the right edge. */
-  .tabbar {
-    flex-direction: column;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: auto;
-    width: 40px;
-    height: auto;
-    padding: max(6px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) 4px;
-    border-top: 0;
-    border-left: 1px solid var(--line);
-    gap: 6px;
-  }
-  .tabbar .tab {
-    flex: 0 0 auto;
-    width: 100%;
-    min-height: 56px;
-    padding: 4px;
-    font-size: 10px;
-    gap: 2px;
-  }
-  .tabbar .tab svg { width: 20px; height: 20px; }
-  .tabbar .tab span {
-    /* Stay readable but compress so they fit a 40px column. */
-    font-size: 9px;
-    letter-spacing: 0.2px;
-  }
-
-  /* Hint pinned bottom-left, but clear the right-side tabbar. */
-  .canvas-host .hint {
-    left: 12px;
-    bottom: 12px;
-    right: 52px;
-    max-width: calc(100% - 64px);
-  }
-
-  /* Sheet — pulls from the right, vertical drag handle on its left edge,
-     respects 40px tabbar gutter. */
-  .panel {
-    top: 0;
-    bottom: 0;
-    right: 40px;
-    left: auto;
-    height: 100%;
-    width: var(--sheet-width, 60vw);
-    max-height: none;
-    max-width: 95vw;
-    border-radius: 16px 0 0 16px;
-    border-top: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.55);
-    transform: translateX(100%);
-  }
-  body[data-sheet-height="low"] .panel { --sheet-width: 30vw; }
-  body[data-sheet-height="mid"] .panel { --sheet-width: 60vw; }
-  body[data-sheet-height="high"] .panel { --sheet-width: 80vw; }
-  body[data-sheet-height="default"] .panel { --sheet-width: 60vw; }
-  body[data-sheet-height="tall"] .panel { --sheet-width: 80vw; }
-  .panel.visible {
-    transform: translateX(0);
-  }
-
-  /* Vertical grabber — left edge of the sheet. */
-  .panel-grabber {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 14px;
-    height: auto;
-  }
-  .panel-grabber::before {
-    width: 4px;
-    height: 42px;
-    background: linear-gradient(180deg, var(--accent), var(--accent-2));
-  }
-  .panel-header { padding-left: 22px; }
-}
-
-/* Mode-aware tool sections — visible only when body[data-mode] matches. */
-body[data-mode="2d"] [data-mode-only="3d"] { display: none !important; }
-body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
-

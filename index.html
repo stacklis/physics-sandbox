@@ -2,458 +2,304 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Physics Sandbox — Learn physics by playing</title>
-<meta name="description" content="A 2D physics playground that explains itself. Drag to spawn, watch live energy/momentum readouts, scale explanations from Curious to Expert. Web app + Android. $9 one-time." />
-
-<!-- Canonical + social -->
-<link rel="canonical" href="https://physics.stacklis.com/" />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://physics.stacklis.com/" />
-<meta property="og:title" content="Physics Sandbox — Learn physics by playing" />
-<meta property="og:description" content="Interactive 2D physics simulator. Drag objects, see live readouts, learn across four knowledge levels. Pro saves your scenes." />
-<meta property="og:image" content="https://physics.stacklis.com/icon-512.svg" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Physics Sandbox" />
-<meta name="twitter:description" content="Learn physics by playing. Interactive 2D simulator with real-time readouts." />
-<meta name="twitter:image" content="https://physics.stacklis.com/icon-512.svg" />
-
-<!-- Icons -->
-<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="/favicon.ico" sizes="any" />
-<link rel="apple-touch-icon" href="/icon-192.svg" />
-<link rel="manifest" href="/manifest.json" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>Physics Sandbox — learn by playing</title>
+<meta name="description" content="Interactive 2D physics simulator. Explore mechanics, gravity, collisions, and more with real-time readouts and educational explanations." />
 <meta name="theme-color" content="#0a0a0f" />
-
-<!-- Reuse the app's CSS so the landing inherits the brand palette + tokens. -->
-<link rel="stylesheet" href="/styles.css?v=66" />
-
-<style>
-  /* Landing-only overrides. The base styles.css locks `body` to a 100vw grid
-     for the canvas app; landing needs normal block-flow scroll. */
-  html, body { overflow-x: hidden; overflow-y: auto; height: auto; width: auto; max-width: 100%; }
-  body { display: block; }
-  .lp { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
-  .hero.lp { padding-left: 24px; padding-right: 24px; }
-  .hero h1 { overflow-wrap: break-word; }
-
-  /* HEADER --------------------------------------------------------------- */
-  .lp-nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 24px;
-    max-width: 1100px; margin: 0 auto;
-    gap: 12px;
-  }
-  .lp-nav .brand { gap: 10px; font-weight: 600; min-width: 0; }
-  .lp-nav .brand .logo { width: 28px; height: 28px; font-size: 16px; flex: 0 0 auto; }
-  .lp-nav .brand .title { font-size: 15px; white-space: nowrap; }
-  .lp-nav .brand .by { font-size: 11px; opacity: 0.7; white-space: nowrap; }
-  .lp-nav-links { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
-  .lp-nav-links a {
-    color: var(--muted); text-decoration: none; font-size: 13px;
-  }
-  .lp-nav-links a:hover { color: var(--text); }
-  .lp-nav-links .btn-buy {
-    background: linear-gradient(180deg, rgba(106,166,255,0.32), rgba(106,166,255,0.10));
-    border: 1px solid rgba(106,166,255,0.6);
-    color: var(--text); padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
-  }
-  /* Narrow phones — collapse the long anchor nav and keep only the CTA so the
-     nav line stays single-row without wrapping. */
-  @media (max-width: 540px) {
-    .lp-nav { padding: 14px 18px; gap: 10px; }
-    .lp-nav-links { gap: 12px; }
-    .lp-nav-links a:not(.btn-buy) { display: none; }
-    .lp-nav .brand .by { display: none; }
-  }
-
-  /* HERO ----------------------------------------------------------------- */
-  .hero {
-    padding: 50px 0 30px;
-    text-align: center;
-  }
-  .hero h1 {
-    font-size: clamp(34px, 5.4vw, 56px);
-    line-height: 1.05;
-    margin: 0 0 16px;
-    letter-spacing: -0.5px;
-  }
-  .hero h1 .accent {
-    background: linear-gradient(90deg, var(--accent-2), var(--accent));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .hero p.lede {
-    font-size: clamp(15px, 1.7vw, 18px);
-    color: var(--muted); max-width: 620px; margin: 0 auto 24px;
-    line-height: 1.55;
-  }
-  .hero .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
-  .cta {
-    padding: 12px 22px; border-radius: 10px; font-size: 15px; font-weight: 600;
-    border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text);
-    text-decoration: none; cursor: pointer;
-    transition: transform 80ms ease, background 120ms ease;
-  }
-  .cta:hover { transform: translateY(-1px); }
-  .cta.primary {
-    background: linear-gradient(180deg, rgba(106,166,255,0.36), rgba(106,166,255,0.12));
-    border-color: rgba(106,166,255,0.6);
-  }
-  .cta.primary:hover { background: linear-gradient(180deg, rgba(106,166,255,0.48), rgba(106,166,255,0.18)); }
-  .cta.ghost { background: transparent; color: var(--muted); }
-  .cta.ghost:hover { color: var(--text); border-color: var(--line); }
-
-  /* Demo launch card (replaces embedded iframe — opens /free/ in a new tab) */
-  .demo-launch {
-    display: block;
-    position: relative;
-    margin: 0 auto;
-    max-width: 1080px;
-    aspect-ratio: 16 / 7;
-    border-radius: 14px;
-    border: 1px solid var(--line-2);
-    background:
-      radial-gradient(ellipse at 30% 20%, rgba(106,166,255,0.10), transparent 55%),
-      radial-gradient(ellipse at 75% 80%, rgba(0,229,160,0.08), transparent 55%),
-      linear-gradient(135deg, var(--bg-1), var(--bg));
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset;
-    text-decoration: none;
-    color: var(--text);
-    overflow: hidden;
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  }
-  .demo-launch:hover, .demo-launch:focus-visible {
-    transform: translateY(-2px);
-    border-color: rgba(138,208,255,0.4);
-    box-shadow: 0 26px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(138,208,255,0.18) inset;
-    outline: none;
-  }
-  .demo-launch-inner {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px;
-    padding: 20px;
-    text-align: center;
-  }
-  .demo-play {
-    color: var(--accent-2);
-    filter: drop-shadow(0 2px 12px var(--accent-glow));
-  }
-  .demo-launch-title {
-    font-size: clamp(18px, 2.4vw, 22px);
-    font-weight: 600;
-    color: var(--text);
-  }
-  .demo-launch-sub {
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .demo-caption {
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-    margin-top: 10px;
-  }
-
-  /* Section ---------------------------------------------------------------- */
-  section.lp-sect { padding: 64px 0; border-top: 1px solid var(--line); }
-  section.lp-sect h2 {
-    font-size: clamp(22px, 2.8vw, 32px);
-    margin: 0 0 8px;
-    text-align: center;
-  }
-  section.lp-sect .sect-sub {
-    text-align: center; color: var(--muted); font-size: 15px;
-    max-width: 640px; margin: 0 auto 36px;
-  }
-
-  /* Feature grid (3 col) */
-  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .feat {
-    background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px;
-    padding: 24px;
-  }
-  .feat .feat-ico {
-    width: 36px; height: 36px; border-radius: 8px;
-    background: linear-gradient(135deg, rgba(138,208,255,0.2), rgba(106,166,255,0.05));
-    border: 1px solid rgba(138,208,255,0.25);
-    display: grid; place-items: center; color: var(--accent-2);
-    margin-bottom: 14px;
-  }
-  .feat h3 { margin: 0 0 8px; font-size: 16px; }
-  .feat p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
-  @media (max-width: 760px) { .feat-grid { grid-template-columns: 1fr; } }
-
-  /* Pro feature cards (2 col) */
-  .pro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .pro-card {
-    background: linear-gradient(180deg, rgba(106,166,255,0.06), rgba(106,166,255,0.01));
-    border: 1px solid rgba(106,166,255,0.25);
-    border-radius: 12px;
-    padding: 24px;
-  }
-  .pro-card h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent-2); }
-  .pro-card p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
-  @media (max-width: 760px) { .pro-grid { grid-template-columns: 1fr; } }
-
-  /* Demo video placeholder */
-  .demo-video {
-    aspect-ratio: 16 / 9; max-width: 880px; margin: 0 auto;
-    border-radius: 12px; border: 1px dashed var(--line-2);
-    background:
-      repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0 12px, transparent 12px 24px),
-      var(--bg-1);
-    display: grid; place-items: center;
-    color: var(--muted); font-size: 14px; text-align: center; padding: 24px;
-  }
-
-  /* Audience */
-  .aud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .aud {
-    background: var(--bg-1); border: 1px solid var(--line); border-radius: 10px;
-    padding: 18px; font-size: 14px; color: var(--text);
-  }
-  .aud strong { color: var(--accent-2); display: block; margin-bottom: 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; }
-  .aud span { color: var(--muted); }
-  @media (max-width: 760px) { .aud-grid { grid-template-columns: 1fr; } }
-
-  /* Pricing card */
-  .price-card {
-    max-width: 420px; margin: 0 auto;
-    background: linear-gradient(180deg, var(--bg-1), var(--bg));
-    border: 1px solid var(--line-2);
-    border-radius: 16px; padding: 32px; text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-  }
-  .price-card .price { font-size: 48px; font-weight: 700; margin: 8px 0; }
-  .price-card .price .period { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .price-card ul { text-align: left; padding-left: 22px; color: var(--text); font-size: 14px; line-height: 1.7; }
-  .price-card .cta { display: block; width: 100%; margin-top: 18px; }
-  .price-card .small {
-    font-size: 12px; color: var(--muted); margin-top: 12px;
-  }
-
-  /* FAQ */
-  .faq-list { max-width: 760px; margin: 0 auto; }
-  .faq-item {
-    border-top: 1px solid var(--line);
-    padding: 14px 0;
-  }
-  .faq-item:last-child { border-bottom: 1px solid var(--line); }
-  .faq-item summary {
-    cursor: pointer; font-weight: 600; font-size: 15px; color: var(--text);
-    list-style: none; display: flex; justify-content: space-between; align-items: center;
-  }
-  .faq-item summary::after { content: '+'; color: var(--muted); font-size: 18px; }
-  .faq-item[open] summary::after { content: '−'; }
-  .faq-item p { color: var(--muted); margin: 10px 0 0; font-size: 14px; line-height: 1.6; }
-
-  /* Footer */
-  footer.lp-foot {
-    border-top: 1px solid var(--line);
-    padding: 28px 0;
-    color: var(--muted);
-    font-size: 13px;
-  }
-  footer.lp-foot .row {
-    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
-    max-width: 1100px; margin: 0 auto; padding: 0 24px;
-  }
-  footer.lp-foot a { color: var(--muted); text-decoration: none; }
-  footer.lp-foot a:hover { color: var(--text); }
-  footer.lp-foot .links { display: flex; gap: 16px; flex-wrap: wrap; }
-</style>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta property="og:title" content="Physics Sandbox — learn by playing" />
+<meta property="og:description" content="Interactive 2D physics simulator with real-time readouts. Explore mechanics, gravity, collisions, and more." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://physics.stacklis.com" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="styles.css?v=62" />
 </head>
 <body>
-
-<!-- NAV ------------------------------------------------------------------ -->
-<nav class="lp-nav" aria-label="Primary">
+<header class="topbar">
   <div class="brand">
-    <img class="logo" src="/icon-192.svg" alt="Physics Sandbox icon" width="28" height="28" style="border-radius:6px;" />
+    <span class="logo" aria-hidden="true">PS</span>
     <span class="title">Physics Sandbox</span>
-    <span class="by">by Stacklis</span>
   </div>
-  <div class="lp-nav-links">
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <a href="/app/" class="btn-buy">Open app</a>
-  </div>
-</nav>
-
-<!-- HERO ----------------------------------------------------------------- -->
-<header class="hero lp">
-  <h1>Learn physics by <span class="accent">playing</span>.</h1>
-  <p class="lede">A 2D rigid-body sandbox that explains itself. Drag in empty space to spawn. Watch live energy and momentum readouts. Scale the explanations from "Curious" to "Expert" as you go.</p>
-  <div class="cta-row">
-    <a class="cta primary" href="/app/?free=1" target="_blank" rel="noopener">Try it free →</a>
-    <a class="cta" href="#pricing">Get Pro · $9 one-time</a>
-  </div>
-  <a id="try" class="demo-launch" href="/app/?free=1" target="_blank" rel="noopener" aria-label="Launch the interactive physics demo in a new tab">
-    <div class="demo-launch-inner">
-      <svg class="demo-play" viewBox="0 0 24 24" width="44" height="44" fill="currentColor" aria-hidden="true">
-        <path d="M8 5v14l11-7z" />
-      </svg>
-      <div class="demo-launch-title">Launch interactive demo</div>
-      <div class="demo-launch-sub">Opens in a new tab — drag in empty space to spawn objects, click to inspect</div>
+  <div class="bar-group">
+    <label class="seg-label">Knowledge level</label>
+    <div class="segment" id="levelSegment" role="tablist">
+      <button data-level="1" class="seg active">Curious</button>
+      <button data-level="2" class="seg">Student</button>
+      <button data-level="3" class="seg">University</button>
+      <button data-level="4" class="seg">Expert</button>
     </div>
-  </a>
-  <p class="demo-caption">No install, no signup. The free demo runs entirely in your browser.</p>
+  </div>
+  <div class="bar-group">
+    <label>Gravity <span id="gravityVal">9.81</span> m/s²</label>
+    <input id="gravity" type="range" min="-20" max="40" step="0.1" value="9.81" />
+  </div>
+  <div class="bar-group">
+    <label>Time scale <span id="timeVal">1.00</span>×</label>
+    <input id="timeScale" type="range" min="0" max="2" step="0.05" value="1" />
+  </div>
+  <div class="bar-group btns">
+    <button id="pauseBtn" class="btn ghost" title="Pause / Play (space)">⏸</button>
+    <button id="resetBtn" class="btn ghost" title="Reset scene">Reset</button>
+    <button id="clearBtn" class="btn danger" title="Clear all">Clear</button>
+  </div>
+  <a href="https://buy.stripe.com/28E8wPdCQ2gs7DdamB0Jq01" target="_blank" rel="noopener noreferrer" class="btn pro-btn" title="Upgrade to Pro">Pro</a>
+  <button id="topbarToggle" class="bar-toggle" aria-label="Collapse top bar" title="Collapse / expand top bar"></button>
 </header>
+<div class="topbar-divider" id="topbarDivider" role="separator" aria-label="Resize top panel" title="Drag to resize">
+  <div class="divider-handle-h"></div>
+</div>
 
-<!-- FEATURE GRID --------------------------------------------------------- -->
-<section class="lp-sect" id="features">
-  <div class="lp">
-    <h2>Three things make it click.</h2>
-    <p class="sect-sub">A real physics engine, a real-time readout panel, and explanations that grow with you.</p>
-    <div class="feat-grid">
-      <div class="feat">
-        <div class="feat-ico">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-        </div>
-        <h3>Drag to spawn</h3>
-        <p>Click and drag in empty space — the size of your drag becomes the size of the body. Boxes, balls, polygons, ropes. Six tools, no menu-diving.</p>
-      </div>
-      <div class="feat">
-        <div class="feat-ico">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
-        </div>
-        <h3>Live readouts</h3>
-        <p>Speed, momentum, kinetic and potential energy, angular velocity — for the selected body and the whole system. Watch energy conservation play out.</p>
-      </div>
-      <div class="feat">
-        <div class="feat-ico">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h12M4 18h8"/></svg>
-        </div>
-        <h3>Four knowledge levels</h3>
-        <p>Curious / Student / University / Expert. Same simulation, different language — from "things bounce off each other" to the impulse-momentum tensor formulation.</p>
+<main class="layout">
+  <aside class="tools" aria-label="Tools" id="toolsPanel">
+    <button class="tools-collapse-btn" id="toolsCollapseBtn" aria-label="Collapse tools" title="Collapse/expand tools">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="tool-section">
+      <div class="section-title">Spawn</div>
+      <div class="tool-grid">
+        <button class="tool" data-tool="box" title="Box (1)">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>
+          <span>Box</span>
+        </button>
+        <button class="tool" data-tool="circle" title="Ball (2)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg>
+          <span>Ball</span>
+        </button>
+        <button class="tool" data-tool="polygon" title="Polygon (3)">
+          <svg viewBox="0 0 24 24"><polygon points="12,4 20,10 17,19 7,19 4,10"/></svg>
+          <span>Polygon</span>
+        </button>
+        <button class="tool" data-tool="wall" title="Static wall (4)">
+          <svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4"/></svg>
+          <span>Wall</span>
+        </button>
+        <button class="tool" data-tool="triangle" title="Triangle (5)">
+          <svg viewBox="0 0 24 24"><polygon points="12,4 20,19 4,19"/></svg>
+          <span>Triangle</span>
+        </button>
+        <button class="tool" data-tool="rope" title="Rope (6)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="13" cy="14" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+          <span>Rope</span>
+        </button>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- PRO FEATURES --------------------------------------------------------- -->
-<section class="lp-sect">
-  <div class="lp">
-    <h2>What you get with Pro</h2>
-    <p class="sect-sub">Two unlocks. One price. No subscription.</p>
-    <div class="pro-grid">
-      <div class="pro-card">
-        <h3>Save your scenes</h3>
-        <p>Build something good? Save the world to a JSON file and reload it later — keep your demos, your puzzles, your "I broke physics" moments. Scenes are yours, stored locally; we never see them.</p>
-      </div>
-      <div class="pro-card">
-        <h3>Download your derivations</h3>
-        <p>Every concept you encounter while playing — collisions, torque, conservation laws, oscillations — exports as a printable HTML doc with university and expert-level explanations and the formulas that go with them.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- DEMO VIDEO ----------------------------------------------------------- -->
-<section class="lp-sect">
-  <div class="lp">
-    <h2>See it in 45 seconds.</h2>
-    <p class="sect-sub">A short demo of the things the live embed above doesn't show — Pro saves, derivations export, knowledge-level switching.</p>
-    <!-- Drop demo.mp4 into /marketing/demo.mp4 once recorded; replace this placeholder with a <video> tag. -->
-    <div class="demo-video">
-      <div>
-        <strong>Demo video</strong><br>
-        Coming soon — see <code>marketing/CAPTURE.md</code> for the recording script.
+    <div class="tool-section">
+      <div class="section-title">Interact</div>
+      <div class="tool-grid">
+        <button class="tool active" data-tool="grab" title="Grab and drag (G)">
+          <svg viewBox="0 0 24 24"><path d="M8 11V6a2 2 0 014 0v5M12 11V5a2 2 0 014 0v6M16 11V7a2 2 0 014 0v8a6 6 0 01-6 6h-3a5 5 0 01-4-2l-3-4 2-2 3 2"/></svg>
+          <span>Grab</span>
+        </button>
+        <button class="tool" data-tool="spring" title="Spring (S)">
+          <svg viewBox="0 0 24 24"><path d="M3 12h3l1-3 2 6 2-6 2 6 2-6 2 6 1-3h3"/></svg>
+          <span>Spring</span>
+        </button>
+        <button class="tool" data-tool="impulse" title="Push (P)">
+          <svg viewBox="0 0 24 24"><path d="M4 12h12M11 7l5 5-5 5"/></svg>
+          <span>Push</span>
+        </button>
+        <button class="tool" data-tool="delete" title="Delete (X)">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <span>Delete</span>
+        </button>
+        <button class="tool" data-tool="pin" title="Pin / Unpin (N)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v6M9 9h6l1 5H8zM12 14v7"/></svg>
+          <span>Pin</span>
+        </button>
+        <button class="tool" data-tool="slice" title="Slice constraints (K)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l8-8M14 10l5-5M11 13l3 3"/></svg>
+          <span>Slice</span>
+        </button>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- AUDIENCE ------------------------------------------------------------- -->
-<section class="lp-sect">
-  <div class="lp">
-    <h2>Who it's for</h2>
-    <div class="aud-grid">
-      <div class="aud"><strong>Curious adults</strong><span>The people who watch physics YouTube and wish they could grab the simulation themselves. You can.</span></div>
-      <div class="aud"><strong>Students</strong><span>Build the scenarios in your textbook and watch the variables move. The Student and University tiers cover most of intro mechanics.</span></div>
-      <div class="aud"><strong>Teachers</strong><span>Drop a sandbox preset on the projector to anchor a class. Save the scene, hand the file to a student to take home.</span></div>
+    <div class="tool-section">
+      <div class="section-title">Materials <span class="section-hint">(click to apply)</span></div>
+      <div class="tool-grid material-grid">
+        <button class="material" data-material="default">Default</button>
+        <button class="material" data-material="rubber">Rubber</button>
+        <button class="material" data-material="ice">Ice</button>
+        <button class="material" data-material="metal">Metal</button>
+        <button class="material" data-material="wood">Wood</button>
+        <button class="material" data-material="bouncy">Bouncy</button>
+        <button class="material" data-material="heavy">Heavy</button>
+        <button class="material" data-material="light">Light</button>
+      </div>
     </div>
+    <div class="tool-section">
+      <div class="section-title">Presets</div>
+      <div class="tool-grid">
+        <button class="preset" data-preset="stack">Stack</button>
+        <button class="preset" data-preset="pendulum">Pendulum</button>
+        <button class="preset" data-preset="newton">Cradle</button>
+        <button class="preset" data-preset="ramp">Ramp</button>
+        <button class="preset" data-preset="orbit">Orbits</button>
+        <button class="preset" data-preset="dominoes">Dominoes</button>
+        <button class="preset" data-preset="tower">Tower</button>
+        <button class="preset" data-preset="wreckingball">Wrecker</button>
+      </div>
+    </div>
+    <div class="tool-section">
+      <div class="section-title">Physics</div>
+      <div class="tool-grid">
+        <label class="check destruction-toggle"><input type="checkbox" id="destructionMode"/> Destruction</label>
+        <label class="slider-row grab-strength">
+          <span>Grab</span>
+          <input id="grabStrength" type="range" min="0.5" max="5" step="0.1" value="1" />
+        </label>
+      </div>
+    </div>
+    <div class="tool-section">
+      <div class="section-title">Display</div>
+      <div class="tool-grid">
+        <label class="check"><input type="checkbox" id="showVectors"/> Velocity</label>
+        <label class="check"><input type="checkbox" id="showContacts"/> Contacts</label>
+        <label class="check"><input type="checkbox" id="showTrails"/> Trails</label>
+        <label class="check"><input type="checkbox" id="showAABB"/> AABB</label>
+        <label class="check"><input type="checkbox" id="showHeatmap"/> Heatmap</label>
+        <label class="check"><input type="checkbox" id="showFPS"/> FPS</label>
+      </div>
+    </div>
+    <div class="tool-section">
+      <div class="section-title">Audio</div>
+      <div class="tool-grid">
+        <label class="check"><input type="checkbox" id="audioOn" checked/> Sound</label>
+      </div>
+      <label class="slider-row">
+        <span>Volume</span>
+        <input id="audioVol" type="range" min="0" max="1" step="0.01" value="0.4" />
+      </label>
+    </div>
+  </aside>
+  <div class="tools-divider" id="toolsDivider" role="separator" aria-label="Resize tools panel" title="Drag to resize">
+    <div class="divider-handle"></div>
   </div>
-</section>
+  <section class="stage">
+    <canvas id="canvas"></canvas>
+    <div id="hint" class="hint">
+      <span>Click and drag in empty space to spawn. Click an object to interact. Press <kbd>?</kbd> for keys.</span>
+      <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
+    </div>
+    
+    <!-- Overlay toggle buttons - top right cluster -->
+    <div class="overlay-toggles">
+      <button id="infoOverlayToggle" class="overlay-toggle" title="Readings (I)" aria-label="Toggle readings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      </button>
+      <button id="lessonOverlayToggle" class="overlay-toggle" title="Lessons (L)" aria-label="Toggle lessons">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      </button>
+      <button id="tipsOverlayToggle" class="overlay-toggle" title="Tips (T)" aria-label="Toggle tips">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      </button>
+    </div>
 
-<!-- PRICING -------------------------------------------------------------- -->
-<section class="lp-sect" id="pricing">
-  <div class="lp">
-    <h2>Pricing</h2>
-    <p class="sect-sub">Free to use forever. Pro is one payment for the lifetime of the app.</p>
-    <div class="price-card">
-      <div style="color: var(--accent-2); font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Physics Sandbox Pro</div>
-      <div class="price">$9 <span class="period">one-time</span></div>
-      <ul>
-        <li>Save scenes to a file</li>
-        <li>Reload saved scenes anywhere</li>
-        <li>Export your encountered concepts as a printable doc</li>
-        <li>All future v1 updates included</li>
-        <li>14-day refund, no questions</li>
+    <!-- Floating readings overlay -->
+    <div id="infoOverlay" class="floating-overlay" data-default-x="16" data-default-y="70">
+      <div class="floating-overlay-header">
+        <span class="floating-overlay-title">Live Readings</span>
+        <button class="floating-overlay-close" aria-label="Close">×</button>
+      </div>
+      <div class="readout-grid">
+        <div class="metric"><div class="metric-label">Object</div><div class="metric-val" id="ov-selected">—</div></div>
+        <div class="metric"><div class="metric-label">Material</div><div class="metric-val" id="ov-material">—</div></div>
+        <div class="metric"><div class="metric-label">Mass</div><div class="metric-val"><span id="ov-mass">0</span> <span class="unit">kg</span></div></div>
+        <div class="metric"><div class="metric-label">Speed</div><div class="metric-val"><span id="ov-speed">0</span> <span class="unit">m/s</span></div></div>
+        <div class="metric"><div class="metric-label">Kinetic E</div><div class="metric-val"><span id="ov-ke">0</span> <span class="unit">J</span></div></div>
+        <div class="metric"><div class="metric-label">Potential E</div><div class="metric-val"><span id="ov-pe">0</span> <span class="unit">J</span></div></div>
+        <div class="metric"><div class="metric-label">Momentum</div><div class="metric-val"><span id="ov-momentum">0</span> <span class="unit">kg·m/s</span></div></div>
+        <div class="metric"><div class="metric-label">Angular</div><div class="metric-val"><span id="ov-angular">0</span> <span class="unit">rad/s</span></div></div>
+      </div>
+      <div class="totals-mini">
+        <span>System: <b id="ov-total">0</b> J</span>
+        <span>Bodies: <b id="ov-count">0</b></span>
+      </div>
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating lessons overlay -->
+    <div id="lessonOverlay" class="floating-overlay lesson-overlay" data-default-x="right" data-default-y="70">
+      <div class="floating-overlay-header">
+        <span class="floating-overlay-title" id="ov-lessonTitle">Physics Concepts</span>
+        <span class="level-badge" id="ov-levelBadge">Curious</span>
+        <button class="floating-overlay-close" aria-label="Close">×</button>
+      </div>
+      <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This overlay explains the physics behind what you see.</p>
+      <div class="formula" id="ov-lessonFormula" hidden></div>
+      <div class="lesson-tags" id="ov-lessonTags"></div>
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating tips overlay -->
+    <div id="tipsOverlay" class="floating-overlay tips-overlay" data-default-x="center" data-default-y="70">
+      <div class="floating-overlay-header">
+        <span class="floating-overlay-title">Quick Tips</span>
+        <button class="floating-overlay-close" aria-label="Close">×</button>
+      </div>
+      <ul class="tips-list">
+        <li><kbd>1-6</kbd> Switch spawn tools</li>
+        <li><kbd>G</kbd> Grab · <kbd>S</kbd> Spring · <kbd>P</kbd> Push</li>
+        <li><kbd>X</kbd> Delete · <kbd>N</kbd> Pin · <kbd>K</kbd> Slice</li>
+        <li><kbd>Space</kbd> Pause/Play · <kbd>R</kbd> Reset</li>
+        <li>Right-drag to pan, scroll to zoom</li>
+        <li>Drag in empty space to size objects</li>
       </ul>
-      <!-- The "Get Pro" CTA opens the app; the in-app upgrade dialog handles -->
-      <!-- the actual Stripe redirect. -->
-      <a class="cta primary" href="/app/">Open app & upgrade</a>
-      <p class="small">Secure checkout via Stripe. The free edition has every simulation feature.</p>
+      <div class="concepts-touched">
+        <div class="concepts-title">Concepts explored</div>
+        <div id="ov-conceptList" class="concept-list">
+          <span class="concept-pill empty">Interact to learn</span>
+        </div>
+      </div>
+      <div class="overlay-controls">
+        <input type="range" min="0" max="1" step="0.05" value="0.9" title="Opacity" />
+        <button class="glass-toggle" title="Toggle transparent mode" aria-label="Toggle glass mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FAQ ------------------------------------------------------------------ -->
-<section class="lp-sect" id="faq">
-  <div class="lp">
-    <h2>Questions</h2>
-    <div class="faq-list">
-      <details class="faq-item">
-        <summary>What devices does it run on?</summary>
-        <p>Any modern desktop or mobile browser. Tested on Chrome, Firefox, Safari, and Edge. There's also an Android app via Google Play (coming v1.1) that wraps the web build.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Does it work offline?</summary>
-        <p>Yes — install it as a PWA ("Add to Home Screen" on mobile, or the install icon in your desktop browser's address bar) and it runs locally with no network needed.</p>
-      </details>
-      <details class="faq-item">
-        <summary>What's the refund policy?</summary>
-        <p>Full refund within 14 days, no questions asked. Email support@stacklis.com with your Stripe receipt and the refund goes through within a business day.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Is there a classroom or site license?</summary>
-        <p>The $9 one-time covers personal use across your devices. For classroom or school-wide deployments, email support@stacklis.com — we're happy to work something out, including teacher comp licenses.</p>
-      </details>
-      <details class="faq-item">
-        <summary>What data do you collect?</summary>
-        <p>None. No analytics, no tracking, no telemetry. Pro state lives in your browser's localStorage. Stripe handles payment and never shares card data with us. Full details in the <a href="/privacy.html">privacy policy</a>.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Where's the Android app?</summary>
-        <p>Coming as v1.1. The web app installs as a Progressive Web App on Android in the meantime — Chrome will offer the install prompt, or use the menu's "Install app" option.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Is it open source?</summary>
-        <p>The client-side simulator is open and inspectable on GitHub (link in the footer). The Pro unlock is honor-system: we trust you. If the simulator is useful to you, the $9 pays for ongoing maintenance.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Will the price go up?</summary>
-        <p>Maybe, eventually, for new buyers. If you've already bought Pro, you keep it at no extra cost — including all v1 updates.</p>
-      </details>
-    </div>
-  </div>
-</section>
+  
+</main>
 
-<!-- FOOTER --------------------------------------------------------------- -->
-<footer class="lp-foot">
-  <div class="row">
-    <div>© 2026 Stacklis · Physics Sandbox</div>
-    <div class="links">
-      <a href="/privacy.html">Privacy</a>
-      <a href="/terms.html">Terms</a>
-      <a href="/app/">App</a>
-      <a href="/app/?free=1">Free demo</a>
-      <a href="https://github.com/stacklis/physics-sandbox" rel="noopener">GitHub</a>
-    </div>
-  </div>
-</footer>
+<dialog id="helpDialog" class="help">
+  <h2>Keyboard</h2>
+  <ul>
+    <li><kbd>1</kbd>–<kbd>6</kbd> spawn tools (box, ball, polygon, wall, triangle, rope)</li>
+    <li><kbd>G</kbd> grab · <kbd>S</kbd> spring · <kbd>P</kbd> push · <kbd>X</kbd> delete · <kbd>N</kbd> pin · <kbd>K</kbd> slice</li>
+    <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
+    <li><kbd>I</kbd> readings · <kbd>L</kbd> lessons · <kbd>T</kbd> tips · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> level</li>
+    <li>Drag in empty space to spawn sized objects</li>
+    <li>Right-click drag to pan, scroll to zoom</li>
+  </ul>
+  <form method="dialog"><button class="btn">Close</button></form>
+</dialog>
 
+<script src="engine.js?v=62"></script>
+<script src="education.js?v=62"></script>
+<script src="app.js?v=62"></script>
+<script>
+  // Register service worker for PWA/offline support
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
 </body>
 </html>
