@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#0a0a0f"/>
+  <!-- Orbit arc -->
+  <path d="M 6 22 Q 16 4 26 22" fill="none" stroke="#6b8bff" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Ball -->
+  <circle cx="16" cy="10" r="5.5" fill="#00e5a0"/>
+  <circle cx="14.5" cy="8.5" r="1.6" fill="rgba(255,255,255,0.35)"/>
+  <!-- Ground shadow -->
+  <ellipse cx="16" cy="26" rx="6" ry="1.4" fill="rgba(0,229,160,0.22)"/>
+</svg>

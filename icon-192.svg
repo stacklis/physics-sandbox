@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="42" fill="#0a0a0f"/>
+  <!-- Background glow -->
+  <radialGradient id="bg-glow" cx="50%" cy="45%" r="55%">
+    <stop offset="0%" stop-color="#6b8bff" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#0a0a0f" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="192" height="192" rx="42" fill="url(#bg-glow)"/>
+  <!-- Orbit arc -->
+  <path d="M 30 138 Q 96 28 162 138" fill="none" stroke="#6b8bff" stroke-width="10" stroke-linecap="round" opacity="0.85"/>
+  <!-- Ball -->
+  <circle cx="96" cy="66" r="36" fill="#00e5a0"/>
+  <!-- Highlight -->
+  <circle cx="83" cy="54" r="11" fill="rgba(255,255,255,0.3)"/>
+  <!-- Ground shadow -->
+  <ellipse cx="96" cy="158" rx="36" ry="8" fill="rgba(0,229,160,0.2)"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0a0a0f"/>
+  <!-- Background glow -->
+  <radialGradient id="bg-glow" cx="50%" cy="45%" r="55%">
+    <stop offset="0%" stop-color="#6b8bff" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#0a0a0f" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="112" fill="url(#bg-glow)"/>
+  <!-- Orbit arc — sweeping curve suggesting bounce trajectory -->
+  <path d="M 70 370 Q 256 70 442 370" fill="none" stroke="#6b8bff" stroke-width="24" stroke-linecap="round" opacity="0.85"/>
+  <!-- Ball -->
+  <circle cx="256" cy="176" r="96" fill="#00e5a0"/>
+  <!-- Specular highlight -->
+  <circle cx="221" cy="141" r="28" fill="rgba(255,255,255,0.32)"/>
+  <!-- Ground shadow -->
+  <ellipse cx="256" cy="420" rx="96" ry="20" fill="rgba(0,229,160,0.2)"/>
+</svg>

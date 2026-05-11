@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physics Sandbox — Learn physics by playing</title>
+<meta name="description" content="Interactive 2D physics simulator. Drag objects, see live readouts, learn across four knowledge levels. Pro saves your scenes." />
+
+<!-- Canonical + social -->
+<link rel="canonical" href="https://physics.stacklis.com/" />
+<meta property="og:title" content="Physics Sandbox" />
+<meta property="og:description" content="Learn physics by playing. Interactive 2D simulator with real-time readouts." />
+<meta property="og:image" content="https://physics.stacklis.com/icon-512.svg" />
+<meta property="og:url" content="https://physics.stacklis.com" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- Icons -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="apple-touch-icon" href="/icon-192.svg" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0a0a0f" />
+<link rel="stylesheet" href="/styles.css?v=66" />
+
+<style>
+  html, body { overflow-x: hidden; overflow-y: auto; height: auto; width: auto; max-width: 100%; }
+  body { display: block; }
+  .lp { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* NAV */
+  .lp-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px; max-width: 1100px; margin: 0 auto; gap: 12px;
+  }
+  .lp-nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; color: var(--text); }
+  .lp-nav .brand img { border-radius: 6px; }
+  .lp-nav .brand .title { font-size: 15px; white-space: nowrap; }
+  .lp-nav .brand .by { font-size: 11px; opacity: 0.7; white-space: nowrap; }
+  .lp-nav-links { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
+  .lp-nav-links a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .lp-nav-links a:hover { color: var(--text); }
+  .lp-nav-links .btn-buy {
+    background: linear-gradient(180deg, rgba(0,229,160,0.28), rgba(0,229,160,0.08));
+    border: 1px solid rgba(0,229,160,0.5);
+    color: var(--text); padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  @media (max-width: 540px) {
+    .lp-nav { padding: 14px 18px; }
+    .lp-nav-links a:not(.btn-buy) { display: none; }
+    .lp-nav .brand .by { display: none; }
+  }
+
+  /* HERO */
+  .hero { padding: 56px 0 36px; text-align: center; }
+  .hero h1 {
+    font-size: clamp(32px, 5.4vw, 56px); line-height: 1.05;
+    margin: 0 0 16px; letter-spacing: -0.5px;
+  }
+  .hero h1 .accent {
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero .lede {
+    font-size: clamp(15px, 1.7vw, 18px); color: var(--muted);
+    max-width: 620px; margin: 0 auto 28px; line-height: 1.55;
+  }
+  .hero .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 36px; }
+  .cta {
+    padding: 12px 22px; border-radius: 10px; font-size: 15px; font-weight: 600;
+    border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text);
+    text-decoration: none; cursor: pointer;
+    transition: transform 80ms ease, background 120ms ease;
+  }
+  .cta:hover { transform: translateY(-1px); }
+  .cta.primary {
+    background: linear-gradient(180deg, rgba(0,229,160,0.3), rgba(0,229,160,0.1));
+    border-color: rgba(0,229,160,0.55);
+  }
+  .cta.primary:hover { background: linear-gradient(180deg, rgba(0,229,160,0.42), rgba(0,229,160,0.16)); }
+
+  /* DEMO EMBED */
+  .demo-wrap {
+    max-width: 1080px; margin: 0 auto; position: relative;
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--line-2);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    aspect-ratio: 16 / 8;
+  }
+  .demo-wrap iframe {
+    width: 100%; height: 100%; border: 0; display: block;
+  }
+  .demo-caption { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  /* SECTION */
+  section.lp-sect { padding: 64px 0; border-top: 1px solid var(--line); }
+  section.lp-sect h2 { font-size: clamp(22px, 2.8vw, 32px); margin: 0 0 8px; text-align: center; }
+  .sect-sub { text-align: center; color: var(--muted); font-size: 15px; max-width: 640px; margin: 0 auto 36px; }
+
+  /* FEATURES */
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .feat { background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .feat .feat-ico {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, rgba(0,229,160,0.18), rgba(0,229,160,0.04));
+    border: 1px solid rgba(0,229,160,0.2);
+    display: grid; place-items: center; color: var(--accent-2); margin-bottom: 14px;
+  }
+  .feat h3 { margin: 0 0 8px; font-size: 16px; }
+  .feat p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+  @media (max-width: 760px) { .feat-grid { grid-template-columns: 1fr; } }
+
+  /* PRO */
+  .pro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pro-card {
+    background: linear-gradient(180deg, rgba(0,229,160,0.06), rgba(0,229,160,0.01));
+    border: 1px solid rgba(0,229,160,0.25); border-radius: 12px; padding: 24px;
+  }
+  .pro-card h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent-2); }
+  .pro-card p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+  @media (max-width: 760px) { .pro-grid { grid-template-columns: 1fr; } }
+
+  /* PRICING */
+  .price-card {
+    max-width: 420px; margin: 0 auto;
+    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    border: 1px solid var(--line-2); border-radius: 16px; padding: 32px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .price-label { color: var(--accent-2); font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .price-num { font-size: 52px; font-weight: 700; margin: 8px 0; }
+  .price-period { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .price-card ul { text-align: left; padding-left: 22px; color: var(--text); font-size: 14px; line-height: 1.7; margin: 16px 0; }
+  .price-card .cta { display: block; width: 100%; margin-top: 18px; }
+  .price-small { font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+  /* FAQ */
+  .faq-list { max-width: 760px; margin: 0 auto; }
+  .faq-item { border-top: 1px solid var(--line); padding: 14px 0; }
+  .faq-item:last-child { border-bottom: 1px solid var(--line); }
+  .faq-item summary {
+    cursor: pointer; font-weight: 600; font-size: 15px; color: var(--text);
+    list-style: none; display: flex; justify-content: space-between; align-items: center;
+  }
+  .faq-item summary::after { content: '+'; color: var(--muted); font-size: 18px; }
+  .faq-item[open] summary::after { content: '−'; }
+  .faq-item p { color: var(--muted); margin: 10px 0 0; font-size: 14px; line-height: 1.6; }
+
+  /* FOOTER */
+  footer.lp-foot {
+    border-top: 1px solid var(--line); padding: 28px 0;
+    color: var(--muted); font-size: 13px;
+  }
+  footer.lp-foot .row {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  }
+  footer.lp-foot a { color: var(--muted); text-decoration: none; }
+  footer.lp-foot a:hover { color: var(--text); }
+  footer.lp-foot .links { display: flex; gap: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="lp-nav" aria-label="Primary">
+  <a class="brand" href="/">
+    <img src="/icon-192.svg" alt="Physics Sandbox" width="28" height="28" />
+    <span class="title">Physics Sandbox</span>
+    <span class="by">by Stacklis</span>
+  </a>
+  <div class="lp-nav-links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://buy.stripe.com/REPLACE_WITH_REAL_LINK" target="_blank" rel="noopener" class="btn-buy">Get Pro — $9 →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero lp">
+  <h1>Learn physics by <span class="accent">playing</span>.</h1>
+  <p class="lede">Interactive 2D physics simulator with real-time readouts and four knowledge levels. Drag to spawn. Watch the math happen live.</p>
+  <div class="cta-row">
+    <a class="cta primary" href="/app/" target="_blank" rel="noopener">Try free →</a>
+    <a class="cta" href="https://buy.stripe.com/REPLACE_WITH_REAL_LINK" target="_blank" rel="noopener">Get Physics Sandbox — $9 →</a>
+  </div>
+  <!-- Live embedded demo — embed=1 hides the topbar branding -->
+  <div class="demo-wrap">
+    <iframe src="/app/?embed=1&free=1" title="Physics Sandbox live demo" loading="lazy" allowfullscreen></iframe>
+  </div>
+  <p class="demo-caption">Live demo — drag in empty space to spawn. No sign-in required.</p>
+</header>
+
+<!-- FEATURES -->
+<section class="lp-sect" id="features">
+  <div class="lp">
+    <h2>Three things make it click.</h2>
+    <p class="sect-sub">A real physics engine, live readouts, and explanations that grow with you.</p>
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+        </div>
+        <h3>Drag to spawn</h3>
+        <p>Click and drag in empty space — the size of your drag becomes the size of the body. Boxes, balls, polygons, ropes. Six tools, no menu-diving.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+        </div>
+        <h3>Live physics readouts</h3>
+        <p>Speed, momentum, kinetic and potential energy, angular velocity — for the selected body and the whole system. Watch energy conservation play out in real time.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h12M4 18h8"/></svg>
+        </div>
+        <h3>Four knowledge levels</h3>
+        <p>Curious / Student / University / Expert. Same simulation, different language — from plain English to the impulse-momentum tensor formulation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRO FEATURES -->
+<section class="lp-sect">
+  <div class="lp">
+    <h2>What you get with Pro</h2>
+    <p class="sect-sub">Two unlocks. One price. No subscription.</p>
+    <div class="pro-grid">
+      <div class="pro-card">
+        <h3>Save your scenes</h3>
+        <p>Build something interesting? Save the world to a JSON file and reload it later — keep your demos, your puzzles, your "I broke physics" moments. Scenes are yours, stored locally.</p>
+      </div>
+      <div class="pro-card">
+        <h3>Export derivations</h3>
+        <p>Every concept you encounter while playing exports as a printable HTML doc — university and expert-level explanations with full formula derivations, ready to study or share.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="lp-sect" id="pricing">
+  <div class="lp">
+    <h2>Pricing</h2>
+    <p class="sect-sub">Free to use forever. Pro is one payment for the lifetime of the app.</p>
+    <div class="price-card">
+      <div class="price-label">Physics Sandbox Pro</div>
+      <div class="price-num">$9 <span class="price-period">one-time</span></div>
+      <ul>
+        <li>Save scenes to a file</li>
+        <li>Reload saved scenes anywhere</li>
+        <li>Export encountered concepts as a printable doc</li>
+        <li>All future v1 updates included</li>
+        <li>14-day refund, no questions</li>
+        <li>Works fully offline</li>
+      </ul>
+      <a class="cta primary" href="https://buy.stripe.com/REPLACE_WITH_REAL_LINK" target="_blank" rel="noopener">Get Pro — $9 one-time →</a>
+      <p class="price-small">Secure checkout via Stripe. The free edition has every simulation feature.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="lp-sect" id="faq">
+  <div class="lp">
+    <h2>Questions</h2>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>What devices does it run on?</summary>
+        <p>Any modern desktop or mobile browser — Chrome, Firefox, Safari, Edge. There's also an Android app via Google Play (coming v1.1) that wraps the same web build.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it work offline?</summary>
+        <p>Yes — install it as a PWA ("Add to Home Screen" on mobile, or the install icon in your desktop browser's address bar) and it runs completely locally with no network needed.</p>
+      </details>
+      <details class="faq-item">
+        <summary>When is the Android app available?</summary>
+        <p>Coming as v1.1 on Google Play. Until then, the PWA installs as a home-screen app on Android via Chrome — tap the three-dot menu and choose "Install app" or "Add to Home Screen."</p>
+      </details>
+      <details class="faq-item">
+        <summary>What's the refund policy?</summary>
+        <p>Full refund within 14 days, no questions asked. Email support@stacklis.com with your Stripe receipt and the refund goes through within a business day.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is there a classroom or site license?</summary>
+        <p>The $9 one-time covers personal use across your own devices. For classroom or school-wide deployments, email support@stacklis.com — we're happy to work something out, including teacher comp licenses.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What data do you collect?</summary>
+        <p>None. No analytics, no tracking, no telemetry. Pro state lives in your browser's localStorage. Stripe handles payment and never shares card data with us. See the <a href="/privacy.html">privacy policy</a> for full details.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="lp-foot">
+  <div class="row">
+    <div>© 2026 Stacklis · Physics Sandbox</div>
+    <div class="links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/app/">App</a>
+      <a href="https://github.com/stacklis/physics-sandbox" rel="noopener">GitHub</a>
+      <a href="https://stacklis.com" rel="noopener">Stacklis</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

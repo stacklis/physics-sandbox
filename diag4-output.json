@@ -1,0 +1,194 @@
+{
+  "cur 412x915 portrait": {
+    "dims": {
+      "w": 412,
+      "h": 915,
+      "cw": 412,
+      "ch": 915
+    },
+    "mq": {
+      "max1024": true,
+      "min1025": false,
+      "landscape": false,
+      "maxh600": false,
+      "landscapeMobileFull": false
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "portrait-mobile",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "flex",
+      "position": "fixed",
+      "top": "855px",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "0px",
+      "width": "412px",
+      "height": "60px",
+      "flexDirection": "row"
+    }
+  },
+  "cur 915x412 lanscp": {
+    "dims": {
+      "w": 915,
+      "h": 412,
+      "cw": 915,
+      "ch": 412
+    },
+    "mq": {
+      "max1024": true,
+      "min1025": false,
+      "landscape": true,
+      "maxh600": true,
+      "landscapeMobileFull": true
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "landscape-mobile",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "flex",
+      "position": "fixed",
+      "top": "0px",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "875px",
+      "width": "40px",
+      "height": "412px",
+      "flexDirection": "column"
+    }
+  },
+  "cur 915x600 lanscp-edge": {
+    "dims": {
+      "w": 915,
+      "h": 600,
+      "cw": 915,
+      "ch": 600
+    },
+    "mq": {
+      "max1024": true,
+      "min1025": false,
+      "landscape": true,
+      "maxh600": true,
+      "landscapeMobileFull": true
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "landscape-mobile",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "flex",
+      "position": "fixed",
+      "top": "0px",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "875px",
+      "width": "40px",
+      "height": "600px",
+      "flexDirection": "column"
+    }
+  },
+  "cur 915x601 lanscp-over": {
+    "dims": {
+      "w": 915,
+      "h": 601,
+      "cw": 915,
+      "ch": 601
+    },
+    "mq": {
+      "max1024": true,
+      "min1025": false,
+      "landscape": true,
+      "maxh600": false,
+      "landscapeMobileFull": false
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "portrait-mobile",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "flex",
+      "position": "fixed",
+      "top": "541px",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "0px",
+      "width": "915px",
+      "height": "60px",
+      "flexDirection": "row"
+    }
+  },
+  "cur 1024x768": {
+    "dims": {
+      "w": 1024,
+      "h": 768,
+      "cw": 1024,
+      "ch": 768
+    },
+    "mq": {
+      "max1024": true,
+      "min1025": false,
+      "landscape": true,
+      "maxh600": false,
+      "landscapeMobileFull": false
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "portrait-mobile",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "flex",
+      "position": "fixed",
+      "top": "708px",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "0px",
+      "width": "1024px",
+      "height": "60px",
+      "flexDirection": "row"
+    }
+  },
+  "cur 1025x768": {
+    "dims": {
+      "w": 1025,
+      "h": 768,
+      "cw": 1025,
+      "ch": 768
+    },
+    "mq": {
+      "max1024": false,
+      "min1025": true,
+      "landscape": true,
+      "maxh600": false,
+      "landscapeMobileFull": false
+    },
+    "bodyDataset": {
+      "activeTab": "tools",
+      "sheetOpen": "false",
+      "layoutMode": "desktop",
+      "sheetHeight": "mid"
+    },
+    "tabbar": {
+      "display": "none",
+      "position": "fixed",
+      "top": "auto",
+      "right": "0px",
+      "bottom": "0px",
+      "left": "0px",
+      "width": "auto",
+      "height": "60px",
+      "flexDirection": "row"
+    }
+  }
+}
