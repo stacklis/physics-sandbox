@@ -448,6 +448,8 @@ const state = {
   panDrag: null,
   // camera lock: body to follow smoothly (null = unlocked)
   cameraLock: null,
+  // current pointer position in screen coords (for crosshair)
+  pointerPos: null,
   };
 
 /* =========================== DESTRUCTION SYSTEM =========================== */
@@ -763,6 +765,7 @@ canvas.addEventListener('pointermove', (ev) => {
 
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
+  state.pointerPos = cp; // track for crosshair + hover
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
     // Track mouse velocity for throw force calculation using rolling average
@@ -1149,6 +1152,9 @@ function render() {
   ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
+  // axes (world origin X/Y lines)
+  drawAxes();
+
   // bodies
   for (const b of world.bodies) drawBody(b);
 
@@ -1205,6 +1211,57 @@ function drawGrid() {
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
+}
+
+// World-space X and Y axes through the origin — only drawn when visible.
+function drawAxes() {
+  const ox = camera.x; // screen x of world origin
+  const oy = camera.y; // screen y of world origin
+  const pad = 40;
+
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.lineWidth = 1;
+
+  // X axis — horizontal line at world y=0
+  if (oy >= -pad && oy <= cssH + pad) {
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.35)';
+    ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(cssW, oy); ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 120, 120, 0.7)';
+    ctx.fillText('X', cssW - 18, oy - 5);
+    // Tick marks every 1m (or 5m when zoomed out)
+    const step = camera.scale >= 30 ? 1 : 5;
+    const sPx = step * camera.scale;
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.25)';
+    ctx.fillStyle   = 'rgba(255, 140, 140, 0.5)';
+    for (let sx = ((camera.x % sPx) + sPx) % sPx; sx < cssW; sx += sPx) {
+      ctx.beginPath(); ctx.moveTo(sx, oy - 4); ctx.lineTo(sx, oy + 4); ctx.stroke();
+      const wx = Math.round(screenToWorld(sx, oy).x / step) * step;
+      if (wx !== 0) ctx.fillText(wx, sx + 2, oy + 13);
+    }
+  }
+
+  // Y axis — vertical line at world x=0
+  if (ox >= -pad && ox <= cssW + pad) {
+    ctx.strokeStyle = 'rgba(100, 140, 255, 0.35)';
+    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, cssH); ctx.stroke();
+    ctx.fillStyle = 'rgba(120, 160, 255, 0.7)';
+    ctx.fillText('Y', ox + 5, 14);
+    const step = camera.scale >= 30 ? 1 : 5;
+    const sPx = step * camera.scale;
+    ctx.strokeStyle = 'rgba(100, 140, 255, 0.25)';
+    ctx.fillStyle   = 'rgba(130, 160, 255, 0.5)';
+    for (let sy = ((camera.y % sPx) + sPx) % sPx; sy < cssH; sy += sPx) {
+      ctx.beginPath(); ctx.moveTo(ox - 4, sy); ctx.lineTo(ox + 4, sy); ctx.stroke();
+      const wy = Math.round(screenToWorld(ox, sy).y / step) * step;
+      if (wy !== 0) ctx.fillText(wy, ox + 6, sy + 4);
+    }
+  }
+
+  // Origin dot
+  if (ox >= 0 && ox <= cssW && oy >= 0 && oy <= cssH) {
+    ctx.fillStyle = 'rgba(200, 220, 255, 0.6)';
+    ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 // Speed → color: blue (slow) → cyan → green → yellow → red (fast).
@@ -1363,138 +1420,149 @@ function applyTransform(b, local) {
                   local.x * sin + local.y * cos + b.position.y);
 }
 
+const SPAWN_TOOLS = new Set(['box','circle','polygon','triangle','wall','rope']);
+
 function drawToolOverlay() {
-  // Spawn drag preview with glow - thinner, sleeker outlines matching shape geometry
+  const maxSize = getMaxObjectSize();
+
+  // ── Spawn preview ──────────────────────────────────────────────────────────
+  // Dimensions are computed identically to finishSpawn so the preview
+  // exactly matches the spawned body.
   if (state.dragStart && state.dragCurrent) {
     const a = state.dragStart, b = state.dragCurrent;
-    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-    const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
-    
-    ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
-    ctx.fillStyle = 'rgba(0, 229, 160, 0.06)';
-    ctx.setLineDash([4, 3]);
+    const ws = screenToWorld(a.x, a.y);
+    const we = screenToWorld(b.x, b.y);
+    const dx = we.x - ws.x, dy = we.y - ws.y;
+    const dragLen = Math.hypot(dx, dy);
+    const scx = (a.x + b.x) / 2, scy = (a.y + b.y) / 2; // screen centre
+
+    const isWall = state.tool === 'wall';
+    ctx.strokeStyle = isWall ? 'rgba(150,160,200,0.75)' : 'rgba(0,229,160,0.8)';
+    ctx.fillStyle   = isWall ? 'rgba(74,80,104,0.12)'   : 'rgba(0,229,160,0.08)';
+    ctx.setLineDash([5, 3]);
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    let label = '';
+
     ctx.beginPath();
-    
     switch (state.tool) {
-      case 'circle':
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        break;
-        
-      case 'triangle': {
-        // Equilateral triangle pointing up, sized by drag radius
-        const triR = Math.max(14, r);
-        for (let i = 0; i < 3; i++) {
-          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 3);
-          const px = cx + Math.cos(angle) * triR;
-          const py = cy + Math.sin(angle) * triR;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
+      case 'box': {
+        // Spawn: w = min(max, abs(dx)*2), centered at midpoint
+        const wm = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1));
+        const hm = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1));
+        const spx = wm * camera.scale / 2, spy = hm * camera.scale / 2;
+        ctx.roundRect(scx - spx, scy - spy, wm * camera.scale, hm * camera.scale, 3);
+        label = `${wm.toFixed(1)} × ${hm.toFixed(1)} m`;
         break;
       }
-      
+      case 'circle': {
+        const rm = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
+        ctx.arc(scx, scy, rm * camera.scale, 0, Math.PI * 2);
+        label = `r ${rm.toFixed(2)} m`;
+        break;
+      }
+      case 'triangle':
       case 'polygon': {
-        // Pentagon preview (polygon spawns 5-8 sides randomly)
-        const polyR = Math.max(14, r);
-        const sides = 5;
+        const sides = state.tool === 'triangle' ? 3 : 5;
+        const rm = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
+        const rs = rm * camera.scale;
         for (let i = 0; i < sides; i++) {
-          const angle = -Math.PI / 2 + (i * 2 * Math.PI / sides);
-          const px = cx + Math.cos(angle) * polyR;
-          const py = cy + Math.sin(angle) * polyR;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          const ang = -Math.PI / 2 + (i * 2 * Math.PI / sides);
+          const px = scx + Math.cos(ang) * rs, py = scy + Math.sin(ang) * rs;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
+        label = `r ${rm.toFixed(2)} m`;
         break;
       }
-      
-      case 'rope': {
-        // Rope preview - a dotted line from start to end
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        // Draw small circles at endpoints
-        ctx.moveTo(a.x + 6, a.y);
-        ctx.arc(a.x, a.y, 6, 0, Math.PI * 2);
-        ctx.moveTo(b.x + 6, b.y);
-        ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
-        break;
-      }
-      
       case 'wall': {
-        // Wall preview - rectangle with no rounded corners, different color
-        ctx.strokeStyle = 'rgba(74, 80, 104, 0.8)';
-        ctx.fillStyle = 'rgba(74, 80, 104, 0.1)';
-        ctx.shadowColor = 'rgba(74, 80, 104, 0.3)';
+        const wm = Math.min(maxSize.wallDim, Math.max(0.5, Math.abs(dx) || 2));
+        const hm = Math.min(maxSize.wallDim, Math.max(0.2, Math.abs(dy) || 0.4));
         const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-        const w = Math.max(20, Math.abs(b.x - a.x));
-        const h = Math.max(10, Math.abs(b.y - a.y));
-        ctx.rect(x0, y0, w, h);
+        ctx.rect(x0, y0, Math.max(20, Math.abs(b.x - a.x)), Math.max(10, Math.abs(b.y - a.y)));
+        label = `${wm.toFixed(1)} × ${hm.toFixed(1)} m`;
         break;
       }
-      
-      case 'box':
-      default: {
-        // Box preview - rectangle with slight rounding
-        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-        const w = Math.max(20, Math.abs(b.x - a.x));
-        const h = Math.max(20, Math.abs(b.y - a.y));
-        ctx.roundRect(x0, y0, w, h, 2);
+      case 'rope': {
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.moveTo(a.x + 5, a.y); ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+        ctx.moveTo(b.x + 5, b.y); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+        label = `${dragLen.toFixed(2)} m`;
         break;
       }
     }
-    
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
+
+    // Spawn anchor dot at drag start
+    ctx.fillStyle = 'rgba(0,229,160,0.9)';
+    ctx.beginPath(); ctx.arc(a.x, a.y, 3, 0, Math.PI * 2); ctx.fill();
+
+    // Dimension label
+    if (label) {
+      ctx.font = '11px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(200,220,255,0.85)';
+      ctx.fillText(label, scx, scy - (state.tool === 'rope' ? 14 : Math.max(20, dragLen * camera.scale / 2 + 14)));
+      ctx.textAlign = 'left';
+    }
   }
-  
-  // Spring drag preview with glow
+
+  // ── Crosshair (spawn tools only, when not dragging) ────────────────────────
+  const isCrosshairTool = SPAWN_TOOLS.has(state.tool);
+  if (isCrosshairTool && state.pointerPos && !state.dragStart) {
+    const { x, y } = state.pointerPos;
+    const arm = 10, gap = 4;
+    ctx.strokeStyle = 'rgba(0,229,160,0.6)';
+    ctx.lineWidth = 1;
+    // horizontal
+    ctx.beginPath();
+    ctx.moveTo(x - arm - gap, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + gap, y);       ctx.lineTo(x + arm + gap, y);
+    // vertical
+    ctx.moveTo(x, y - arm - gap); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + gap);       ctx.lineTo(x, y + arm + gap);
+    ctx.stroke();
+    // centre dot
+    ctx.fillStyle = 'rgba(0,229,160,0.9)';
+    ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+    // world-coord readout
+    const wp = screenToWorld(x, y);
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(150,180,220,0.7)';
+    ctx.fillText(`${wp.x.toFixed(1)}, ${wp.y.toFixed(1)}`, x + 12, y - 6);
+  }
+
+  // ── Spring preview ─────────────────────────────────────────────────────────
   if (state.springStart && state.dragCurrent) {
-  const wA = applyTransform(state.springStart, state.springStartLocal);
-  const a = worldToScreen(wA.x, wA.y);
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.5)';
-  ctx.shadowBlur = 10;
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = '#00ffc8';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
+    const wA = applyTransform(state.springStart, state.springStartLocal);
+    const a = worldToScreen(wA.x, wA.y);
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#00ffc8';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
+    ctx.setLineDash([]);
   }
   
-  // Impulse drag preview with glow
+  // ── Impulse preview ────────────────────────────────────────────────────────
   if (state.impulseBody && state.impulseStart && state.impulseEnd) {
-  const a = state.impulseStart, b = state.impulseEnd;
-  ctx.shadowColor = 'rgba(255, 196, 106, 0.5)';
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-  drawArrowhead(a, b, '#ffc46a');
-  ctx.shadowBlur = 0;
+    const a = state.impulseStart, b = state.impulseEnd;
+    ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    drawArrowhead(a, b, '#ffc46a');
   }
-  
-  // Slice stroke preview with glow
+
+  // ── Slice preview ──────────────────────────────────────────────────────────
   if (state.slicePath && state.slicePath.length > 1) {
-  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = '#ff6b9d';
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
-  for (let i = 1; i < state.slicePath.length; i++) {
-  ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
-  }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#ff6b9d';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
+    for (let i = 1; i < state.slicePath.length; i++) ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
+    ctx.stroke();
   }
 }
 
@@ -1714,7 +1782,9 @@ document.querySelectorAll('.tool').forEach(el => {
     state.activeMaterial = null;
     document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
     // Set canvas cursor for pan tool; clear it for all others
-    canvas.style.cursor = (state.tool === 'pan') ? 'grab' : '';
+    if (state.tool === 'pan') canvas.style.cursor = 'grab';
+    else if (SPAWN_TOOLS.has(state.tool)) canvas.style.cursor = 'none'; // use canvas crosshair
+    else canvas.style.cursor = '';
     triggerHaptic('light');
   });
 });
