@@ -1,9 +1,9 @@
 // app3d.js — 3D mode: input, drag-spawn, basic action tools, main loop.
 'use strict';
 import * as THREE from 'three';
-import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=68';
-import { Renderer3D } from './render3d.js?v=68';
-import { getConcept } from './education3d.js?v=68';
+import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=71';
+import { Renderer3D } from './render3d.js?v=71';
+import { getConcept } from './education3d.js?v=71';
 
 const PALETTE = ['#00e5a0', '#ff6b9d', '#6b8bff', '#ffc46a', '#00ffc8', '#ff8bb8', '#a0ffdb', '#ffb366', '#c9a0ff'];
 let palIdx = 0;
@@ -36,11 +36,12 @@ export async function init3D(opts) {
   world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 80 });
   renderer = new Renderer3D({ canvas, hostEl });
 
-  // Static playfield — floor + side walls. Open front/back so camera can orbit freely.
+  // Static playfield — matches render3d.js dimensions (D=50, floorZ=5).
   const W = renderer.playfield.W, H = renderer.playfield.H, D = renderer.playfield.D;
-  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: 0 }, size: { x: W, y: 0.4, z: D } }));           // floor
-  world.addBody(makeWall({ position: { x: -W / 2 - 0.15, y: H / 2, z: 0 }, size: { x: 0.3, y: H, z: D } })); // left
-  world.addBody(makeWall({ position: { x:  W / 2 + 0.15, y: H / 2, z: 0 }, size: { x: 0.3, y: H, z: D } })); // right
+  const FZ = 5; // must match floorZ in render3d.js
+  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: FZ }, size: { x: W, y: 0.4, z: D } }));
+  world.addBody(makeWall({ position: { x: -W / 2 - 0.15, y: H / 2, z: FZ }, size: { x: 0.3, y: H, z: D } }));
+  world.addBody(makeWall({ position: { x:  W / 2 + 0.15, y: H / 2, z: FZ }, size: { x: 0.3, y: H, z: D } }));
 
   bindToolbar();
   bindCanvas();

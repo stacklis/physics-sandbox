@@ -22,17 +22,21 @@ export class Renderer3D {
 
     // Tone mapping for richer visuals.
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.6;
 
-    // Lights.
-    this.scene.add(new THREE.HemisphereLight(0x99aaff, 0x222233, 0.55));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(8, 14, 10);
+    // Lights — brighter ambient + stronger key + fill.
+    this.scene.add(new THREE.HemisphereLight(0xaabbff, 0x334466, 1.2));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(8, 16, 14);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = -12; key.shadow.camera.right = 12;
-    key.shadow.camera.top = 12; key.shadow.camera.bottom = -12;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -16; key.shadow.camera.right = 16;
+    key.shadow.camera.top = 16; key.shadow.camera.bottom = -16;
     this.scene.add(key);
+    // Fill light from the front to lift shadows.
+    const fill = new THREE.DirectionalLight(0x6688bb, 0.8);
+    fill.position.set(-4, 6, 20);
+    this.scene.add(fill);
 
     // Playfield: floor + side walls visible, front+back invisible Z-clamps.
     this._buildPlayfield();
@@ -56,29 +60,39 @@ export class Renderer3D {
   }
 
   _buildPlayfield() {
-    const W = 24, H = 9, D = 12; // wide open arena — no back wall
+    // Floor extends deep toward camera (camera at z=22) so no dark gap shows.
+    const W = 24, H = 9, D = 50;
+    const floorZ = 5; // shift center toward camera so near edge ~z=30
     this.playfield = { W, H, D };
 
-    const floorMat = new THREE.MeshStandardMaterial({ color: '#252a38', roughness: 0.9 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: '#252a38', roughness: 0.85 });
     const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.4, D), floorMat);
-    floor.position.set(0, -0.2, 0);
+    floor.position.set(0, -0.2, floorZ);
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Grid overlay on the floor surface.
-    const grid = new THREE.GridHelper(W, 24, 0x2a3050, 0x22273a);
-    grid.position.y = 0.001;
-    this.scene.add(grid);
+    // Grid covers the full floor surface — same size and position as the mesh.
+    const gridDivisions = 50;
+    const gridMain = new THREE.GridHelper(D, gridDivisions, 0x2a3255, 0x1e2440);
+    gridMain.rotation.y = Math.PI / 2; // rotate so divisions align with Z-axis
+    gridMain.position.set(0, 0.001, floorZ);
+    this.scene.add(gridMain);
+    // Crosshatch — second grid rotated 90° for square cells.
+    const gridCross = new THREE.GridHelper(W, 24, 0x2a3255, 0x1e2440);
+    gridCross.position.set(0, 0.002, floorZ);
+    this.scene.add(gridCross);
 
-    // Side walls — thin, visible only when needed for ball containment.
+    // Side walls — brighter so they're actually visible.
+    const wallMat = new THREE.MeshStandardMaterial({ color: '#2a3045', roughness: 0.85, metalness: 0.05 });
     const sideGeom = new THREE.BoxGeometry(0.3, H, D);
-    const sideL = new THREE.Mesh(sideGeom, new THREE.MeshStandardMaterial({ color: '#1e2230', roughness: 0.95 }));
-    sideL.position.set(-W / 2 - 0.15, H / 2, 0);
+    const sideL = new THREE.Mesh(sideGeom, wallMat);
+    sideL.position.set(-W / 2 - 0.15, H / 2, floorZ);
+    sideL.receiveShadow = true;
+    sideL.castShadow = true;
     this.scene.add(sideL);
     const sideR = sideL.clone();
     sideR.position.x = W / 2 + 0.15;
     this.scene.add(sideR);
-    // No back wall — open arena so objects fall naturally into view.
   }
 
   _onResize() {

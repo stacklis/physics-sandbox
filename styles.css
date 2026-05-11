@@ -2489,3 +2489,24 @@ canvas.panning { cursor: grabbing !important; }
 body[data-mode="2d"] [data-mode-only="3d"] { display: none !important; }
 body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
 
+
+/* ======================= 3D MODE — full-canvas layout ======================= */
+/* Collapse side-panel columns and bottom rows so their borders don't
+   bleed over the WebGL canvas. Canvas-host fills the entire viewport. */
+@media (min-width: 768px) {
+  body[data-mode="3d"] {
+    grid-template-columns: 0 1fr 0 !important;
+    grid-template-rows: 0 1fr 0 !important;
+    grid-template-areas:
+      "main main main"
+      "main main main"
+      "main main main" !important;
+  }
+  body[data-mode="3d"] #toolsPanel,
+  body[data-mode="3d"] #infoOverlay,
+  body[data-mode="3d"] #lessonOverlay {
+    display: none !important;
+  }
+  body[data-mode="3d"] .topbar { display: none !important; }
+}
+body[data-mode="3d"] .tabbar { display: none !important; }
