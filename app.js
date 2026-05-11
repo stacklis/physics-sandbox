@@ -36,7 +36,7 @@ async function setPhysicsMode(next) {
   if (next === '3d') {
     document.body.dataset.mode = '3d';
     try {
-      const mod = await import('./app3d.js?v=66');
+      const mod = await import('./app3d.js?v=67');
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -55,7 +55,7 @@ async function setPhysicsMode(next) {
     document.body.dataset.mode = '2d';
     if (_3dHandle) {
       try {
-        const mod = await import('./app3d.js?v=66');
+        const mod = await import('./app3d.js?v=67');
         mod.teardown3D();
       } catch {}
       _3dHandle = null;
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
     _setToggleUI('3d');
-    import('./app3d.js?v=66').then(async mod => {
+    import('./app3d.js?v=67').then(async mod => {
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // by stopping propagation). Re-check Pro here so non-Pro users hit the
     // upsell instead of getting a free download.
     if (!Pro.isActive()) { openUpgradeModal(); return; }
-    const mod = await import('./app3d.js?v=66');
+    const mod = await import('./app3d.js?v=67');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       return;
     }
-    const mod = await import('./app3d.js?v=66');
+    const mod = await import('./app3d.js?v=67');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
     finally { fileInput.value = ''; }
@@ -2773,19 +2773,28 @@ if (window.PSandboxScene) {
 // keyboard
 window.addEventListener('keydown', (ev) => {
   if (ev.target.matches('input, textarea')) return;
-  const map = { '1':'box', '2':'circle', '3':'polygon', '4':'wall',
-                '5':'triangle', '6':'rope',
-                'g':'grab', 'G':'grab', 's':'spring', 'S':'spring',
-                'p':'impulse', 'P':'impulse', 'x':'delete', 'X':'delete',
-                'n':'pin', 'N':'pin', 'k':'slice', 'K':'slice' };
+  const map2d = { '1':'box', '2':'circle', '3':'polygon', '4':'wall',
+                  '5':'triangle', '6':'rope',
+                  'g':'grab', 'G':'grab', 's':'spring', 'S':'spring',
+                  'p':'impulse', 'P':'impulse', 'x':'delete', 'X':'delete',
+                  'n':'pin', 'N':'pin', 'k':'slice', 'K':'slice' };
+  const map3d = { '1':'cube', '2':'sphere', '3':'cylinder', '4':'capsule',
+                  '5':'prism', '6':'wall',
+                  'g':'grab', 'G':'grab', 'x':'delete', 'X':'delete' };
   if (ev.shiftKey && /[1-4]/.test(ev.key)) {
     const lv = parseInt(ev.key, 10);
     document.querySelector(`#levelSegment .seg[data-level="${lv}"]`).click();
     return;
   }
-  if (map[ev.key]) {
-    document.querySelector(`.tool[data-tool="${map[ev.key]}"]`).click();
-  } else if (ev.key === ' ') {
+  if (getPhysicsMode() === '3d') {
+    if (map3d[ev.key]) {
+      const btn = document.querySelector(`.tool[data-tool3d="${map3d[ev.key]}"]`);
+      if (btn) btn.click();
+    }
+  } else if (map2d[ev.key]) {
+    document.querySelector(`.tool[data-tool="${map2d[ev.key]}"]`).click();
+  }
+  if (ev.key === ' ') {
     ev.preventDefault();
     ui.pauseBtn.click();
   } else if (ev.key === 'r' || ev.key === 'R') {

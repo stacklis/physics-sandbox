@@ -24,7 +24,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=66" />
+<link rel="stylesheet" href="../styles.css?v=67" />
 <script type="importmap">
 {
   "imports": {
@@ -352,20 +352,28 @@
 
 <dialog id="helpDialog" class="help">
   <h2>Keyboard</h2>
-  <ul>
+  <ul data-mode-only="2d">
     <li><kbd>1</kbd>–<kbd>6</kbd> spawn tools (box, ball, polygon, wall, triangle, rope)</li>
     <li><kbd>G</kbd> grab · <kbd>S</kbd> spring · <kbd>P</kbd> push · <kbd>X</kbd> delete · <kbd>N</kbd> pin · <kbd>K</kbd> slice</li>
     <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
     <li><kbd>I</kbd> readings · <kbd>L</kbd> educator · <kbd>T</kbd> help · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> level</li>
-    <li>Drag in empty space to spawn sized objects</li>
-    <li>Right-click drag to pan, scroll to zoom</li>
+    <li>Drag in empty space to spawn a sized object</li>
+    <li>Right-click drag to pan · scroll to zoom</li>
+  </ul>
+  <ul data-mode-only="3d">
+    <li><kbd>1</kbd> cube · <kbd>2</kbd> sphere · <kbd>3</kbd> cylinder · <kbd>4</kbd> capsule · <kbd>5</kbd> prism · <kbd>6</kbd> wall</li>
+    <li><kbd>G</kbd> grab · <kbd>X</kbd> delete</li>
+    <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
+    <li><kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> knowledge level</li>
+    <li>Drag in empty space to spawn a sized object</li>
+    <li>Click and drag a body to grab · release to throw</li>
   </ul>
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="../engine.js?v=66"></script>
-<script src="../education.js?v=66"></script>
-<script src="../app.js?v=66"></script>
-<script type="module" src="../layout.js?v=66"></script>
+<script src="../engine.js?v=67"></script>
+<script src="../education.js?v=67"></script>
+<script src="../app.js?v=67"></script>
+<script type="module" src="../layout.js?v=67"></script>
 </body>
 </html>

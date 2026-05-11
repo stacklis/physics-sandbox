@@ -1,9 +1,9 @@
 // app3d.js — 3D mode: input, drag-spawn, basic action tools, main loop.
 'use strict';
 import * as THREE from 'three';
-import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=66';
-import { Renderer3D } from './render3d.js?v=66';
-import { getConcept } from './education3d.js?v=66';
+import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=67';
+import { Renderer3D } from './render3d.js?v=67';
+import { getConcept } from './education3d.js?v=67';
 
 const PALETTE = ['#00e5a0', '#ff6b9d', '#6b8bff', '#ffc46a', '#00ffc8', '#ff8bb8', '#a0ffdb', '#ffb366', '#c9a0ff'];
 let palIdx = 0;
