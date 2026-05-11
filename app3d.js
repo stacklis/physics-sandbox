@@ -64,6 +64,7 @@ function bindCanvas() {
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('contextmenu', e => e.preventDefault()); // suppress browser right-click menu
 }
 
 // Project a screen point onto a horizontal Y-plane (default y=2, above the floor).
@@ -106,8 +107,8 @@ function pickBody(ev) {
 }
 
 function onDown(ev) {
-  // Track tap for body selection (left pointer button only).
-  if (ev.button === 0) {
+  // Track pointer-down for tap detection on both left (select) and right (revert to grab).
+  if (ev.button === 0 || ev.button === 2) {
     pointerDownTime = performance.now();
     pointerDownPos = { x: ev.clientX, y: ev.clientY };
   }
@@ -160,14 +161,21 @@ function onUp(ev) {
     return;
   }
 
-  // Tap detection: left button, < 250 ms, < 5 px movement → select body for readings.
-  if (ev.button === 0 && pointerDownPos) {
+  // Tap detection: < 250 ms, < 5 px movement.
+  if (pointerDownPos) {
     const elapsed = performance.now() - pointerDownTime;
     const moved = Math.hypot(ev.clientX - pointerDownPos.x, ev.clientY - pointerDownPos.y);
     if (elapsed < 250 && moved < 5) {
-      const rb = pickBody(ev);
-      selectedBody = rb || null;
-      highlightSelected();
+      if (ev.button === 0) {
+        // Left tap → select body for live readings.
+        const rb = pickBody(ev);
+        selectedBody = rb || null;
+        highlightSelected();
+      } else if (ev.button === 2) {
+        // Right tap → revert to grab tool.
+        const btn = document.querySelector('.tool[data-tool3d="grab"]');
+        if (btn) btn.click();
+      }
     }
     pointerDownPos = null;
   }
