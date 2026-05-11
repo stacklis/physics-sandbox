@@ -56,52 +56,29 @@ export class Renderer3D {
   }
 
   _buildPlayfield() {
-    const W = 16, H = 9, D = 2; // matches 2D playfield aspect roughly
+    const W = 24, H = 9, D = 12; // wide open arena — no back wall
     this.playfield = { W, H, D };
 
-    const floorGeom = new THREE.BoxGeometry(W, 0.4, D);
-    const floorMat = new THREE.MeshStandardMaterial({ color: '#2a2f3d', roughness: 0.85 });
-    const floor = new THREE.Mesh(floorGeom, floorMat);
+    const floorMat = new THREE.MeshStandardMaterial({ color: '#252a38', roughness: 0.9 });
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(W, 0.4, D), floorMat);
     floor.position.set(0, -0.2, 0);
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Subtle grid overlay on the floor surface.
-    const grid = new THREE.GridHelper(16, 16, 0x2a3050, 0x232840);
+    // Grid overlay on the floor surface.
+    const grid = new THREE.GridHelper(W, 24, 0x2a3050, 0x22273a);
     grid.position.y = 0.001;
     this.scene.add(grid);
 
-    const sideGeom = new THREE.BoxGeometry(0.4, H, D);
-    const sideL = new THREE.Mesh(sideGeom, floorMat);
-    sideL.position.set(-W / 2 - 0.2, H / 2, 0);
-    sideL.receiveShadow = true;
+    // Side walls — thin, visible only when needed for ball containment.
+    const sideGeom = new THREE.BoxGeometry(0.3, H, D);
+    const sideL = new THREE.Mesh(sideGeom, new THREE.MeshStandardMaterial({ color: '#1e2230', roughness: 0.95 }));
+    sideL.position.set(-W / 2 - 0.15, H / 2, 0);
     this.scene.add(sideL);
     const sideR = sideL.clone();
-    sideR.position.x = W / 2 + 0.2;
+    sideR.position.x = W / 2 + 0.15;
     this.scene.add(sideR);
-
-    // Back wall — visible faint grid for depth cue.
-    const backGeom = new THREE.PlaneGeometry(W, H);
-    const backMat = new THREE.MeshStandardMaterial({
-      color: '#1f2330', roughness: 0.95,
-      onBeforeCompile: shader => {
-        // Subtle grid via fragment shader. The grid additive must run AFTER
-        // <output_fragment> writes gl_FragColor — otherwise the chunk
-        // overwrites our addition.
-        shader.fragmentShader = shader.fragmentShader.replace(
-          '#include <output_fragment>',
-          `#include <output_fragment>
-           {
-             vec2 g = abs(fract(vUv * vec2(16.0, 9.0)) - 0.5);
-             float line = smoothstep(0.46, 0.5, max(g.x, g.y));
-             gl_FragColor.rgb += vec3(0.06) * line;
-           }`
-        );
-      }
-    });
-    const back = new THREE.Mesh(backGeom, backMat);
-    back.position.set(0, H / 2, -D / 2 - 0.01);
-    this.scene.add(back);
+    // No back wall — open arena so objects fall naturally into view.
   }
 
   _onResize() {

@@ -25,7 +25,7 @@ let world, renderer, raf, lastT;
 let canvas, hostEl;
 let tool = 'grab';
 let dragStart = null, dragNow = null; // screen px
-let dragSpawnZ = 0;
+const SPAWN_Y = 3; // height above floor where objects spawn
 let grabbed = null, grabOffset = null, grabPlane = null;
 let selectedBody = null;
 let pointerDownTime = 0, pointerDownPos = null;
@@ -36,13 +36,11 @@ export async function init3D(opts) {
   world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 80 });
   renderer = new Renderer3D({ canvas, hostEl });
 
-  // Static playfield — floor + side walls + invisible Z-clamps.
+  // Static playfield — floor + side walls. Open front/back so camera can orbit freely.
   const W = renderer.playfield.W, H = renderer.playfield.H, D = renderer.playfield.D;
-  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: 0 }, size: { x: W, y: 0.4, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: -W / 2 - 0.2, y: H / 2, z: 0 }, size: { x: 0.4, y: H, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: W / 2 + 0.2, y: H / 2, z: 0 }, size: { x: 0.4, y: H, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: 0, y: H / 2, z: -D / 2 - 0.2 }, size: { x: W + 1, y: H, z: 0.4 } })); // back
-  world.addBody(makeWall({ position: { x: 0, y: H / 2, z: D / 2 + 0.2 }, size: { x: W + 1, y: H, z: 0.4 } })); // front (invisible)
+  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: 0 }, size: { x: W, y: 0.4, z: D } }));           // floor
+  world.addBody(makeWall({ position: { x: -W / 2 - 0.15, y: H / 2, z: 0 }, size: { x: 0.3, y: H, z: D } })); // left
+  world.addBody(makeWall({ position: { x:  W / 2 + 0.15, y: H / 2, z: 0 }, size: { x: 0.3, y: H, z: D } })); // right
 
   bindToolbar();
   bindCanvas();
@@ -68,7 +66,11 @@ function bindCanvas() {
   canvas.addEventListener('pointercancel', onUp);
 }
 
-function screenToWorldOnPlane(ev, planeZ = 0) {
+// Project a screen point onto a horizontal Y-plane (default y=2, above the floor).
+// Spawning on a Y-plane means x/z come from where the user points,
+// and the spawn height is always above the floor — objects fall correctly
+// regardless of camera angle.
+function screenToWorldOnPlane(ev, spawnY = 2) {
   const r = canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(
     ((ev.clientX - r.left) / r.width) * 2 - 1,
@@ -76,9 +78,14 @@ function screenToWorldOnPlane(ev, planeZ = 0) {
   );
   const ray = new THREE.Raycaster();
   ray.setFromCamera(ndc, renderer.camera);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
+  // Horizontal plane at y = spawnY
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -spawnY);
   const out = new THREE.Vector3();
-  ray.ray.intersectPlane(plane, out);
+  if (!ray.ray.intersectPlane(plane, out)) {
+    // Ray parallel to plane (camera horizontal) — fall back to a point 12 units ahead
+    ray.ray.at(12, out);
+    out.y = spawnY;
+  }
   return out;
 }
 
@@ -166,18 +173,18 @@ function onUp(ev) {
   }
 
   if (!dragStart) return;
-  const start = screenToWorldOnPlane({ clientX: dragStart.x, clientY: dragStart.y }, dragSpawnZ);
-  const end = screenToWorldOnPlane({ clientX: ev.clientX, clientY: ev.clientY }, dragSpawnZ);
-  const dx = end.x - start.x, dy = end.y - start.y;
-  const len = Math.hypot(dx, dy);
-  const cx = (start.x + end.x) / 2, cy = (start.y + end.y) / 2;
-  const jitter = (Math.random() - 0.5) * 0.1;
-  const pos = { x: cx, y: cy, z: dragSpawnZ + jitter };
+  // Project drag onto the horizontal spawn plane — x/z from screen, y fixed above floor.
+  const start = screenToWorldOnPlane({ clientX: dragStart.x, clientY: dragStart.y }, SPAWN_Y);
+  const end   = screenToWorldOnPlane({ clientX: ev.clientX, clientY: ev.clientY }, SPAWN_Y);
+  const dx = end.x - start.x, dz = end.z - start.z;
+  const len = Math.hypot(dx, dz);
+  const cx = (start.x + end.x) / 2, cz = (start.z + end.z) / 2;
+  const pos = { x: cx, y: SPAWN_Y, z: cz };
   try {
     let spec;
     switch (tool) {
       case 'cube': {
-        const size = Math.max(0.3, Math.min(3, Math.max(Math.abs(dx), Math.abs(dy)) || 0.6));
+        const size = Math.max(0.3, Math.min(3, len || 0.6));
         spec = makeCube({ position: pos, size, color: nextColor() });
         break;
       }
@@ -187,27 +194,25 @@ function onUp(ev) {
         break;
       }
       case 'cylinder': {
-        const radius = Math.max(0.2, Math.min(1.2, Math.abs(dx) / 2 || 0.4));
-        const half = Math.max(0.2, Math.min(1.5, Math.abs(dy) / 2 || 0.5));
-        spec = makeCylinder({ position: pos, radius, halfHeight: half, color: nextColor() });
+        const radius = Math.max(0.2, Math.min(1.2, len / 2 || 0.4));
+        spec = makeCylinder({ position: pos, radius, halfHeight: radius * 1.2, color: nextColor() });
         break;
       }
       case 'capsule': {
-        const radius = Math.max(0.15, Math.min(0.8, Math.abs(dx) / 2 || 0.3));
-        const half = Math.max(0.2, Math.min(1.5, Math.abs(dy) / 2 || 0.5));
-        spec = makeCapsule({ position: pos, radius, halfHeight: half, color: nextColor() });
+        const radius = Math.max(0.15, Math.min(0.8, len / 3 || 0.3));
+        spec = makeCapsule({ position: pos, radius, halfHeight: radius * 1.5, color: nextColor() });
         break;
       }
       case 'prism': {
         const radius = Math.max(0.25, Math.min(1.5, len / 2 || 0.5));
         const sides = 5 + ((Math.random() * 4) | 0);
-        spec = makePrism({ position: pos, sides, radius, depth: 0.5, color: nextColor() });
+        spec = makePrism({ position: pos, sides, radius, depth: Math.max(0.3, radius * 0.8), color: nextColor() });
         break;
       }
       case 'wall': {
-        const w = Math.max(0.5, Math.min(8, Math.abs(dx) || 2));
-        const h = Math.max(0.2, Math.min(4, Math.abs(dy) || 0.4));
-        spec = makeWall({ position: pos, size: { x: w, y: h, z: 0.6 } });
+        const w = Math.max(0.5, Math.min(10, Math.abs(dx) || 3));
+        const h = Math.max(0.3, Math.min(5, Math.abs(dz) || 0.5));
+        spec = makeWall({ position: pos, size: { x: w, y: 1.5, z: h } });
         break;
       }
     }
