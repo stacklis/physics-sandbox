@@ -24,7 +24,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=69" />
+<link rel="stylesheet" href="../styles.css?v=70" />
 <script type="importmap">
 {
   "imports": {
@@ -74,6 +74,7 @@
     <button id="loadBtn" class="btn ghost" title="Load scene from a file">Load</button>
     <button id="shareBtn" class="btn ghost" title="Copy a shareable URL to the clipboard">Share</button>
     <button id="derivationsBtn" class="btn ghost locked" title="Download your encountered concepts and derivations as a printable doc (Pro)">Derivations</button>
+    <button id="resetCameraBtn" class="btn ghost" title="Reset camera (Home)">&#x21BA; View</button>
     <button id="resetBtn" class="btn ghost" title="Reset scene">Reset</button>
     <button id="clearBtn" class="btn danger" title="Clear all">Clear</button>
   </div>
@@ -154,6 +155,10 @@
           <button class="tool" data-tool="slice" title="Slice constraints (K)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l8-8M14 10l5-5M11 13l3 3"/></svg>
             <span>Slice</span>
+          </button>
+          <button class="tool" data-tool="pan" title="Pan canvas (middle-mouse or Space+drag)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M12 7V5M12 19v-2M7 12H5M19 12h-2"/><path d="M8.5 8.5L7 7M17 17l-1.5-1.5M15.5 8.5L17 7M7 17l1.5-1.5"/></svg>
+            <span>Pan</span>
           </button>
         </div>
       </div>
@@ -373,9 +378,10 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="../engine.js?v=69"></script>
-<script src="../education.js?v=69"></script>
-<script src="../app.js?v=69"></script>
-<script type="module" src="../layout.js?v=69"></script>
+<button id="zenToggle" class="zen-toggle" title="Toggle zen mode (Z)" aria-label="Toggle zen mode">&#x2922;</button>
+<script src="../engine.js?v=70"></script>
+<script src="../education.js?v=70"></script>
+<script src="../app.js?v=70"></script>
+<script type="module" src="../layout.js?v=70"></script>
 </body>
 </html>

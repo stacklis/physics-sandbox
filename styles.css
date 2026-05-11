@@ -2226,6 +2226,62 @@ body[data-sheet-locked="true"] {
 }
 
 /* =====================================================================
+   ZEN MODE — hides all UI chrome so only the canvas is visible.
+   Toggle with the floating button (bottom-right) or press Z.
+   ===================================================================== */
+.zen-toggle {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 200;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(10, 10, 15, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 0;
+}
+.zen-toggle:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+body.zen-mode .topbar,
+body.zen-mode .panel-host,
+body.zen-mode .tabbar,
+body.zen-mode .hint {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+body.zen-mode .zen-toggle {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+body.zen-mode .canvas-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+/* =====================================================================
+   PAN TOOL — cursor and canvas-panning state styles.
+   ===================================================================== */
+body.space-pan canvas { cursor: grab; }
+body.space-pan.panning canvas,
+canvas.panning { cursor: grabbing !important; }
+
+/* =====================================================================
    TOPBAR OVERFLOW MENU
    - Desktop (>=769px): .topbar-overflow uses display:contents so its
      children flow inline with the topbar exactly as before. The ⋯ button

@@ -426,6 +426,10 @@ const state = {
   grabStrength: 1.0,
   // track grabbed body velocity for throw detection
   grabVelocityHistory: [],
+  // pan drag state: { startX, startY, camX0, camY0 } while panning
+  panDrag: null,
+  // camera lock: body to follow smoothly (null = unlocked)
+  cameraLock: null,
   };
 
 /* =========================== DESTRUCTION SYSTEM =========================== */
@@ -593,6 +597,24 @@ function switchToGrabTool() {
   triggerHaptic('light');
 }
 
+// Space-bar held → temporary pan mode (grab-cursor, then drag to pan).
+// Space still toggles pause on a single tap (via the existing keydown handler).
+// When held and used with drag, the cursor shows grab mode.
+let spaceHeld = false;
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
+    spaceHeld = true;
+    document.body.classList.add('space-pan');
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceHeld = false;
+    document.body.classList.remove('space-pan');
+    if (!state.panDrag) canvas.classList.remove('panning');
+  }
+});
+
 // Right-click: deselect tool and switch to grab
 canvas.addEventListener('contextmenu', (ev) => {
   ev.preventDefault();
@@ -642,10 +664,18 @@ canvas.addEventListener('pointercancel', () => {
 canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
+
+  // Middle-mouse, pan tool, or space+drag → start canvas pan
+  if (ev.button === 1 || state.tool === 'pan' || (spaceHeld && ev.button === 0)) {
+    state.panDrag = { startX: ev.clientX, startY: ev.clientY, camX0: camera.x, camY0: camera.y };
+    canvas.classList.add('panning');
+    return;
+  }
+
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
-  
+
   // Material applicator mode - apply on left click, reset on right click
   if (state.activeMaterial && body && !body.isStatic && !walls.includes(body)) {
     if (ev.pointerType === 'mouse' && ev.button === 2) {
@@ -711,6 +741,14 @@ canvas.addEventListener('pointerdown', (ev) => {
 });
 
 canvas.addEventListener('pointermove', (ev) => {
+  // Handle canvas pan drag
+  if (state.panDrag) {
+    camera.x = state.panDrag.camX0 + (ev.clientX - state.panDrag.startX);
+    camera.y = state.panDrag.camY0 + (ev.clientY - state.panDrag.startY);
+    state.cameraLock = null;
+    return;
+  }
+
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   if (state.dragStart) state.dragCurrent = cp;
@@ -763,6 +801,15 @@ canvas.addEventListener('pointermove', (ev) => {
 });
 
 canvas.addEventListener('pointerup', (ev) => {
+  // End canvas pan
+  if (state.panDrag && (ev.button === 1 || state.tool === 'pan' || spaceHeld || ev.button === 0)) {
+    state.panDrag = null;
+    canvas.classList.remove('panning');
+    // Restore grab cursor if space is still held (not a mid-drag release)
+    if (!spaceHeld && state.tool !== 'pan') canvas.style.cursor = '';
+    return;
+  }
+
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
@@ -806,11 +853,42 @@ canvas.addEventListener('pointerup', (ev) => {
 });
 
 canvas.addEventListener('pointercancel', () => {
+  if (state.panDrag) {
+    state.panDrag = null;
+    canvas.classList.remove('panning');
+  }
   if (state.grabConstraint) endGrab();
   state.dragStart = null; state.dragCurrent = null;
   state.springStart = null;
   state.impulseBody = null;
   state.slicePath = null;
+});
+
+// Scroll-wheel zoom: zoom centred on cursor so the world point under the cursor stays fixed.
+canvas.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = ev.clientX - rect.left;
+  const my = ev.clientY - rect.top;
+  const wx = (mx - camera.x) / camera.scale;
+  const wy = (my - camera.y) / camera.scale;
+  camera.scale = Math.max(10, Math.min(400, camera.scale * factor));
+  camera.x = mx - wx * camera.scale;
+  camera.y = my - wy * camera.scale;
+}, { passive: false });
+
+// Double-click on a body: toggle camera lock (smooth follow).
+canvas.addEventListener('dblclick', (ev) => {
+  const cp = canvasPos(ev);
+  const wp = screenToWorld(cp.x, cp.y);
+  const body = world.bodyAt(wp);
+  if (body && !walls.includes(body)) {
+    state.cameraLock = (state.cameraLock === body) ? null : body;
+    body._lockFlash = 8;
+  } else {
+    state.cameraLock = null;
+  }
 });
 
 /* =========================== grab constraint =========================== */
@@ -1082,6 +1160,9 @@ function render() {
   // selection ring
   if (state.selected && !walls.includes(state.selected)) drawSelectionRing(state.selected);
 
+  // Camera lock ring — drawn over selection so it's always visible
+  if (state.cameraLock && !state.cameraLock._destroyed) drawCameraLockRing(state.cameraLock);
+
   // FPS overlay (drawn last so it sits on top)
   if (ui.showFPS.checked) drawFPS();
 }
@@ -1089,25 +1170,29 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  // Subtle grid - neutral color for visibility
-  ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = (camera.x % sPx); x < cssW; x += sPx) {
-  ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+
+  // Only draw 1m grid lines when zoomed in enough — at low zoom they become
+  // visual noise denser than a pixel apart.
+  if (camera.scale >= 25) {
+    ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = (camera.x % sPx); x < cssW; x += sPx) {
+      ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+    }
+    for (let y = (camera.y % sPx); y < cssH; y += sPx) {
+      ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
+    }
+    ctx.stroke();
   }
-  for (let y = (camera.y % sPx); y < cssH; y += sPx) {
-  ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
-  }
-  ctx.stroke();
-  
+
   // Floor line with accent
   ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
   ctx.stroke();
-  }
+}
 
 // Speed → color: blue (slow) → cyan → green → yellow → red (fast).
 // Mapped over 0..30 m/s, which covers most sandbox motion before the velocity
@@ -1493,6 +1578,40 @@ function drawSelectionRing(b) {
   ctx.shadowBlur = 0;
   }
 
+function drawCameraLockRing(b) {
+  const sp = b.shape === SHAPE.CIRCLE
+    ? worldToScreen(b.position.x, b.position.y)
+    : (() => {
+        const aabb = b.aabb();
+        return {
+          x: (worldToScreen(aabb.minX, aabb.minY).x + worldToScreen(aabb.maxX, aabb.maxY).x) / 2,
+          y: (worldToScreen(aabb.minX, aabb.minY).y + worldToScreen(aabb.maxX, aabb.maxY).y) / 2
+        };
+      })();
+  const baseR = b.shape === SHAPE.CIRCLE
+    ? b.radius * camera.scale
+    : (() => {
+        const aabb = b.aabb();
+        const min = worldToScreen(aabb.minX, aabb.minY);
+        const max = worldToScreen(aabb.maxX, aabb.maxY);
+        return Math.max(Math.abs(max.x - min.x), Math.abs(max.y - min.y)) / 2;
+      })();
+  const r = Math.max(20, baseR + 10);
+
+  // Pulse based on time so it breathes
+  const pulse = 0.4 + 0.2 * Math.sin(performance.now() / 400);
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(100, 220, 255, ${pulse})`;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(sp.x, sp.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 function withAlpha(hex, a) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
@@ -1595,6 +1714,8 @@ document.querySelectorAll('.tool').forEach(el => {
     // Deselect material applicator when switching tools
     state.activeMaterial = null;
     document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+    // Set canvas cursor for pan tool; clear it for all others
+    canvas.style.cursor = (state.tool === 'pan') ? 'grab' : '';
     triggerHaptic('light');
   });
 });
@@ -3004,36 +3125,56 @@ let lastTime = performance.now();
 function loop(now) {
   const rawDt = (now - lastTime) / 1000;
   lastTime = now;
+
+  // Skip render entirely when the tab is hidden — saves GPU and prevents
+  // giant rawDt values from causing physics explosions on tab-switch-back.
+  if (document.hidden) { requestAnimationFrame(loop); return; }
+
+  // Cap dt so a stall frame (GC pause, tab backgrounded briefly) can't
+  // send bodies flying. ~33 ms = max one "slow" frame at 30 fps.
+  const dt = Math.min(rawDt, 1 / 30);
+
   // FPS exponential moving average — smooth jitter so the readout doesn't flicker.
   if (rawDt > 0 && rawDt < 0.5) {
     const inst = 1 / rawDt;
     state.fpsEMA = state.fpsEMA * 0.92 + inst * 0.08;
   }
   if (!state.paused) {
-if (state.grabBody && !state.grabBody.isStatic) {
+    if (state.grabBody && !state.grabBody.isStatic) {
       // Off-center grab forces produce torque; strongly damp angular velocity
       // while held so the body doesn't spiral out of control.
-      const dampedDt = rawDt * state.timeScale;
+      const dampedDt = dt * state.timeScale;
       state.grabBody.angularVelocity *= Math.exp(-9 * dampedDt);
-      
+
       // Track velocity for throw detection
       const vel = state.grabBody.velocity.length();
       state.grabVelocityHistory.push(vel);
       // Keep only last 10 samples
       if (state.grabVelocityHistory.length > 10) state.grabVelocityHistory.shift();
     }
-    world.step(rawDt * state.timeScale);
+    world.step(dt * state.timeScale);
     sampleEnvironment(now);
     updateTrails();
-    updateFragments(rawDt);
+    updateFragments(dt);
   }
-render();
+
+  // Smooth camera follow when a body is locked.
+  if (state.cameraLock && !state.cameraLock._destroyed) {
+    const targetX = cssW / 2 - state.cameraLock.position.x * camera.scale;
+    const targetY = cssH / 2 - state.cameraLock.position.y * camera.scale;
+    camera.x += (targetX - camera.x) * 0.12;
+    camera.y += (targetY - camera.y) * 0.12;
+  } else if (state.cameraLock && state.cameraLock._destroyed) {
+    state.cameraLock = null;
+  }
+
+  render();
   updateReadouts();
   updateInfoOverlay();
   updateLessonOverlay();
   updateTipsOverlay();
   requestAnimationFrame(loop);
-  }
+}
 
 /* =========================== bootstrap =========================== */
 function init() {
@@ -3075,5 +3216,39 @@ function init() {
 }
 if (document.readyState === 'complete') init();
 else window.addEventListener('load', init);
+
+/* =========================== zen mode =========================== */
+const zenToggle = document.getElementById('zenToggle');
+function toggleZen() {
+  document.body.classList.toggle('zen-mode');
+  const isZen = document.body.classList.contains('zen-mode');
+  if (zenToggle) {
+    zenToggle.title = isZen ? 'Exit zen mode (Z)' : 'Toggle zen mode (Z)';
+    zenToggle.textContent = isZen ? '⤡' : '⤢';
+  }
+}
+if (zenToggle) {
+  zenToggle.addEventListener('click', toggleZen);
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'z' && !e.ctrlKey && !e.metaKey && !e.target.matches('input, textarea')) {
+    toggleZen();
+  }
+});
+
+/* =========================== reset camera =========================== */
+function resetCamera() {
+  camera.x = 0;
+  camera.y = 0;
+  camera.scale = PX_PER_M;
+  state.cameraLock = null;
+}
+const resetCameraBtn = document.getElementById('resetCameraBtn');
+if (resetCameraBtn) {
+  resetCameraBtn.addEventListener('click', resetCamera);
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'Home' && !e.target.matches('input, textarea')) resetCamera();
+});
 
 })();
