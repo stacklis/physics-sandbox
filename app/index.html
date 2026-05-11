@@ -24,11 +24,12 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=68" />
+<link rel="stylesheet" href="../styles.css?v=69" />
 <script type="importmap">
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js",
     "@dimforge/rapier3d-compat": "https://esm.sh/@dimforge/rapier3d-compat@0.14.0"
   }
 }
@@ -85,7 +86,7 @@
   <canvas id="canvas"></canvas>
   <canvas id="canvas3d" style="display:none;position:absolute;inset:0;width:100%;height:100%;"></canvas>
   <div id="hint" class="hint">
-    <span>Click and drag in empty space to spawn. Click an object to interact. Press <kbd>?</kbd> for keys.</span>
+    <span>Drag to spawn · Right-drag/scroll to orbit/zoom · Click an object to read its data. Press <kbd>?</kbd> for keys.</span>
     <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
   </div>
 </main>
@@ -372,9 +373,9 @@
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="../engine.js?v=68"></script>
-<script src="../education.js?v=68"></script>
-<script src="../app.js?v=68"></script>
-<script type="module" src="../layout.js?v=68"></script>
+<script src="../engine.js?v=69"></script>
+<script src="../education.js?v=69"></script>
+<script src="../app.js?v=69"></script>
+<script type="module" src="../layout.js?v=69"></script>
 </body>
 </html>

@@ -39,7 +39,7 @@ async function setPhysicsMode(next) {
     document.getElementById('canvas').style.display = 'none';
     document.getElementById('canvas3d').style.display = 'block';
     try {
-      const mod = await import('./app3d.js?v=68');
+      const mod = await import('./app3d.js?v=69');
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -62,7 +62,7 @@ async function setPhysicsMode(next) {
     document.getElementById('canvas').style.display = '';
     if (_3dHandle) {
       try {
-        const mod = await import('./app3d.js?v=68');
+        const mod = await import('./app3d.js?v=69');
         mod.teardown3D();
       } catch {}
       _3dHandle = null;
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('canvas').style.display = 'none';
     document.getElementById('canvas3d').style.display = 'block';
     _setToggleUI('3d');
-    import('./app3d.js?v=68').then(async mod => {
+    import('./app3d.js?v=69').then(async mod => {
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // by stopping propagation). Re-check Pro here so non-Pro users hit the
     // upsell instead of getting a free download.
     if (!Pro.isActive()) { openUpgradeModal(); return; }
-    const mod = await import('./app3d.js?v=68');
+    const mod = await import('./app3d.js?v=69');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       return;
     }
-    const mod = await import('./app3d.js?v=68');
+    const mod = await import('./app3d.js?v=69');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
     finally { fileInput.value = ''; }

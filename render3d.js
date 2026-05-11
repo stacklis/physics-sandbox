@@ -1,6 +1,7 @@
 // render3d.js — Three.js scene, camera, lights, body-mesh sync.
 'use strict';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/OrbitControls.js';
 
 export class Renderer3D {
   constructor({ canvas, hostEl }) {
@@ -15,13 +16,13 @@ export class Renderer3D {
     this.scene.background = new THREE.Color('#1a1d28');
     this.scene.fog = new THREE.Fog('#1a1d28', 30, 80);
 
-    // Camera: side-on with a 12° downward tilt — exactly 12°, not lookAt-plus-12°.
-    // lookAt would add its own pitch from the position offset, so we use Euler
-    // rotation directly with the position raised slightly to preview top faces.
+    // Camera — OrbitControls will manage orientation after construction.
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
     this.camera.position.set(0, 4.5, 22);
-    this.camera.rotation.order = 'YXZ';
-    this.camera.rotation.x = -THREE.MathUtils.degToRad(12);
+
+    // Tone mapping for richer visuals.
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
 
     // Lights.
     this.scene.add(new THREE.HemisphereLight(0x99aaff, 0x222233, 0.55));
@@ -35,6 +36,17 @@ export class Renderer3D {
 
     // Playfield: floor + side walls visible, front+back invisible Z-clamps.
     this._buildPlayfield();
+
+    // Orbit controls — right-drag to orbit, scroll to zoom, middle-drag to pan.
+    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
+    this.controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+    this.controls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    this.controls.target.set(0, 3, 0);
+    this.controls.minDistance = 5;
+    this.controls.maxDistance = 60;
+    this.controls.update();
 
     this.bodyMeshes = new Map(); // rapier RigidBody → Three.Mesh
 
@@ -53,6 +65,11 @@ export class Renderer3D {
     floor.position.set(0, -0.2, 0);
     floor.receiveShadow = true;
     this.scene.add(floor);
+
+    // Subtle grid overlay on the floor surface.
+    const grid = new THREE.GridHelper(16, 16, 0x2a3050, 0x232840);
+    grid.position.y = 0.001;
+    this.scene.add(grid);
 
     const sideGeom = new THREE.BoxGeometry(0.4, H, D);
     const sideL = new THREE.Mesh(sideGeom, floorMat);
@@ -176,11 +193,13 @@ export class Renderer3D {
   }
 
   render() {
+    this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
     window.removeEventListener('resize', this._onResize);
+    this.controls.dispose();
     for (const [, mesh] of this.bodyMeshes) {
       mesh.geometry.dispose();
       mesh.material.dispose();

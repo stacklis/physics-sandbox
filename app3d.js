@@ -1,9 +1,9 @@
 // app3d.js — 3D mode: input, drag-spawn, basic action tools, main loop.
 'use strict';
 import * as THREE from 'three';
-import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=67';
-import { Renderer3D } from './render3d.js?v=67';
-import { getConcept } from './education3d.js?v=67';
+import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=68';
+import { Renderer3D } from './render3d.js?v=68';
+import { getConcept } from './education3d.js?v=68';
 
 const PALETTE = ['#00e5a0', '#ff6b9d', '#6b8bff', '#ffc46a', '#00ffc8', '#ff8bb8', '#a0ffdb', '#ffb366', '#c9a0ff'];
 let palIdx = 0;
@@ -27,6 +27,8 @@ let tool = 'grab';
 let dragStart = null, dragNow = null; // screen px
 let dragSpawnZ = 0;
 let grabbed = null, grabOffset = null, grabPlane = null;
+let selectedBody = null;
+let pointerDownTime = 0, pointerDownPos = null;
 
 export async function init3D(opts) {
   canvas = opts.canvas; hostEl = opts.hostEl;
@@ -97,9 +99,15 @@ function pickBody(ev) {
 }
 
 function onDown(ev) {
+  // Track tap for body selection (left pointer button only).
+  if (ev.button === 0) {
+    pointerDownTime = performance.now();
+    pointerDownPos = { x: ev.clientX, y: ev.clientY };
+  }
   if (tool === 'delete') {
     const rb = pickBody(ev);
     if (rb) {
+      if (rb === selectedBody) selectedBody = null;
       renderer.removeBodyMesh(rb);
       world.removeBody(rb);
     }
@@ -144,6 +152,19 @@ function onUp(ev) {
     grabbed = null; grabOffset = null;
     return;
   }
+
+  // Tap detection: left button, < 250 ms, < 5 px movement → select body for readings.
+  if (ev.button === 0 && pointerDownPos) {
+    const elapsed = performance.now() - pointerDownTime;
+    const moved = Math.hypot(ev.clientX - pointerDownPos.x, ev.clientY - pointerDownPos.y);
+    if (elapsed < 250 && moved < 5) {
+      const rb = pickBody(ev);
+      selectedBody = rb || null;
+      highlightSelected();
+    }
+    pointerDownPos = null;
+  }
+
   if (!dragStart) return;
   const start = screenToWorldOnPlane({ clientX: dragStart.x, clientY: dragStart.y }, dragSpawnZ);
   const end = screenToWorldOnPlane({ clientX: ev.clientX, clientY: ev.clientY }, dragSpawnZ);
@@ -210,6 +231,77 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2200);
 }
 
+function highlightSelected() {
+  if (!renderer) return;
+  for (const [rb, mesh] of renderer.bodyMeshes) {
+    if (!mesh.material) continue;
+    if (rb === selectedBody) {
+      mesh.material.emissive = new THREE.Color(0x334455);
+    } else {
+      mesh.material.emissive = new THREE.Color(0x000000);
+    }
+  }
+}
+
+function fmt(n, d = 2) { return Number.isFinite(n) ? n.toFixed(d) : '0'; }
+
+function updateReadings() {
+  const sel = document.getElementById('ov-selected');
+  const mass = document.getElementById('ov-mass');
+  const speed = document.getElementById('ov-speed');
+  const ke = document.getElementById('ov-ke');
+  const pe = document.getElementById('ov-pe');
+  const momentum = document.getElementById('ov-momentum');
+  const angular = document.getElementById('ov-angular');
+  const count = document.getElementById('ov-count');
+  const total = document.getElementById('ov-total');
+
+  // Body count (dynamic only).
+  let bodyCount = 0, systemKE = 0;
+  if (world) {
+    for (const rb of world.bodies) {
+      if (rb.isFixed()) continue;
+      bodyCount++;
+      const v = rb.linvel();
+      const spd = Math.hypot(v.x, v.y, v.z);
+      systemKE += 0.5 * rb.mass() * spd * spd;
+    }
+  }
+  if (count) count.textContent = bodyCount;
+  if (total) total.textContent = fmt(systemKE);
+
+  if (!selectedBody || !world) {
+    if (sel) sel.textContent = '—';
+    if (mass) mass.textContent = '0';
+    if (speed) speed.textContent = '0';
+    if (ke) ke.textContent = '0';
+    if (pe) pe.textContent = '0';
+    if (momentum) momentum.textContent = '0';
+    if (angular) angular.textContent = '0';
+    return;
+  }
+
+  const rb = selectedBody;
+  const u = rb.userData || {};
+  const m = rb.mass();
+  const lv = rb.linvel();
+  const av = rb.angvel();
+  const t = rb.translation();
+  const spd = Math.hypot(lv.x, lv.y, lv.z);
+  const angSpd = Math.hypot(av.x, av.y, av.z);
+  const kineticE = 0.5 * m * spd * spd;
+  const potentialE = m * 9.81 * Math.max(0, t.y);
+  const mom = m * spd;
+
+  if (sel) sel.textContent = u.kind || '—';
+  if (mass) mass.textContent = fmt(m);
+  if (speed) speed.textContent = fmt(spd);
+  if (ke) ke.textContent = fmt(kineticE);
+  if (pe) pe.textContent = fmt(potentialE);
+  if (momentum) momentum.textContent = fmt(mom);
+  if (angular) angular.textContent = fmt(angSpd);
+}
+
 function loop() {
   if (!world || !renderer) return;
   const now = performance.now();
@@ -227,6 +319,7 @@ function loop() {
   world.step(dt);
   renderer.syncMeshes();
   renderer.render();
+  updateReadings();
   raf = requestAnimationFrame(loop);
 }
 
@@ -234,6 +327,7 @@ export function teardown3D() {
   if (raf) cancelAnimationFrame(raf);
   if (renderer) { renderer.dispose(); renderer = null; }
   if (world) { world.free(); world = null; }
+  selectedBody = null;
 }
 
 const SCHEMA_3D = 'physics-sandbox/scene-3d/v1';
@@ -269,6 +363,7 @@ export function deserialize3D(json) {
   if (!json || json.type !== SCHEMA_3D) {
     throw new Error('Not a 3D scene file.');
   }
+  selectedBody = null;
   // Wipe dynamic bodies (keep static playfield).
   for (const rb of [...world.bodies]) {
     if (!rb.isFixed()) {
