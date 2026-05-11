@@ -33,7 +33,7 @@ let pointerDownTime = 0, pointerDownPos = null;
 export async function init3D(opts) {
   canvas = opts.canvas; hostEl = opts.hostEl;
   await _ready;
-  world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 80 });
+  world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 40 }); // was 80
   renderer = new Renderer3D({ canvas, hostEl });
 
   // Static playfield — matches render3d.js dimensions (D=50, floorZ=5).
@@ -325,7 +325,9 @@ function loop() {
   for (const rb of [...world.bodies]) {
     if (rb.isFixed()) continue;
     const t = rb.translation();
-    if (Math.abs(t.x) > 50 || t.y < -20 || Math.abs(t.z) > 20) {
+    // Remove bodies that escape the playfield OR have NaN positions (Rapier crash prevention)
+    if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.z) ||
+        Math.abs(t.x) > 60 || t.y < -30 || t.y > 40 || Math.abs(t.z) > 60) {
       renderer.removeBodyMesh(rb);
       world.removeBody(rb);
     }

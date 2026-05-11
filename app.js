@@ -192,7 +192,21 @@ const screenToWorld = (sx, sy) => new Vec2((sx - camera.x) / camera.scale, (sy -
 const worldToScreen = (wx, wy) => ({ x: wx * camera.scale + camera.x, y: wy * camera.scale + camera.y });
 
 /* =========================== world =========================== */
-const world = new World({ gravity: 9.81, iterations: 10 });
+const world = new World({ gravity: 9.81, iterations: 5 }); // 5 is plenty for sandbox
+const MAX_DYNAMIC_BODIES = 30; // hard cap — evict oldest before spawning above this
+
+function enforceBodyCap() {
+  const dynamic = world.bodies.filter(b => !b.isStatic && !walls.includes(b));
+  if (dynamic.length >= MAX_DYNAMIC_BODIES) {
+    // Remove oldest non-fragment first; fall back to fragments
+    const oldest = dynamic.find(b => !b._isFragment) || dynamic[0];
+    if (oldest) {
+      if (state.selected === oldest) state.selected = null;
+      if (state.cameraLock === oldest) state.cameraLock = null;
+      world.remove(oldest);
+    }
+  }
+}
 let walls = [];
 function rebuildBoundaries() {
   for (const w of walls) world.remove(w);
@@ -447,7 +461,7 @@ function destroyBody(body, impactPoint, impactForce) {
   const bodySize = body.shape === SHAPE.CIRCLE 
     ? body.radius * 2 
     : Math.max(body.width || 1, body.height || 1);
-  const fragmentCount = Math.min(12, Math.max(4, Math.floor(bodySize * 2 + impactForce * 0.5)));
+  const fragmentCount = Math.min(5, Math.max(3, Math.floor(bodySize + 1))); // was 4-12
   const fragmentSize = Math.max(0.15, bodySize / fragmentCount * 0.8);
   
   // Create voxel fragments
@@ -478,7 +492,7 @@ function destroyBody(body, impactPoint, impactForce) {
     );
     frag.angularVelocity = (Math.random() - 0.5) * 15;
     frag._isFragment = true;
-    frag._fragmentLife = 5 + Math.random() * 3; // Fragments fade after 5-8 seconds
+    frag._fragmentLife = 1.5 + Math.random() * 1; // 1.5-2.5s (was 5-8s)
     
     fragments.push(frag);
   }
@@ -497,18 +511,12 @@ function destroyBody(body, impactPoint, impactForce) {
 function updateFragments(dt) {
   if (!state.destructionMode) return;
   
-  for (const body of [...world.bodies]) {
-    if (body._isFragment) {
-      body._fragmentLife -= dt;
-      if (body._fragmentLife <= 0) {
-        world.remove(body);
-      } else if (body._fragmentLife < 1) {
-        // Fade out - shrink the fragment
-        const scale = body._fragmentLife;
-        body.width *= 0.98;
-        body.height *= 0.98;
-      }
-    }
+  // Iterate backwards so splice doesn't skip entries.
+  for (let i = world.bodies.length - 1; i >= 0; i--) {
+    const body = world.bodies[i];
+    if (!body._isFragment) continue;
+    body._fragmentLife -= dt;
+    if (body._fragmentLife <= 0) world.remove(body);
   }
 }
 
@@ -1033,6 +1041,7 @@ function getMaxObjectSize() {
 }
 
 function finishSpawn(start, end) {
+  enforceBodyCap(); // evict oldest if at limit before adding new body
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
@@ -1292,7 +1301,7 @@ function drawFPS() {
   ctx.font = '500 12px "JetBrains Mono", monospace';
   ctx.textBaseline = 'top';
   const fps = state.fpsEMA.toFixed(1);
-  const dyn = world.bodies.filter(b => !b.isStatic).length;
+  let dyn = 0; for (const b of world.bodies) if (!b.isStatic) dyn++;
   ctx.fillStyle = '#00e5a0';
   ctx.fillText(`${fps} fps`, 18, 16);
   ctx.fillStyle = '#8888a0';
@@ -1658,16 +1667,18 @@ function updateReadouts() {
 /* =========================== trails update =========================== */
 function updateTrails() {
   if (!ui.showTrails.checked) { state.trails.clear(); return; }
+  const liveIds = new Set();
   for (const b of world.bodies) {
     if (b.isStatic) continue;
+    liveIds.add(b.id);
     let arr = state.trails.get(b.id);
     if (!arr) { arr = []; state.trails.set(b.id, arr); }
     arr.push(b.position.copy());
-    if (arr.length > 60) arr.shift();
+    if (arr.length > 30) arr.shift(); // was 60
   }
-  // prune for removed bodies
-  for (const id of [...state.trails.keys()]) {
-    if (!world.bodies.find(b => b.id === id)) state.trails.delete(id);
+  // O(1) cleanup — only iterate existing trail keys
+  for (const id of state.trails.keys()) {
+    if (!liveIds.has(id)) state.trails.delete(id);
   }
 }
 
@@ -3170,11 +3181,17 @@ function loop(now) {
 
   render();
   updateReadouts();
-  updateInfoOverlay();
-  updateLessonOverlay();
-  updateTipsOverlay();
+  // Throttle heavy DOM updates to ~15fps — they read many DOM nodes and
+  // trigger layout; running them every rAF (60fps) is the #2 source of lag.
+  if (_overlayTick % 4 === 0) {
+    updateInfoOverlay();
+    updateLessonOverlay();
+    updateTipsOverlay();
+  }
+  _overlayTick++;
   requestAnimationFrame(loop);
 }
+let _overlayTick = 0;
 
 /* =========================== bootstrap =========================== */
 function init() {
