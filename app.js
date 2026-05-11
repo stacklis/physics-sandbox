@@ -3306,7 +3306,7 @@ if (zenToggle) {
   zenToggle.addEventListener('click', toggleZen);
 }
 window.addEventListener('keydown', e => {
-  if (e.key === 'z' && !e.ctrlKey && !e.metaKey && !e.target.matches('input, textarea')) {
+  if (e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.metaKey && !e.target.matches('input, textarea')) {
     toggleZen();
   }
 });
