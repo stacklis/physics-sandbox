@@ -36,7 +36,7 @@ async function setPhysicsMode(next) {
   if (next === '3d') {
     document.body.dataset.mode = '3d';
     try {
-      const mod = await import('./app3d.js?v=67');
+      const mod = await import('./app3d.js?v=68');
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -55,7 +55,7 @@ async function setPhysicsMode(next) {
     document.body.dataset.mode = '2d';
     if (_3dHandle) {
       try {
-        const mod = await import('./app3d.js?v=67');
+        const mod = await import('./app3d.js?v=68');
         mod.teardown3D();
       } catch {}
       _3dHandle = null;
@@ -73,23 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
     seg.addEventListener('click', e => {
       const btn = e.target.closest('[data-mode]');
       if (!btn) return;
-      // 3D mode is a Pro feature — intercept before setPhysicsMode.
-      if (btn.dataset.mode === '3d' && !Pro.isActive()) {
-        openUpgradeModal();
-        return;
-      }
+      // 3D mode is free for all users.
       setPhysicsMode(btn.dataset.mode);
     });
-  }
-  // Apply persisted mode (don't prompt — user already chose this previously).
-  // But re-check Pro: a lapsed-Pro user with a stale '3d' flag should boot 2D.
-  if (getPhysicsMode() === '3d' && !Pro.isActive()) {
-    try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
   }
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
     _setToggleUI('3d');
-    import('./app3d.js?v=67').then(async mod => {
+    import('./app3d.js?v=68').then(async mod => {
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -124,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // by stopping propagation). Re-check Pro here so non-Pro users hit the
     // upsell instead of getting a free download.
     if (!Pro.isActive()) { openUpgradeModal(); return; }
-    const mod = await import('./app3d.js?v=67');
+    const mod = await import('./app3d.js?v=68');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -155,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       return;
     }
-    const mod = await import('./app3d.js?v=67');
+    const mod = await import('./app3d.js?v=68');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
     finally { fileInput.value = ''; }
