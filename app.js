@@ -35,10 +35,13 @@ async function setPhysicsMode(next) {
   _setToggleUI(next);
   if (next === '3d') {
     document.body.dataset.mode = '3d';
+    // Switch canvases: 2D canvas has a 2d context; Three.js needs a fresh WebGL canvas.
+    document.getElementById('canvas').style.display = 'none';
+    document.getElementById('canvas3d').style.display = 'block';
     try {
       const mod = await import('./app3d.js?v=68');
       _3dHandle = await mod.init3D({
-        canvas: document.getElementById('canvas'),
+        canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
       });
     } catch (err) {
@@ -46,6 +49,8 @@ async function setPhysicsMode(next) {
       console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
       try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
       document.body.dataset.mode = '2d';
+      document.getElementById('canvas').style.display = '';
+      document.getElementById('canvas3d').style.display = 'none';
       _setToggleUI('2d');
       alert('Could not load 3D mode. Reverted to 2D.');
     } finally {
@@ -53,6 +58,8 @@ async function setPhysicsMode(next) {
     }
   } else {
     document.body.dataset.mode = '2d';
+    document.getElementById('canvas3d').style.display = 'none';
+    document.getElementById('canvas').style.display = '';
     if (_3dHandle) {
       try {
         const mod = await import('./app3d.js?v=68');
@@ -79,16 +86,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
+    document.getElementById('canvas').style.display = 'none';
+    document.getElementById('canvas3d').style.display = 'block';
     _setToggleUI('3d');
     import('./app3d.js?v=68').then(async mod => {
       _3dHandle = await mod.init3D({
-        canvas: document.getElementById('canvas'),
+        canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
       });
     }).catch(err => {
       console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
       try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
       document.body.dataset.mode = '2d';
+      document.getElementById('canvas').style.display = '';
+      document.getElementById('canvas3d').style.display = 'none';
       _setToggleUI('2d');
       alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
     });
