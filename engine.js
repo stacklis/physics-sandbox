@@ -576,9 +576,9 @@ class World {
 
   add(body) { this.bodies.push(body); return body; }
   remove(body) {
+    body._destroyed = true; // flag for fast preSubstep checks
     const i = this.bodies.indexOf(body);
     if (i >= 0) this.bodies.splice(i, 1);
-    // also remove constraints touching it
     this.constraints = this.constraints.filter(c => c.A !== body && c.B !== body);
   }
   clear() { this.bodies.length = 0; this.constraints.length = 0; }

@@ -196,15 +196,19 @@ const world = new World({ gravity: 9.81, iterations: 5 }); // 5 is plenty for sa
 const MAX_DYNAMIC_BODIES = 30; // hard cap — evict oldest before spawning above this
 
 function enforceBodyCap() {
-  const dynamic = world.bodies.filter(b => !b.isStatic && !walls.includes(b));
-  if (dynamic.length >= MAX_DYNAMIC_BODIES) {
-    // Remove oldest non-fragment first; fall back to fragments
-    const oldest = dynamic.find(b => !b._isFragment) || dynamic[0];
-    if (oldest) {
-      if (state.selected === oldest) state.selected = null;
-      if (state.cameraLock === oldest) state.cameraLock = null;
-      world.remove(oldest);
-    }
+  let dynCount = 0;
+  let oldest = null;
+  for (const b of world.bodies) {
+    if (b.isStatic || walls.includes(b)) continue;
+    dynCount++;
+    if (!oldest || (!oldest._isFragment && b._isFragment)) continue;
+    if (!oldest._isFragment) oldest = b; // prefer evicting non-fragments
+    else if (!oldest) oldest = b;
+  }
+  if (dynCount >= MAX_DYNAMIC_BODIES && oldest) {
+    if (state.selected === oldest) state.selected = null;
+    if (state.cameraLock === oldest) state.cameraLock = null;
+    world.remove(oldest);
   }
 }
 let walls = [];
@@ -1231,47 +1235,46 @@ function speedColor(v) {
 }
 
 function drawBody(b) {
-  ctx.save();
   const useHeatmap = ui.showHeatmap.checked && !b.isStatic && !walls.includes(b);
   const fillColor = useHeatmap ? speedColor(b.velocity.length()) : b.color;
-  const isDynamic = !b.isStatic && !walls.includes(b);
-  
-  // Add subtle glow for dynamic bodies
-  if (isDynamic) {
-  ctx.shadowColor = withAlpha(fillColor, 0.4);
-  ctx.shadowBlur = 10;
-  }
-  
+
   if (b.shape === SHAPE.CIRCLE) {
-  const p = worldToScreen(b.position.x, b.position.y);
-  const r = b.radius * camera.scale;
-  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
-  ctx.strokeStyle = fillColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // orientation marker
-  ctx.shadowBlur = 0;
-  const ex = p.x + Math.cos(b.angle) * r;
-  const ey = p.y + Math.sin(b.angle) * r;
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+    const p = worldToScreen(b.position.x, b.position.y);
+    const r = b.radius * camera.scale;
+    // Viewport cull
+    if (p.x + r < 0 || p.x - r > cssW || p.y + r < 0 || p.y - r > cssH) return;
+    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
+    ctx.strokeStyle = fillColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // orientation marker
+    const ex = p.x + Math.cos(b.angle) * r;
+    const ey = p.y + Math.sin(b.angle) * r;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
   } else {
-  const verts = b.worldVertices();
-  ctx.beginPath();
-  for (let i = 0; i < verts.length; i++) {
-  const p = worldToScreen(verts[i].x, verts[i].y);
-  if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    const verts = b.worldVertices();
+    // Viewport cull — skip if all vertices are outside the canvas
+    let inView = false;
+    for (const v of verts) {
+      const p = worldToScreen(v.x, v.y);
+      if (p.x >= 0 && p.x <= cssW && p.y >= 0 && p.y <= cssH) { inView = true; break; }
+    }
+    if (!inView) return;
+    ctx.beginPath();
+    for (let i = 0; i < verts.length; i++) {
+      const p = worldToScreen(verts[i].x, verts[i].y);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
+    ctx.strokeStyle = fillColor;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
-  ctx.strokeStyle = fillColor;
-  ctx.lineWidth = 2;
-  ctx.fill();
-  ctx.stroke();
-  }
-  ctx.restore();
-  }
+}
 
 function drawAABBs() {
   ctx.strokeStyle = 'rgba(107, 139, 255, 0.4)';
@@ -1528,41 +1531,30 @@ function drawVelocities() {
   ctx.strokeStyle = '#6b8bff';
   ctx.lineWidth = 2;
   ctx.shadowColor = 'rgba(107, 139, 255, 0.5)';
-  ctx.shadowBlur = 6;
   for (const b of world.bodies) {
-  if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
-  const p = worldToScreen(b.position.x, b.position.y);
-  const ex = p.x + b.velocity.x * camera.scale * 0.25;
-  const ey = p.y + b.velocity.y * camera.scale * 0.25;
-  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
-  drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
+    if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
+    const p = worldToScreen(b.position.x, b.position.y);
+    const ex = p.x + b.velocity.x * camera.scale * 0.25;
+    const ey = p.y + b.velocity.y * camera.scale * 0.25;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+    drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
   }
-  ctx.shadowBlur = 0;
   }
   
   function drawTrails() {
-  for (const [id, pts] of state.trails) {
-  if (pts.length < 2) continue;
-  // Gradient trail from transparent to vibrant
-  const gradient = ctx.createLinearGradient(
-    worldToScreen(pts[0].x, pts[0].y).x,
-    worldToScreen(pts[0].x, pts[0].y).y,
-    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).x,
-    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).y
-  );
-  gradient.addColorStop(0, 'rgba(0, 229, 160, 0.1)');
-  gradient.addColorStop(1, 'rgba(0, 229, 160, 0.6)');
-  ctx.strokeStyle = gradient;
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  for (let i = 0; i < pts.length; i++) {
-  const s = worldToScreen(pts[i].x, pts[i].y);
-  if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-  }
-  ctx.stroke();
-  }
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const [, pts] of state.trails) {
+      if (pts.length < 2) continue;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const s = worldToScreen(pts[i].x, pts[i].y);
+        if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+      }
+      ctx.stroke();
+    }
   }
 
 function drawSelectionRing(b) {
@@ -1576,15 +1568,11 @@ function drawSelectionRing(b) {
   const y = min.y - pad;
   const r = 4; // corner radius
   
-  // Subtle glow
-  ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
-  ctx.shadowBlur = 6;
   ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.stroke();
-  ctx.shadowBlur = 0;
   }
 
 function drawCameraLockRing(b) {
@@ -3054,7 +3042,7 @@ function loadPreset(name) {
 
       world.preSubstep = (dt) => {
         for (const p of planets) {
-          if (!world.bodies.includes(p)) continue;
+          if (p._destroyed) continue;
           const r = sun.position.sub(p.position);
           const distSq = Math.max(r.lengthSq(), 0.25);
           const dist = Math.sqrt(distSq);
