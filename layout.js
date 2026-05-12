@@ -40,6 +40,8 @@ let activeTab = 'tools';
 let sheetOpen = false;          // mobile only
 let mobile = window.matchMedia(MOBILE_QUERY).matches;
 let landscapeMobile = window.matchMedia(LANDSCAPE_MOBILE_QUERY).matches;
+// Overlay panel open states (mobile only; start hidden until tab is tapped)
+const overlayOpen = { readings: false, educator: false };
 
 // Public surface (used by app.js for keyboard shortcuts) ----------------------
 function setActiveTab(tab, opts = {}) {
@@ -71,14 +73,18 @@ function toggleSheet() {
 
 // Update `.visible` on panels and tab active states. -------------------------
 // Desktop: all panels visible. Mobile: tools only when sheet open; readings
-// and educator are always-visible overlays (visibility is CSS opacity).
+// and educator shown only when overlayOpen[tab] is true.
 function syncPanelVisibility() {
   for (const tab of TABS) {
     const el = panels[tab];
     if (!el) continue;
     let on;
     if (mobile) {
-      on = (tab === 'tools') ? (sheetOpen && activeTab === 'tools') : true;
+      if (tab === 'tools') {
+        on = sheetOpen && activeTab === 'tools';
+      } else {
+        on = overlayOpen[tab] === true;
+      }
     } else {
       on = true;
     }
@@ -87,7 +93,7 @@ function syncPanelVisibility() {
   if (mobile) syncTabStates();
 }
 
-// Sync tabbar active state: tools = sheet open; overlays = not collapsed.
+// Sync tabbar active state: tools = sheet open; overlays = overlayOpen.
 function syncTabStates() {
   for (const btn of tabs) {
     const tab = btn.dataset.tab;
@@ -95,8 +101,7 @@ function syncTabStates() {
     if (tab === 'tools') {
       on = sheetOpen && activeTab === 'tools';
     } else {
-      const panelEl = panels[tab];
-      on = panelEl ? !panelEl.classList.contains('panel-collapsed') : false;
+      on = overlayOpen[tab] === true;
     }
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -113,10 +118,11 @@ tabs.forEach(btn => {
         if (sheetOpen && activeTab === 'tools') closeSheet();
         else setActiveTab('tools', { openSheet: true });
       } else {
-        // Readings / Educator: toggle collapsed state on the overlay panel
-        const panelEl = panels[tab];
-        if (panelEl) panelEl.classList.toggle('panel-collapsed');
-        syncTabStates();
+        // Readings / Educator: toggle visibility
+        overlayOpen[tab] = !overlayOpen[tab];
+        // Clear collapsed state when reopening so full content shows
+        if (overlayOpen[tab]) panels[tab]?.classList.remove('panel-collapsed');
+        syncPanelVisibility();
       }
     } else {
       setActiveTab(tab, { openSheet: true });
@@ -134,7 +140,6 @@ tabs.forEach(btn => {
     if (!mobile) return;
     if (e.target.closest('button')) return;
     panelEl.classList.toggle('panel-collapsed');
-    syncTabStates();
   });
 });
 
@@ -958,6 +963,24 @@ if (toolsCloseBtn) {
   toolsCloseBtn.addEventListener('click', () => { if (mobile) closeSheet(); });
 }
 
+// Overlay close buttons (mobile only) -----------------------------------------
+const readingsCloseBtn = document.getElementById('readingsClose');
+if (readingsCloseBtn) {
+  readingsCloseBtn.addEventListener('click', () => {
+    if (!mobile) return;
+    overlayOpen.readings = false;
+    syncPanelVisibility();
+  });
+}
+const educatorCloseBtn = document.getElementById('educatorClose');
+if (educatorCloseBtn) {
+  educatorCloseBtn.addEventListener('click', () => {
+    if (!mobile) return;
+    overlayOpen.educator = false;
+    syncPanelVisibility();
+  });
+}
+
 // =============================================================================
 // Init ------------------------------------------------------------------------
 // =============================================================================
@@ -973,8 +996,9 @@ schedulePositionEdges();
 // Keyboard-shortcut globals app.js calls --------------------------------------
 window.toggleInfoOverlay = () => {
   if (mobile) {
-    const el = panels.readings;
-    if (el) { el.classList.toggle('panel-collapsed'); syncTabStates(); }
+    overlayOpen.readings = !overlayOpen.readings;
+    if (overlayOpen.readings) panels.readings?.classList.remove('panel-collapsed');
+    syncPanelVisibility();
   } else {
     panels.readings.classList.add('flash');
     setTimeout(() => panels.readings.classList.remove('flash'), 600);
@@ -982,8 +1006,9 @@ window.toggleInfoOverlay = () => {
 };
 window.toggleLessonOverlay = () => {
   if (mobile) {
-    const el = panels.educator;
-    if (el) { el.classList.toggle('panel-collapsed'); syncTabStates(); }
+    overlayOpen.educator = !overlayOpen.educator;
+    if (overlayOpen.educator) panels.educator?.classList.remove('panel-collapsed');
+    syncPanelVisibility();
   } else {
     panels.educator.classList.add('flash');
     setTimeout(() => panels.educator.classList.remove('flash'), 600);

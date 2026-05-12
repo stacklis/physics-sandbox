@@ -1466,8 +1466,10 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-/* Hidden by default; shown as a close affordance in the tools sheet on mobile. */
+/* Hidden by default; shown as a close affordance on mobile. */
 .panel-close { display: none; }
+/* Overlay close buttons hidden on desktop — panel-pop serves that role. */
+.overlay-close { display: none; }
 .panel-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -1870,8 +1872,8 @@ body {
     grid-template-areas:
       "topbar"
       "main";
-    /* 60px tabbar + safe-area + 6px gap + ~40px educator collapsed header */
-    padding-bottom: calc(106px + env(safe-area-inset-bottom));
+    /* 60px tabbar + safe-area + 6px breathing room */
+    padding-bottom: calc(66px + env(safe-area-inset-bottom));
   }
 
   /* Topbar becomes scrollable strip so the action bar always fits. */
@@ -1997,17 +1999,23 @@ body {
     max-height: none !important;
     border-radius: 12px;
     background: rgba(8, 10, 18, 0.86);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    /* Fade instead of slide */
+    /* Fade instead of slide; visibility hides backdrop-filter artifact */
     transform: none !important;
-    transition: opacity 180ms ease !important;
-    will-change: opacity;
+    transition: opacity 180ms ease, visibility 0s 180ms !important;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
   }
   #infoOverlay.visible,
   #lessonOverlay.visible {
+    backdrop-filter: blur(10px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(1.2) !important;
     opacity: 1;
+    visibility: visible;
+    transition: opacity 180ms ease, visibility 0s !important;
     pointer-events: auto;
     padding-bottom: 0 !important;
   }
@@ -2029,6 +2037,29 @@ body {
   /* Collapsed: hide body, keep header visible */
   #infoOverlay.panel-collapsed .panel-body,
   #lessonOverlay.panel-collapsed .panel-body { display: none !important; }
+
+  /* Overlay close buttons — shown on mobile, right side of header */
+  .overlay-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .overlay-close:active { background: var(--bg-3); color: var(--text); }
+  /* panel-pop is desktop-only; on mobile it's hidden so close takes that role */
+  #infoOverlay .panel-pop,
+  #lessonOverlay .panel-pop { display: none; }
 
   /* Readings: compact overlay anchored to top-right, below topbar */
   #infoOverlay {
