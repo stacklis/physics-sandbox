@@ -1465,6 +1465,9 @@ body {
   padding: 10px 14px 8px;
   border-bottom: 1px solid var(--line);
 }
+
+/* Hidden by default; shown as a close affordance in the tools sheet on mobile. */
+.panel-close { display: none; }
 .panel-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -1975,6 +1978,117 @@ body {
 
   /* No floating panels on mobile — hide the pop button entirely. */
   .panel-pop { display: none; }
+
+  /* ================================================================
+     OVERLAY PANELS — readings + educator float over the canvas as
+     compact, always-visible, semi-transparent overlays.
+     #toolsPanel keeps the bottom-sheet behaviour.
+     ================================================================ */
+
+  /* Override sheet geometry + animation for overlay panels */
+  #infoOverlay,
+  #lessonOverlay {
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 12px;
+    background: rgba(8, 10, 18, 0.86);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    /* Fade instead of slide */
+    transform: none !important;
+    transition: opacity 180ms ease !important;
+    will-change: opacity;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #infoOverlay.visible,
+  #lessonOverlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+    padding-bottom: 0 !important;
+  }
+
+  /* No drag handle on overlay panels */
+  #infoOverlay .panel-grabber,
+  #lessonOverlay .panel-grabber { display: none; }
+
+  /* Overlay headers are tappable to collapse / expand */
+  #infoOverlay .panel-header,
+  #lessonOverlay .panel-header {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Collapsed: hide body, keep header visible */
+  #infoOverlay.panel-collapsed .panel-body,
+  #lessonOverlay.panel-collapsed .panel-body { display: none !important; }
+
+  /* Readings: compact overlay anchored to top-right, below topbar */
+  #infoOverlay {
+    position: fixed;
+    top: calc(58px + env(safe-area-inset-top) + 4px);
+    right: 8px;
+    width: 158px;
+    max-height: 56vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #infoOverlay .panel-body { padding: 0 10px 10px; gap: 5px; }
+  #infoOverlay .readout-grid { grid-template-columns: 1fr; gap: 3px; }
+  #infoOverlay .metric { padding: 3px 0; }
+  #infoOverlay .metric-label { font-size: 9px; }
+  #infoOverlay .metric-val { font-size: 12px; margin-top: 1px; }
+  #infoOverlay .metric-val .unit { font-size: 10px; }
+  #infoOverlay .totals-mini {
+    font-size: 10px; padding-top: 5px; gap: 6px;
+    flex-direction: column; align-items: flex-start;
+  }
+
+  /* Educator: slim overlay anchored above the tabbar, full width */
+  #lessonOverlay {
+    position: fixed;
+    bottom: calc(60px + env(safe-area-inset-bottom) + 6px);
+    left: 8px;
+    right: 8px;
+    max-height: 32vh;
+    overflow: hidden;
+  }
+  #lessonOverlay.panel-collapsed { max-height: none; }
+  #lessonOverlay .panel-body {
+    padding: 4px 12px 10px;
+    flex-direction: column;
+    max-height: 27vh;
+    overflow-y: auto;
+  }
+  #lessonOverlay .lesson-body { max-width: none; font-size: 12px; line-height: 1.55; }
+  #lessonOverlay .formula { font-size: 11px; }
+  #lessonOverlay .concepts-touched { min-width: 0; }
+
+  /* Close button in tools panel header (mobile only) */
+  .panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .panel-close:active { background: var(--bg-3); color: var(--text); }
 
   .tabbar {
     display: flex;

@@ -46,11 +46,6 @@ function setActiveTab(tab, opts = {}) {
   if (!TABS.includes(tab)) return;
   activeTab = tab;
   body.dataset.activeTab = tab;
-  tabs.forEach(b => {
-    const on = b.dataset.tab === tab;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
   syncPanelVisibility();
   if (opts.openSheet && mobile) openSheet();
 }
@@ -74,22 +69,37 @@ function toggleSheet() {
   if (sheetOpen) closeSheet(); else openSheet();
 }
 
-// Update `.visible` on the panels app.js polls every frame. -------------------
-// On desktop: tools, readings, educator are all visible (they live in their own
-// grid zones OR float above the canvas). Tips is never visible.
-// On mobile: only the active panel gets `.visible`, and only when the sheet is
-// open. Closed sheet => no panel is "visible" so app.js skips the update work.
+// Update `.visible` on panels and tab active states. -------------------------
+// Desktop: all panels visible. Mobile: tools only when sheet open; readings
+// and educator are always-visible overlays (visibility is CSS opacity).
 function syncPanelVisibility() {
   for (const tab of TABS) {
     const el = panels[tab];
     if (!el) continue;
     let on;
     if (mobile) {
-      on = sheetOpen && tab === activeTab;
+      on = (tab === 'tools') ? (sheetOpen && activeTab === 'tools') : true;
     } else {
       on = true;
     }
     el.classList.toggle('visible', on);
+  }
+  if (mobile) syncTabStates();
+}
+
+// Sync tabbar active state: tools = sheet open; overlays = not collapsed.
+function syncTabStates() {
+  for (const btn of tabs) {
+    const tab = btn.dataset.tab;
+    let on;
+    if (tab === 'tools') {
+      on = sheetOpen && activeTab === 'tools';
+    } else {
+      const panelEl = panels[tab];
+      on = panelEl ? !panelEl.classList.contains('panel-collapsed') : false;
+    }
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 }
 
@@ -97,11 +107,34 @@ function syncPanelVisibility() {
 tabs.forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.tab;
-    if (mobile && tab === activeTab && sheetOpen) {
-      closeSheet();
+    if (mobile) {
+      if (tab === 'tools') {
+        // Tools: toggle the sheet
+        if (sheetOpen && activeTab === 'tools') closeSheet();
+        else setActiveTab('tools', { openSheet: true });
+      } else {
+        // Readings / Educator: toggle collapsed state on the overlay panel
+        const panelEl = panels[tab];
+        if (panelEl) panelEl.classList.toggle('panel-collapsed');
+        syncTabStates();
+      }
     } else {
       setActiveTab(tab, { openSheet: true });
     }
+  });
+});
+
+// Overlay panel headers are also tappable to collapse / expand on mobile.
+['readings', 'educator'].forEach(key => {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  const header = panelEl.querySelector('.panel-header');
+  if (!header) return;
+  header.addEventListener('click', e => {
+    if (!mobile) return;
+    if (e.target.closest('button')) return;
+    panelEl.classList.toggle('panel-collapsed');
+    syncTabStates();
   });
 });
 
@@ -919,20 +952,29 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Tools close button (mobile only) --------------------------------------------
+const toolsCloseBtn = document.getElementById('toolsClose');
+if (toolsCloseBtn) {
+  toolsCloseBtn.addEventListener('click', () => { if (mobile) closeSheet(); });
+}
+
 // =============================================================================
 // Init ------------------------------------------------------------------------
 // =============================================================================
 updateLayoutMode();
 setSheetHeight('low');
 setActiveTab('tools');
+// Educator starts collapsed so the canvas is unobstructed on first load.
+// Readings starts expanded so live metrics are visible immediately.
+if (mobile) panels.educator?.classList.add('panel-collapsed');
 syncPanelVisibility();
 schedulePositionEdges();
 
 // Keyboard-shortcut globals app.js calls --------------------------------------
 window.toggleInfoOverlay = () => {
   if (mobile) {
-    if (activeTab === 'readings' && sheetOpen) closeSheet();
-    else setActiveTab('readings', { openSheet: true });
+    const el = panels.readings;
+    if (el) { el.classList.toggle('panel-collapsed'); syncTabStates(); }
   } else {
     panels.readings.classList.add('flash');
     setTimeout(() => panels.readings.classList.remove('flash'), 600);
@@ -940,8 +982,8 @@ window.toggleInfoOverlay = () => {
 };
 window.toggleLessonOverlay = () => {
   if (mobile) {
-    if (activeTab === 'educator' && sheetOpen) closeSheet();
-    else setActiveTab('educator', { openSheet: true });
+    const el = panels.educator;
+    if (el) { el.classList.toggle('panel-collapsed'); syncTabStates(); }
   } else {
     panels.educator.classList.add('flash');
     setTimeout(() => panels.educator.classList.remove('flash'), 600);
