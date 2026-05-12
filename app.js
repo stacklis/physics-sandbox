@@ -219,9 +219,9 @@ function rebuildBoundaries() {
   if (cssW === 0) return;
   const Wm = cssW / PX_PER_M, Hm = cssH / PX_PER_M;
   const t = 0.4;
-  // floor — 1 m above canvas bottom so resting objects stay above the fixed
-  // tabbar on mobile and don't crowd the edge on any viewport.
-  floorY = Math.max(1, Hm - 1);
+  // Cap the play-field height at 10 m so on tall mobile screens objects don't
+  // fall 15+ m to a floor that is barely visible near the canvas edge.
+  floorY = Math.min(Math.max(1, Hm - 1), 10);
   walls.push(world.add(makeBox(Wm / 2, floorY + t / 2, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
   // ceiling
@@ -1231,17 +1231,12 @@ function drawAxes() {
   if (oy >= -pad && oy <= cssH + pad) {
     ctx.strokeStyle = 'rgba(255, 100, 100, 0.35)';
     ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(cssW, oy); ctx.stroke();
-    ctx.fillStyle = 'rgba(255, 120, 120, 0.7)';
-    ctx.fillText('X', cssW - 18, oy - 5);
-    // Tick marks every 1m (or 5m when zoomed out)
+    // Tick marks every 1m (or 5m when zoomed out) — no labels
     const step = camera.scale >= 30 ? 1 : 5;
     const sPx = step * camera.scale;
     ctx.strokeStyle = 'rgba(255, 100, 100, 0.25)';
-    ctx.fillStyle   = 'rgba(255, 140, 140, 0.5)';
     for (let sx = ((camera.x % sPx) + sPx) % sPx; sx < cssW; sx += sPx) {
       ctx.beginPath(); ctx.moveTo(sx, oy - 4); ctx.lineTo(sx, oy + 4); ctx.stroke();
-      const wx = Math.round(screenToWorld(sx, oy).x / step) * step;
-      if (wx !== 0) ctx.fillText(wx, sx + 2, oy + 13);
     }
   }
 
@@ -1249,16 +1244,11 @@ function drawAxes() {
   if (ox >= -pad && ox <= cssW + pad) {
     ctx.strokeStyle = 'rgba(100, 140, 255, 0.35)';
     ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, cssH); ctx.stroke();
-    ctx.fillStyle = 'rgba(120, 160, 255, 0.7)';
-    ctx.fillText('Y', ox + 5, 14);
     const step = camera.scale >= 30 ? 1 : 5;
     const sPx = step * camera.scale;
     ctx.strokeStyle = 'rgba(100, 140, 255, 0.25)';
-    ctx.fillStyle   = 'rgba(130, 160, 255, 0.5)';
     for (let sy = ((camera.y % sPx) + sPx) % sPx; sy < cssH; sy += sPx) {
       ctx.beginPath(); ctx.moveTo(ox - 4, sy); ctx.lineTo(ox + 4, sy); ctx.stroke();
-      const wy = Math.round(screenToWorld(ox, sy).y / step) * step;
-      if (wy !== 0) ctx.fillText(wy, ox + 6, sy + 4);
     }
   }
 
@@ -1533,11 +1523,6 @@ function drawToolOverlay() {
     // centre dot
     ctx.fillStyle = 'rgba(0,229,160,0.9)';
     ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
-    // world-coord readout
-    const wp = screenToWorld(x, y);
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillStyle = 'rgba(150,180,220,0.7)';
-    ctx.fillText(`${wp.x.toFixed(1)}, ${wp.y.toFixed(1)}`, x + 12, y - 6);
   }
 
   // ── Spring preview ─────────────────────────────────────────────────────────
@@ -1864,6 +1849,10 @@ document.querySelectorAll('#levelSegment .seg').forEach(el => {
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
 const hintEl = document.getElementById('hint');
+// Start collapsed on mobile so the canvas gets maximum space
+if (window.matchMedia('(max-width: 768px)').matches) {
+  topbarEl.classList.add('collapsed');
+}
 document.getElementById('topbarToggle').addEventListener('click', () => {
   topbarEl.classList.toggle('collapsed');
   // ResizeObserver picks this up, but call resize() directly so canvas redraws this frame.
@@ -3034,13 +3023,13 @@ function loadPreset(name) {
   switch (name) {
     case 'default':
       // a few balls and a box to start
-      world.add(makeCircle(Wm * 0.4, Hm * 0.3, 0.5, { color: '#6aa6ff' }));
-      world.add(makeCircle(Wm * 0.6, Hm * 0.2, 0.4, { color: '#ffc46a' }));
-      world.add(makeBox(Wm * 0.5, Hm * 0.5, 1.2, 1.2, { color: '#9bf2e0' }));
+      world.add(makeCircle(Wm * 0.4, floorY * 0.3, 0.5, { color: '#6aa6ff' }));
+      world.add(makeCircle(Wm * 0.6, floorY * 0.2, 0.4, { color: '#ffc46a' }));
+      world.add(makeBox(Wm * 0.5, floorY * 0.5, 1.2, 1.2, { color: '#9bf2e0' }));
       break;
     case 'stack': {
       const x = Wm * 0.5;
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       for (let i = 0; i < 8; i++) {
         const y = baseY - 0.45 - i * 0.85;
         world.add(makeBox(x + (Math.random() - 0.5) * 0.05, y, 0.8, 0.8, {
@@ -3088,7 +3077,7 @@ function loadPreset(name) {
       const verts = [new Vec2(-3, -0.2), new Vec2(3, -0.2), new Vec2(3, 0.2), new Vec2(-3, 0.2)];
       const ramp = new Body({
         shape: SHAPE.POLYGON,
-        position: new Vec2(Wm * 0.5, Hm * 0.7),
+        position: new Vec2(Wm * 0.5, floorY * 0.7),
         vertices: verts,
         isStatic: true,
         color: '#4a5068'
@@ -3096,14 +3085,14 @@ function loadPreset(name) {
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
-      world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
+      world.add(makeCircle(Wm * 0.5 - 2.5, floorY * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, floorY - 0.6, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'orbit': {
       world.gravity = 0;
-      const cx = Wm * 0.5, cy = Hm * 0.5;
+      const cx = Wm * 0.5, cy = floorY * 0.5;
       // central mass (static)
       const sun = world.add(makeCircle(cx, cy, 0.5, { isStatic: true, color: '#ffc46a' }));
       // orbiters
@@ -3139,7 +3128,7 @@ function loadPreset(name) {
       break;
     }
     case 'dominoes': {
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const w = 0.18, h = 1.6;
       const N = 12;
       const spacing = 0.7;
@@ -3159,7 +3148,7 @@ function loadPreset(name) {
     }
     case 'tower': {
       // Pyramid of boxes.
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const bw = 0.7, bh = 0.7;
       const rows = 7;
       for (let row = 0; row < rows; row++) {
@@ -3177,7 +3166,7 @@ function loadPreset(name) {
     case 'wreckingball': {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
-      const ropeLen = Math.min(4.5, Hm * 0.55);
+      const ropeLen = Math.min(4.5, floorY * 0.5);
       const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#4a5068' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
@@ -3189,7 +3178,7 @@ function loadPreset(name) {
 
       // Stack of small boxes on the right.
       const stackX = Wm * 0.7;
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const sw = 0.5, sh = 0.5;
       for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 4; col++) {

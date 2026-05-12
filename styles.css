@@ -1872,13 +1872,15 @@ body {
     grid-template-areas:
       "topbar"
       "main";
-    /* 100svh = dynamic viewport height (excludes collapsible browser chrome).
-       Falls back to 100vh on browsers that don't support svh units.
+    /* 100dvh = dynamic viewport height (shrinks/grows with browser chrome).
+       Falls back to 100svh then 100vh on older browsers.
        padding-bottom reserves space for the fixed tabbar + safe area. */
     height: 100vh;
     height: 100svh;
-    /* 60px tabbar + safe-area + 6px breathing room */
-    padding-bottom: calc(66px + env(safe-area-inset-bottom));
+    height: 100dvh;
+    /* 60px tabbar + safe-area + 16px breathing room so shapes near the floor
+       never sit flush against the tabbar edge. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 
   /* Topbar becomes scrollable strip so the action bar always fits. */
@@ -1895,37 +1897,26 @@ body {
     /* 96px clears both the sticky ⋯ (40px) and the sticky ▴ (38px + 8px gap). */
     padding-right: 96px;
   }
-  /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
+  /* Touch-friendly hit areas. */
   .topbar .seg { padding: 8px 12px; font-size: 12px; }
   .topbar .bar-group label { font-size: 12px; }
   .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
   .topbar .bar-group.btns { margin-left: 0; }
-  /* Hide label text to save strip width (the segments are self-explanatory). */
   .topbar .seg-label { display: none; }
+  /* On mobile, hide gravity/time sliders, mode switch, and collapse toggle —
+     only keep brand, level, pause, and ⋯. */
+  .topbar .bar-group:has(#modeSegment),
+  .topbar .bar-group:has(#gravity),
+  .topbar .bar-group:has(#timeScale),
+  .topbar .bar-toggle { display: none; }
   /* Hide topbar Pro link — upgrade dialog triggered by locked feature clicks. */
   .topbar .btn.pro-btn { display: none; }
-  /* Reorder strip: brand(−2) → level(−1) → ⋯(0, default) → bar-groups(1) → toggle(2, sticky).
-     bar-groups get order:1 so the ⋯ button lands at visual position 3, visible at scroll offset 0.
-     bar-toggle gets order:2 so margin-left:auto creates the gap at the correct end. */
+  /* Reorder strip: brand → level → ⋯ → pause. */
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
-  .topbar .bar-group { order: 1; }
-  .topbar .bar-toggle { order: 2; }
-  .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
-  /* Pin the collapse/expand toggle to the right viewport edge of the topbar.
-     `position: absolute` (default) would scroll with the row content; sticky
-     keeps it visible while the horizontal scroll moves the bar-groups. */
-  .topbar .bar-toggle {
-    position: sticky;
-    right: 8px;
-    margin-left: auto;
-    flex-shrink: 0;
-    /* Make it visually float above the scroll content so labels behind it
-       are obscured rather than visually colliding. */
-    box-shadow: -10px 0 14px rgba(10,10,15,0.85);
-  }
+  /* No more right-side padding reservation needed with fewer items. */
 
   .canvas-host { grid-area: main; }
 
@@ -1935,8 +1926,8 @@ body {
     left: 0;
     right: 0;
     bottom: calc(60px + env(safe-area-inset-bottom));
-    height: var(--sheet-height, 60vh);
-    max-height: 95vh;
+    height: var(--sheet-height, 42vh);
+    max-height: 90vh;
     background: rgba(12, 14, 20, 0.96);
     backdrop-filter: blur(14px) saturate(1.2);
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
