@@ -1371,17 +1371,10 @@ body.pro .locked::before { content: none; }
    sidebars (desktop). Single breakpoint at 768px.
    ===================================================================== */
 
-/* --- Hide legacy resize/collapse affordances (removed in rework). ---
-   Kept hidden globally so existing app.js init paths that set classes on
-   these targets remain harmless if they ever fire. */
+/* --- Hide legacy resize/collapse affordances (removed in rework). --- */
 .topbar-divider,
 .tools-divider,
 .tools-collapse-btn,
-.drawer-toggle,
-.drawer-backdrop,
-.hud-toggle,
-.lesson-toast,
-.overlay-toggles,
 .floating-overlay {
   display: none !important;
 }
@@ -1894,8 +1887,8 @@ body {
     gap: 14px;
     padding: 10px 14px;
     padding-top: max(10px, env(safe-area-inset-top));
-    /* 96px clears both the sticky ⋯ (40px) and the sticky ▴ (38px + 8px gap). */
-    padding-right: 96px;
+    /* 52px clears the sticky ⋯ button. */
+    padding-right: 52px;
   }
   /* Touch-friendly hit areas. */
   .topbar .seg { padding: 8px 12px; font-size: 12px; }
@@ -1944,11 +1937,10 @@ body {
     pointer-events: none;
   }
   body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
-  body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="high"] .panel { --sheet-height: 80vh; }
-  /* Legacy values still resolve sanely. */
-  body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="tall"] .panel { --sheet-height: 80vh; }
+  body[data-sheet-height="mid"] .panel { --sheet-height: 42vh; }
+  body[data-sheet-height="high"] .panel { --sheet-height: 70vh; }
+  body[data-sheet-height="default"] .panel { --sheet-height: 42vh; }
+  body[data-sheet-height="tall"] .panel { --sheet-height: 70vh; }
   .panel.visible {
     transform: translateY(0);
     pointer-events: auto;
