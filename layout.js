@@ -923,7 +923,7 @@ document.addEventListener('keydown', e => {
 // Init ------------------------------------------------------------------------
 // =============================================================================
 updateLayoutMode();
-setSheetHeight('mid');
+setSheetHeight('low');
 setActiveTab('tools');
 syncPanelVisibility();
 schedulePositionEdges();

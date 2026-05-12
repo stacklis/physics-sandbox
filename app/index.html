@@ -24,7 +24,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=70" />
+<link rel="stylesheet" href="../styles.css?v=75" />
 <script type="importmap">
 {
   "imports": {
@@ -87,7 +87,8 @@
   <canvas id="canvas"></canvas>
   <canvas id="canvas3d" style="display:none;position:absolute;inset:0;width:100%;height:100%;"></canvas>
   <div id="hint" class="hint">
-    <span>Drag to spawn · Right-drag/scroll to orbit/zoom · Click an object to read its data. Press <kbd>?</kbd> for keys.</span>
+    <span class="hint-touch">Tap &amp; drag to spawn. Tap an object to inspect. Use tabs below for tools.</span>
+    <span class="hint-mouse">Drag to spawn · Right-drag/scroll to pan/zoom · Click an object to inspect. <kbd>?</kbd> for keys.</span>
     <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
   </div>
 </main>
@@ -379,9 +380,9 @@
 </dialog>
 
 <button id="zenToggle" class="zen-toggle" title="Toggle zen mode (Z)" aria-label="Toggle zen mode">&#x2922;</button>
-<script src="../engine.js?v=70"></script>
-<script src="../education.js?v=70"></script>
-<script src="../app.js?v=70"></script>
-<script type="module" src="../layout.js?v=70"></script>
+<script src="../engine.js?v=73"></script>
+<script src="../education.js?v=73"></script>
+<script src="../app.js?v=74"></script>
+<script type="module" src="../layout.js?v=73"></script>
 </body>
 </html>

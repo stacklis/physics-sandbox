@@ -134,7 +134,8 @@ function onDown(ev) {
     }
     return;
   }
-  // Spawn tool — start a drag.
+  // Spawn tool — start a drag (left button only).
+  if (ev.button !== 0) return;
   dragStart = { x: ev.clientX, y: ev.clientY };
   dragNow = { x: ev.clientX, y: ev.clientY };
 }

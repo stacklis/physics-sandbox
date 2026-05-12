@@ -39,7 +39,7 @@ async function setPhysicsMode(next) {
     document.getElementById('canvas').style.display = 'none';
     document.getElementById('canvas3d').style.display = 'block';
     try {
-      const mod = await import('./app3d.js?v=71');
+      const mod = await import('./app3d.js?v=72');
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -62,7 +62,7 @@ async function setPhysicsMode(next) {
     document.getElementById('canvas').style.display = '';
     if (_3dHandle) {
       try {
-        const mod = await import('./app3d.js?v=71');
+        const mod = await import('./app3d.js?v=72');
         mod.teardown3D();
       } catch {}
       _3dHandle = null;
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('canvas').style.display = 'none';
     document.getElementById('canvas3d').style.display = 'block';
     _setToggleUI('3d');
-    import('./app3d.js?v=71').then(async mod => {
+    import('./app3d.js?v=72').then(async mod => {
       _3dHandle = await mod.init3D({
         canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // by stopping propagation). Re-check Pro here so non-Pro users hit the
     // upsell instead of getting a free download.
     if (!Pro.isActive()) { openUpgradeModal(); return; }
-    const mod = await import('./app3d.js?v=71');
+    const mod = await import('./app3d.js?v=72');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       return;
     }
-    const mod = await import('./app3d.js?v=71');
+    const mod = await import('./app3d.js?v=72');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
     finally { fileInput.value = ''; }
@@ -2382,7 +2382,7 @@ function updateTipsOverlay() {
 //                  (note: /app/, not /, so Pro.checkUrlParam() below runs and
 //                  flips the localStorage flag immediately)
 //   - Cancel URL:  https://physics.stacklis.com/app/
-const STRIPE_CHECKOUT_URL = 'https://buy.stripe.com/REPLACE_WITH_REAL_LINK';
+const STRIPE_CHECKOUT_URL = 'https://buy.stripe.com/28E8wPdCQ2gs7DdamB0Jq01';
 // Keep legacy alias so any code referencing STRIPE_PAYMENT_LINK still works.
 const STRIPE_PAYMENT_LINK = STRIPE_CHECKOUT_URL;
 // ?free=1 — force the app into free-tier mode regardless of localStorage.
@@ -2490,6 +2490,19 @@ if (redeemInputEl) redeemInputEl.addEventListener('keydown', (ev) => {
 if (upgradeDialog) upgradeDialog.addEventListener('click', (ev) => {
   if (ev.target === upgradeDialog) closeUpgradeModal();
 });
+
+// ?upgrade=1 — auto-open upgrade dialog when arriving from the landing page CTA.
+// Consumed once; stripped from the URL so back-navigation is clean.
+(function () {
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.get('upgrade') === '1') {
+      u.searchParams.delete('upgrade');
+      window.history.replaceState(null, '', u.toString());
+      if (!Pro.isActive()) setTimeout(openUpgradeModal, 350);
+    }
+  } catch (_) {}
+})();
 
 /* =========================== derivations export (Pro) =========================== */
 function escapeHtml(s) {
