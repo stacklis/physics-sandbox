@@ -987,8 +987,9 @@ if (educatorCloseBtn) {
 updateLayoutMode();
 setSheetHeight('low');
 setActiveTab('tools');
-// Educator starts collapsed so the canvas is unobstructed on first load.
-// Readings starts expanded so live metrics are visible immediately.
+// Both overlays start hidden on mobile (overlayOpen = false).
+// Pre-collapse educator so that the first open always shows full content
+// (the tab-open handler removes panel-collapsed before making it visible).
 if (mobile) panels.educator?.classList.add('panel-collapsed');
 syncPanelVisibility();
 schedulePositionEdges();

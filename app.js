@@ -218,17 +218,18 @@ function rebuildBoundaries() {
   if (cssW === 0) return;
   const Wm = cssW / PX_PER_M, Hm = cssH / PX_PER_M;
   const t = 0.4;
-  // floor
-  walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
+  // floor — 1 m above canvas bottom so resting objects are always visible
+  // above the tabbar on mobile and don't crowd the edge on any viewport.
+  const floorY = Hm - 1;
+  walls.push(world.add(makeBox(Wm / 2, floorY + t / 2, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
-  // left
-  walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
+  // left and right walls span ceiling → floor
+  walls.push(world.add(makeBox(-t / 2 + 0.05, floorY / 2, t, floorY + t * 2,
     { isStatic: true, color: '#3a4055' })));
-  // right
-  walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
+  walls.push(world.add(makeBox(Wm + t / 2 - 0.05, floorY / 2, t, floorY + t * 2,
     { isStatic: true, color: '#3a4055' })));
 }
 

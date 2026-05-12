@@ -1872,6 +1872,11 @@ body {
     grid-template-areas:
       "topbar"
       "main";
+    /* 100svh = dynamic viewport height (excludes collapsible browser chrome).
+       Falls back to 100vh on browsers that don't support svh units.
+       padding-bottom reserves space for the fixed tabbar + safe area. */
+    height: 100vh;
+    height: 100svh;
     /* 60px tabbar + safe-area + 6px breathing room */
     padding-bottom: calc(66px + env(safe-area-inset-bottom));
   }
@@ -2060,6 +2065,10 @@ body {
   /* panel-pop is desktop-only; on mobile it's hidden so close takes that role */
   #infoOverlay .panel-pop,
   #lessonOverlay .panel-pop { display: none; }
+  /* Educator header has level-badge which already has margin-left:auto — the
+     close button must NOT also use auto or it splits the free space, pushing
+     the badge toward center instead of right-edge. */
+  #lessonOverlay .overlay-close { margin-left: 0; }
 
   /* Readings: compact overlay anchored to top-right, below topbar */
   #infoOverlay {
