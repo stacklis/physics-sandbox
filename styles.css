@@ -1870,7 +1870,8 @@ body {
     grid-template-areas:
       "topbar"
       "main";
-    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    /* 60px tabbar + safe-area + 6px gap + ~40px educator collapsed header */
+    padding-bottom: calc(106px + env(safe-area-inset-bottom));
   }
 
   /* Topbar becomes scrollable strip so the action bar always fits. */
