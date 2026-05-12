@@ -212,15 +212,16 @@ function enforceBodyCap() {
   }
 }
 let walls = [];
+let floorY = 0; // world-Y of the physics floor top surface (set by rebuildBoundaries)
 function rebuildBoundaries() {
   for (const w of walls) world.remove(w);
   walls = [];
   if (cssW === 0) return;
   const Wm = cssW / PX_PER_M, Hm = cssH / PX_PER_M;
   const t = 0.4;
-  // floor — 1 m above canvas bottom so resting objects are always visible
-  // above the tabbar on mobile and don't crowd the edge on any viewport.
-  const floorY = Hm - 1;
+  // floor — 1 m above canvas bottom so resting objects stay above the fixed
+  // tabbar on mobile and don't crowd the edge on any viewport.
+  floorY = Math.max(1, Hm - 1);
   walls.push(world.add(makeBox(Wm / 2, floorY + t / 2, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
   // ceiling
@@ -1206,12 +1207,15 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  // Floor line with accent
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
-  ctx.stroke();
+  // Floor line — tracks the actual physics floor position (floorY world units)
+  const floorSy = floorY * camera.scale + camera.y;
+  if (floorSy >= 0 && floorSy <= cssH) {
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, floorSy); ctx.lineTo(cssW, floorSy);
+    ctx.stroke();
+  }
 }
 
 // World-space X and Y axes through the origin — only drawn when visible.
@@ -1704,15 +1708,13 @@ function fmtNumRest(n, threshold) {
   return Math.abs(n) < threshold ? '0.00' : fmtNum(n);
 }
 
-// PE reference: floor's top surface (matches the visual floor the user sees).
+// PE reference: floor's top surface (floorY, set by rebuildBoundaries).
 // Measured against the body's lowest point (aabb.maxY in screen-down coords)
 // so a body resting on the floor reads ~0 J. Tiny negative values from contact
-// penetration are clamped to 0 for clarity.
-const FLOOR_SURFACE_OFFSET = 0.05; // matches makeBox offset in rebuildBoundaries
+// penetration are clamped to 0.
 function bodyHeightAboveFloor(body) {
-  const floorTop = cssH / PX_PER_M - FLOOR_SURFACE_OFFSET;
   const aabb = body.aabb();
-  const h = floorTop - aabb.maxY;
+  const h = floorY - aabb.maxY;
   return h > 0 ? h : 0;
 }
 
