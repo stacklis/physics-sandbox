@@ -421,6 +421,7 @@ function bindDockEdge(handleEl, varName, lsKey, range, axis) {
     body.classList.remove('resizing-dock');
     try { localStorage.setItem(lsKey, String(lastVal)); } catch {}
     schedulePositionEdges();
+    if (typeof window.PSandboxResize === 'function') window.PSandboxResize();
   }
   handleEl.addEventListener('pointerup', release);
   handleEl.addEventListener('pointercancel', release);
@@ -566,8 +567,8 @@ function setupPopButton(key) {
   btn.addEventListener('click', e => {
     e.stopPropagation();
     if (mobile) return;
-    if (panelEl.classList.contains('floating')) dockPanel(key);
-    else floatPanel(key);
+    if (panelEl.classList.contains('floating')) hideOverlayPanel(key);
+    else showOverlayPanel(key);
   });
   // Reflect initial label.
   updatePopButton(key);
@@ -575,12 +576,10 @@ function setupPopButton(key) {
 
 function updatePopButton(key) {
   const btn = POP_BUTTONS[key];
-  const panelEl = panels[key];
-  if (!btn || !panelEl) return;
-  const isFloat = panelEl.classList.contains('floating');
-  btn.textContent = isFloat ? '⊟' : '⊞';
-  btn.setAttribute('aria-label', isFloat ? 'Dock panel' : 'Detach panel');
-  btn.setAttribute('title', isFloat ? 'Dock panel' : 'Pop out');
+  if (!btn) return;
+  btn.textContent = '✕';
+  btn.setAttribute('aria-label', 'Hide panel');
+  btn.setAttribute('title', 'Hide panel');
 }
 
 function floatPanel(key) {
@@ -807,14 +806,159 @@ function hideDockZones() {
 // Wire pop buttons + restore floating state on load (desktop only).
 for (const key of FLOAT_KEYS) setupPopButton(key);
 
+// =============================================================================
+// OVERLAY VISIBILITY — readings + educator are overlay-only, no dock position.
+// Topbar toggle buttons show/hide them; pop button in header closes them.
+// =============================================================================
+const OVERLAY_VIS_BTNS = {};
+
+function hideOverlayPanel(key) {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  panelEl.classList.add('panel-overlay-hidden');
+  try { localStorage.setItem(`ps:panel:${key}:hidden`, 'true'); } catch {}
+  updateOverlayVisBtn(key);
+}
+
+function showOverlayPanel(key) {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  panelEl.classList.remove('panel-overlay-hidden');
+  try { localStorage.setItem(`ps:panel:${key}:hidden`, 'false'); } catch {}
+  if (!panelEl.classList.contains('floating')) floatPanel(key);
+  else raiseFloat(key);
+  updateOverlayVisBtn(key);
+}
+
+function toggleOverlayPanel(key) {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  if (panelEl.classList.contains('panel-overlay-hidden')) showOverlayPanel(key);
+  else hideOverlayPanel(key);
+}
+
+function updateOverlayVisBtn(key) {
+  const btn = OVERLAY_VIS_BTNS[key];
+  if (!btn) return;
+  const hidden = panels[key]?.classList.contains('panel-overlay-hidden');
+  btn.classList.toggle('active', !hidden);
+}
+
+function setupOverlayToggleBtn(key) {
+  const btn = document.querySelector(`[data-vis-panel="${key}"]`);
+  if (!btn) return;
+  OVERLAY_VIS_BTNS[key] = btn;
+  btn.addEventListener('click', () => { if (!mobile) toggleOverlayPanel(key); });
+  updateOverlayVisBtn(key);
+}
+
+for (const key of FLOAT_KEYS) setupOverlayToggleBtn(key);
+
 function restoreFloatStates() {
   if (mobile) return;
   for (const key of FLOAT_KEYS) {
-    if (readState(key) === 'floating') floatPanel(key);
+    floatPanel(key); // Overlay panels have no dock position — always float
+  }
+  // Restore hidden state
+  for (const key of FLOAT_KEYS) {
+    try {
+      if (localStorage.getItem(`ps:panel:${key}:hidden`) === 'true') hideOverlayPanel(key);
+    } catch {}
   }
 }
 // Defer one frame so canvas-host has a measured rect before we clamp into it.
 requestAnimationFrame(restoreFloatStates);
+
+// =============================================================================
+// DOCK COLLAPSE — each docked panel can be collapsed to a thin strip.
+// Tools/Readings → 32px sidebar strip. Educator → 28px bottom strip.
+// State persists via localStorage. Collapsed panels hide the dock-edge handle.
+// =============================================================================
+const COLLAPSE_LS = {
+  tools:    'ps:panel:tools:collapsed',
+  readings: 'ps:panel:readings:collapsed',
+  educator: 'ps:panel:educator:collapsed',
+};
+const COLLAPSE_SIZES = { tools: 36, readings: 36, educator: 28 };
+const CSS_VAR_MAP  = { tools: '--tools-w', readings: '--readings-w', educator: '--educator-h' };
+const LS_SIZE_MAP  = { tools: LS.toolsW, readings: LS.readingsW, educator: LS.educatorH };
+const RANGE_MAP    = { tools: RANGES.toolsW, readings: RANGES.readingsW, educator: RANGES.educatorH };
+const COLLAPSE_LABELS = {
+  tools:    { open: '‹', closed: '›', labelOpen: 'Collapse tools',    labelClosed: 'Expand tools'    },
+  readings: { open: '›', closed: '‹', labelOpen: 'Collapse readings', labelClosed: 'Expand readings' },
+  educator: { open: '⌄', closed: '⌃', labelOpen: 'Collapse educator', labelClosed: 'Expand educator' },
+};
+
+const dockCollapsed = { tools: false, readings: false, educator: false };
+const COLLAPSE_BTNS = {};
+
+function readDockCollapsed(key) {
+  try { return localStorage.getItem(COLLAPSE_LS[key]) === 'true'; } catch { return false; }
+}
+function writeDockCollapsed(key, val) {
+  try { localStorage.setItem(COLLAPSE_LS[key], String(val)); } catch {}
+}
+
+function applyDockCollapse(key) {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  const isCollapsed = dockCollapsed[key];
+  panelEl.classList.toggle('dock-collapsed', isCollapsed);
+  body.dataset[key + 'Collapsed'] = String(isCollapsed);
+  const root = document.documentElement;
+  if (isCollapsed) {
+    root.style.setProperty(CSS_VAR_MAP[key], `${COLLAPSE_SIZES[key]}px`);
+  } else {
+    const stored = parseFloat(localStorage.getItem(LS_SIZE_MAP[key]));
+    if (Number.isFinite(stored)) root.style.setProperty(CSS_VAR_MAP[key], `${clamp(stored, ...RANGE_MAP[key])}px`);
+    else root.style.removeProperty(CSS_VAR_MAP[key]);
+  }
+  updateCollapseBtn(key);
+  schedulePositionEdges();
+  // Re-measure canvas after the 240ms grid transition finishes.
+  setTimeout(() => { if (typeof window.PSandboxResize === 'function') window.PSandboxResize(); }, 260);
+}
+
+function updateCollapseBtn(key) {
+  const btn = COLLAPSE_BTNS[key];
+  if (!btn) return;
+  const l = COLLAPSE_LABELS[key];
+  const isCollapsed = dockCollapsed[key];
+  btn.textContent = isCollapsed ? l.closed : l.open;
+  btn.setAttribute('aria-label', isCollapsed ? l.labelClosed : l.labelOpen);
+  btn.setAttribute('title',      isCollapsed ? l.labelClosed : l.labelOpen);
+}
+
+function toggleDockCollapse(key) {
+  const panelEl = panels[key];
+  if (!panelEl || mobile) return;
+  if (panelEl.classList.contains('floating')) return;
+  dockCollapsed[key] = !dockCollapsed[key];
+  applyDockCollapse(key);
+  writeDockCollapsed(key, dockCollapsed[key]);
+}
+
+function setupCollapseButton(key) {
+  const panelEl = panels[key];
+  if (!panelEl) return;
+  const btn = panelEl.querySelector(`.panel-collapse[data-collapse="${key}"]`);
+  if (!btn) return;
+  COLLAPSE_BTNS[key] = btn;
+  btn.addEventListener('click', e => { e.stopPropagation(); toggleDockCollapse(key); });
+  updateCollapseBtn(key);
+}
+
+function restoreCollapseStates() {
+  if (mobile) return;
+  for (const key of TABS) {
+    dockCollapsed[key] = readDockCollapsed(key);
+    if (dockCollapsed[key]) applyDockCollapse(key);
+    else updateCollapseBtn(key);
+  }
+}
+
+for (const key of TABS) setupCollapseButton(key);
+restoreCollapseStates();
 
 // Re-clamp floating panels when canvas-host resizes (e.g. window resize, dock
 // width changes). Use the existing canvas-host ResizeObserver hook.
@@ -863,14 +1007,23 @@ function onBreakpointChange() {
       body.dataset.sheetOpen = 'false';
       delete body.dataset.sheetLocked;
       setSheetHeight('mid');
-      // Show dock-edges + restore floating states.
+      // Show dock-edges + restore floating and collapse states.
       for (const el of Object.values(dockEdges)) el.style.display = '';
+      restoreCollapseStates();
       restoreFloatStates();
       schedulePositionEdges();
     } else {
       sheetOpen = false;
       body.dataset.sheetOpen = 'false';
       delete body.dataset.sheetLocked;
+      // Clear collapse visual state for mobile (no strips on mobile).
+      for (const key of TABS) {
+        const panelEl = panels[key];
+        if (panelEl) panelEl.classList.remove('dock-collapsed');
+        delete body.dataset[key + 'Collapsed'];
+        const root = document.documentElement;
+        root.style.removeProperty(CSS_VAR_MAP[key]);
+      }
       // Hide dock-edges and tear down floats so the sheet renders cleanly.
       for (const el of Object.values(dockEdges)) el.style.display = 'none';
       for (const key of FLOAT_KEYS) {
@@ -921,6 +1074,7 @@ const topbarOverflow = document.getElementById('topbarOverflow');
 function openTopbarOverflow() {
   body.dataset.topbarOverflowOpen = 'true';
   if (topbarMoreBtn) topbarMoreBtn.setAttribute('aria-expanded', 'true');
+  positionFabMenu();
 }
 function closeTopbarOverflow() {
   delete body.dataset.topbarOverflowOpen;
@@ -957,6 +1111,116 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// =============================================================================
+// DRAGGABLE FAB — on mobile the ⋯ button is a fixed FAB that can be dragged
+// to any position on screen. Position persists via localStorage.
+// Double-tap resets to default corner position.
+// =============================================================================
+function positionFabMenu() {
+  if (!topbarMoreBtn || !topbarOverflow) return;
+  if (window.innerWidth > 768) return;
+  const btn = topbarMoreBtn.getBoundingClientRect();
+  const mW = 190, mH = 264;
+  let top = btn.top > window.innerHeight / 2 ? btn.top - mH - 4 : btn.bottom + 4;
+  let left = Math.max(8, Math.min(btn.right - mW, window.innerWidth - mW - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - mH - 8));
+  topbarOverflow.style.top = top + 'px';
+  topbarOverflow.style.left = left + 'px';
+  topbarOverflow.style.right = '';
+  topbarOverflow.style.bottom = '';
+}
+
+(function initFabDrag() {
+  if (!topbarMoreBtn) return;
+  const LS = 'ps_fab_pos';
+  const SZ = 44, THRESH = 6, R = 16, B = 72;
+
+  function isMob() { return window.innerWidth <= 768; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function applyPos(left, top) {
+    topbarMoreBtn.style.left = left + 'px';
+    topbarMoreBtn.style.top = top + 'px';
+    topbarMoreBtn.style.right = '';
+    topbarMoreBtn.style.bottom = '';
+  }
+  function defaultPos() {
+    const sai = parseFloat(getComputedStyle(document.documentElement).paddingBottom) || 0;
+    return { left: window.innerWidth - SZ - R, top: window.innerHeight - SZ - B - sai };
+  }
+  function constrain(left, top) {
+    return { left: clamp(left, 8, window.innerWidth - SZ - 8), top: clamp(top, 8, window.innerHeight - SZ - 8) };
+  }
+  function loadPos() { try { const s = localStorage.getItem(LS); return s ? JSON.parse(s) : null; } catch { return null; } }
+  function savePos(l, t) { try { localStorage.setItem(LS, JSON.stringify({ left: l, top: t })); } catch {} }
+
+  function initPos() {
+    if (!isMob()) return;
+    const saved = loadPos();
+    const pos = saved ? constrain(saved.left, saved.top) : defaultPos();
+    applyPos(pos.left, pos.top);
+  }
+
+  let dsx = 0, dsy = 0, fsl = 0, fst = 0, dragging = false, moved = false, lastTap = 0;
+
+  topbarMoreBtn.addEventListener('pointerdown', e => {
+    if (!isMob()) return;
+    dsx = e.clientX; dsy = e.clientY;
+    const r = topbarMoreBtn.getBoundingClientRect();
+    fsl = r.left; fst = r.top;
+    dragging = true; moved = false;
+    topbarMoreBtn.setPointerCapture(e.pointerId);
+  });
+
+  topbarMoreBtn.addEventListener('pointermove', e => {
+    if (!dragging || !isMob()) return;
+    const dx = e.clientX - dsx, dy = e.clientY - dsy;
+    if (!moved && Math.hypot(dx, dy) < THRESH) return;
+    moved = true;
+    topbarMoreBtn.classList.add('ps-dragging');
+    const { left, top } = constrain(fsl + dx, fst + dy);
+    applyPos(left, top);
+  });
+
+  topbarMoreBtn.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    topbarMoreBtn.classList.remove('ps-dragging');
+    if (moved) {
+      const r = topbarMoreBtn.getBoundingClientRect();
+      savePos(r.left, r.top);
+      e.stopImmediatePropagation();
+      moved = false;
+      return;
+    }
+    moved = false;
+    const now = Date.now();
+    if (now - lastTap < 400) {
+      const pos = defaultPos();
+      applyPos(pos.left, pos.top);
+      savePos(pos.left, pos.top);
+      lastTap = 0;
+      closeTopbarOverflow();
+      return;
+    }
+    lastTap = now;
+  });
+
+  topbarMoreBtn.addEventListener('pointercancel', () => {
+    dragging = false; moved = false;
+    topbarMoreBtn.classList.remove('ps-dragging');
+  });
+
+  window.addEventListener('resize', () => {
+    if (!isMob()) return;
+    const saved = loadPos();
+    if (saved) { const p = constrain(saved.left, saved.top); applyPos(p.left, p.top); }
+    else { const p = defaultPos(); applyPos(p.left, p.top); }
+  });
+
+  initPos();
+})();
+
 // Tools close button (mobile only) --------------------------------------------
 const toolsCloseBtn = document.getElementById('toolsClose');
 if (toolsCloseBtn) {
@@ -985,8 +1249,10 @@ if (educatorCloseBtn) {
 // Init ------------------------------------------------------------------------
 // =============================================================================
 updateLayoutMode();
-setSheetHeight('low');
+setSheetHeight('mid');
 setActiveTab('tools');
+// Auto-open the tools sheet on mobile so controls are visible immediately.
+if (mobile) openSheet();
 // Both overlays start hidden on mobile (overlayOpen = false).
 // Pre-collapse educator so that the first open always shows full content
 // (the tab-open handler removes panel-collapsed before making it visible).
@@ -1001,8 +1267,7 @@ window.toggleInfoOverlay = () => {
     if (overlayOpen.readings) panels.readings?.classList.remove('panel-collapsed');
     syncPanelVisibility();
   } else {
-    panels.readings.classList.add('flash');
-    setTimeout(() => panels.readings.classList.remove('flash'), 600);
+    toggleOverlayPanel('readings');
   }
 };
 window.toggleLessonOverlay = () => {
@@ -1011,8 +1276,7 @@ window.toggleLessonOverlay = () => {
     if (overlayOpen.educator) panels.educator?.classList.remove('panel-collapsed');
     syncPanelVisibility();
   } else {
-    panels.educator.classList.add('flash');
-    setTimeout(() => panels.educator.classList.remove('flash'), 600);
+    toggleOverlayPanel('educator');
   }
 };
 window.toggleTipsOverlay = () => {
@@ -1024,6 +1288,7 @@ window.toggleTipsOverlay = () => {
 window.PSandboxLayout = {
   setActiveTab, openSheet, closeSheet, toggleSheet,
   floatPanel, dockPanel,
+  showOverlayPanel, hideOverlayPanel, toggleOverlayPanel,
   openTopbarOverflow, closeTopbarOverflow, toggleTopbarOverflow,
   get state() {
     return {
