@@ -4,6 +4,21 @@ All notable changes to Physics Sandbox land here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-05-14
+
+### Added
+- Share-link size caps (`SHARE_INPUT_MAX = 32 KiB`, `SHARE_DECOMPRESSED_MAX = 1 MiB`) — zip-bomb / oversized-input DoS defense on `#scene=` fragments.
+
+### Changed
+- Android `versionCode` 1→2, `versionName` "1.0"→"1.0.1" (Play Store upload prerequisite).
+- Android FileProvider `cache-path` narrowed from `"."` to `"images/"`.
+- Asset `?v=` query strings synced to v=85 (styles) / v=80 (app.js) across root, `app/`, `landing.html`, `privacy.html`, `terms.html`, and `android-app/www/index.html`.
+- Repo hygiene: untracked the cached screenshot/diag artifacts that were committed before the matching `.gitignore` rule (already-ignored files only).
+
+### Fixed
+- `shadowBlur` on collision-contact visualization now skipped on touch devices (was the last hot-path shadowBlur left unguarded; springs and anchors were already gated in v1.0.1).
+- Empty `catch {}` blocks around `localStorage.setItem(MODE_KEY, ...)` and the 3D `teardown` dynamic import now log to `console.debug` / `console.warn` so failures aren't silent.
+
 ## [1.0.1] — 2026-05-13
 
 ### Added

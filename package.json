@@ -1,6 +1,6 @@
 {
   "name": "physics-sandbox",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Physics Sandbox — learn by playing",
   "scripts": {
     "dev": "npx serve -l tcp://0.0.0.0:8081",

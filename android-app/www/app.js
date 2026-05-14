@@ -31,7 +31,7 @@ async function setPhysicsMode(next) {
   if (cur === next) return;
   if (!confirm(`Switch to ${next.toUpperCase()} mode? The current scene will be cleared.`)) return;
   _switching = true;
-  try { localStorage.setItem(MODE_KEY, next); } catch {}
+  try { localStorage.setItem(MODE_KEY, next); } catch (e) { console.debug('[mode] persist failed', e); }
   _setToggleUI(next);
   if (next === '3d') {
     document.body.dataset.mode = '3d';
@@ -47,7 +47,7 @@ async function setPhysicsMode(next) {
     } catch (err) {
       // Roll back so a failed 3D load doesn't permanently brick the page.
       console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
-      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch (e) { console.debug('[mode] persist failed', e); }
       document.body.dataset.mode = '2d';
       document.getElementById('canvas').style.display = '';
       document.getElementById('canvas3d').style.display = 'none';
@@ -64,7 +64,7 @@ async function setPhysicsMode(next) {
       try {
         const mod = await import('./app3d.js?v=72');
         mod.teardown3D();
-      } catch {}
+      } catch (e) { console.warn('[Sandbox] 3D teardown failed:', e); }
       _3dHandle = null;
     }
     // Reload to restore 2D state cleanly. No state-machine gymnastics for now.
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }).catch(err => {
       console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
-      try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
+      try { localStorage.setItem(MODE_KEY, '2d'); } catch (e) { console.debug('[mode] persist failed', e); }
       document.body.dataset.mode = '2d';
       document.getElementById('canvas').style.display = '';
       document.getElementById('canvas3d').style.display = 'none';
@@ -1584,8 +1584,10 @@ function drawArrowhead(a, b, color) {
 
 function drawContacts() {
   ctx.fillStyle = '#ff6b9d';
-  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
-  ctx.shadowBlur = 8;
+  if (!IS_TOUCH) {
+    ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
+    ctx.shadowBlur = 8;
+  }
   for (const c of world.contacts) {
   for (const p of c.points) {
   const s = worldToScreen(p.x, p.y);
@@ -2891,12 +2893,19 @@ async function gzipString(str) {
   w.close();
   return new Uint8Array(await new Response(cs.readable).arrayBuffer());
 }
+// Share-link size limits — prevents zip-bomb / oversized-input DoS on shared URLs.
+const SHARE_INPUT_MAX = 32 * 1024;       // 32 KiB raw token (URL fragment after "#scene=")
+const SHARE_DECOMPRESSED_MAX = 1024 * 1024; // 1 MiB cap on decompressed scene JSON
 async function gunzipBytes(bytes) {
   const ds = new DecompressionStream('gzip');
   const w = ds.writable.getWriter();
   w.write(bytes);
   w.close();
-  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
+  const buf = await new Response(ds.readable).arrayBuffer();
+  if (buf.byteLength > SHARE_DECOMPRESSED_MAX) {
+    throw new Error(`Decompressed scene exceeds ${SHARE_DECOMPRESSED_MAX} bytes`);
+  }
+  return new TextDecoder().decode(buf);
 }
 
 async function encodeShareToken(scene) {
@@ -2908,6 +2917,7 @@ async function encodeShareToken(scene) {
 }
 async function decodeShareToken(token) {
   if (typeof token !== 'string') throw new Error('Invalid share token.');
+  if (token.length > SHARE_INPUT_MAX) throw new Error('Share token too long.');
   const colon = token.indexOf(':');
   if (colon < 0) throw new Error('Invalid share token format.');
   const prefix = token.slice(0, colon);
