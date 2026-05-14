@@ -613,6 +613,7 @@ function dockPanel(key) {
   const panelEl = panels[key];
   if (!panelEl) return;
   if (!panelEl.classList.contains('floating')) return;
+  if (panelEl.classList.contains('dock-exit')) return;
   // Hide dock-zone hint immediately so it doesn't linger during exit anim.
   if (dockZones[key]) dockZones[key].classList.remove('active');
   // Play exit animation, then complete the dock when it ends.
