@@ -578,9 +578,17 @@ function setupPopButton(key) {
 function updatePopButton(key) {
   const btn = POP_BUTTONS[key];
   if (!btn) return;
-  btn.textContent = '✕';
-  btn.setAttribute('aria-label', 'Hide panel');
-  btn.setAttribute('title', 'Hide panel');
+  const panelEl = panels[key];
+  const floating = panelEl && panelEl.classList.contains('floating');
+  if (floating) {
+    btn.textContent = '✕';
+    btn.setAttribute('aria-label', 'Dock panel');
+    btn.setAttribute('title', 'Dock panel');
+  } else {
+    btn.textContent = '⊞';
+    btn.setAttribute('aria-label', 'Pop out panel');
+    btn.setAttribute('title', 'Pop out panel');
+  }
 }
 
 function floatPanel(key) {

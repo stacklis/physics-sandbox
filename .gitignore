@@ -12,3 +12,6 @@ node_modules/
 /shot-*.png
 /cap.cjs
 /cap.mjs
+
+# Audit reports — generated artifacts, not source.
+/review-output/

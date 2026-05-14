@@ -28,6 +28,37 @@
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
+/* Global keyboard-focus ring — WCAG 2.4.7. Mouse clicks won't show it
+   (because :focus-visible only fires for keyboard nav); Tab key reveals
+   the accent ring on every interactive element. */
+:focus { outline: none; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="tab"]:focus-visible,
+.tool:focus-visible,
+.seg:focus-visible,
+.tab:focus-visible,
+.material:focus-visible,
+.preset:focus-visible,
+.panel-collapse:focus-visible,
+.panel-pop:focus-visible,
+.panel-close:focus-visible,
+.bar-toggle:focus-visible,
+.topbar-more:focus-visible,
+.zen-toggle:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 229, 160, 0.18);
+  border-radius: var(--radius-sm);
+}
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 4px;
+}
+
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 

@@ -206,9 +206,10 @@ function enforceBodyCap() {
   for (const b of world.bodies) {
     if (b.isStatic || walls.includes(b)) continue;
     dynCount++;
-    if (!oldest || (!oldest._isFragment && b._isFragment)) continue;
-    if (!oldest._isFragment) oldest = b; // prefer evicting non-fragments
-    else if (!oldest) oldest = b;
+    if (!oldest) { oldest = b; continue; }
+    // Prefer evicting fragments first; once oldest is a fragment, keep it.
+    if (oldest._isFragment && !b._isFragment) continue;
+    if (!oldest._isFragment && b._isFragment) oldest = b;
   }
   if (dynCount >= MAX_DYNAMIC_BODIES && oldest) {
     if (state.selected === oldest) state.selected = null;
@@ -237,7 +238,10 @@ function rebuildBoundaries() {
   walls = [];
   if (cssW === 0) return;
   const Wm = cssW / PX_PER_M;
-  const t = 0.4;
+  // Wall thickness must exceed maxLinearVelocity * fixedDt * substepCap to
+  // prevent fast bodies from tunneling. Walls sit just outside the canvas so
+  // thickness is not visible. 80 m/s * (1/60) * 3 ≈ 4 m → use 4 m.
+  const t = 4.0;
   const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
   floorY = worldHpx / PX_PER_M;
   homeCamera(); // keep floor anchored to canvas bottom on every resize
@@ -386,7 +390,7 @@ ui.audioVol.addEventListener('input', () => AudioFx.setVolume(parseFloat(ui.audi
 // Pipe simulation events into AudioFx. Educator already listens separately.
 // Destruction threshold for breaking objects (velocity in m/s)
 // Requires extremely forceful impacts - only violent collisions will break objects
-const DESTRUCTION_THRESHOLD = 100;
+const DESTRUCTION_THRESHOLD = 40;
 
 world.on(ev => {
   if (ev.type === 'collision') {
@@ -636,17 +640,25 @@ function switchToGrabTool() {
 // Space still toggles pause on a single tap (via the existing keydown handler).
 // When held and used with drag, the cursor shows grab mode.
 let spaceHeld = false;
+let spacePanned = false; // set to true while a pan-drag fires during the Space hold
 window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
     spaceHeld = true;
+    spacePanned = false;
     document.body.classList.add('space-pan');
   }
 });
 window.addEventListener('keyup', e => {
   if (e.code === 'Space') {
+    const wasTap = !spacePanned;
     spaceHeld = false;
+    spacePanned = false;
     document.body.classList.remove('space-pan');
     if (!state.panDrag) canvas.classList.remove('panning');
+    // Quick tap (no pan drag during hold) → toggle pause.
+    if (wasTap && !e.target.matches('input, textarea') && ui.pauseBtn) {
+      ui.pauseBtn.click();
+    }
   }
 });
 
@@ -704,6 +716,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (ev.button === 1 || state.tool === 'pan' || (spaceHeld && ev.button === 0)) {
     state.panDrag = { startX: ev.clientX, startY: ev.clientY, camX0: camera.x, camY0: camera.y };
     canvas.classList.add('panning');
+    if (spaceHeld) spacePanned = true;
     return;
   }
 
@@ -966,7 +979,15 @@ function endGrab() {
     const throwMultiplier = 1.2 * strength;
     releasedBody.velocity.x += mouseVel.x * throwMultiplier;
     releasedBody.velocity.y += mouseVel.y * throwMultiplier;
-    releaseVelocity = releasedBody.velocity.length();
+    // Clamp at release so a flick can't bypass the per-substep cap and tunnel.
+    const vLen = Math.hypot(releasedBody.velocity.x, releasedBody.velocity.y);
+    const cap = world.maxLinearVelocity ?? 80;
+    if (vLen > cap) {
+      const s = cap / vLen;
+      releasedBody.velocity.x *= s;
+      releasedBody.velocity.y *= s;
+    }
+    releaseVelocity = Math.min(vLen, cap);
   }
   
   // Also check velocity history for peak velocity during drag
@@ -1215,16 +1236,31 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  // Ground: subtle fill below floor line + surface stroke.
+  // Ground: faded accent band below the surface + glowing accent line at the floor.
   const floorSy = floorY * camera.scale + camera.y;
   if (floorSy >= 0 && floorSy <= cssH) {
-    ctx.fillStyle = 'rgba(50, 60, 85, 0.18)';
-    ctx.fillRect(0, floorSy, cssW, cssH - floorSy);
-    ctx.strokeStyle = 'rgba(160, 170, 200, 0.35)';
-    ctx.lineWidth = 1.5;
+    const bandH = Math.min(40, cssH - floorSy);
+    if (bandH > 0) {
+      const grad = ctx.createLinearGradient(0, floorSy, 0, floorSy + bandH);
+      grad.addColorStop(0, 'rgba(94, 234, 212, 0.10)');
+      grad.addColorStop(1, 'rgba(94, 234, 212, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, floorSy, cssW, bandH);
+    }
+    if (cssH - floorSy > bandH) {
+      ctx.fillStyle = 'rgba(10, 14, 22, 0.45)';
+      ctx.fillRect(0, floorSy + bandH, cssW, cssH - floorSy - bandH);
+    }
+    ctx.strokeStyle = 'rgba(94, 234, 212, 0.65)';
+    ctx.lineWidth = 1.25;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = 'rgba(94, 234, 212, 0.55)';
+      ctx.shadowBlur = 6;
+    }
     ctx.beginPath();
-    ctx.moveTo(0, floorSy); ctx.lineTo(cssW, floorSy);
+    ctx.moveTo(0, floorSy + 0.5); ctx.lineTo(cssW, floorSy + 0.5);
     ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 }
 
@@ -1855,8 +1891,12 @@ document.querySelectorAll('.preset').forEach(el => {
 // level selection with haptic
 document.querySelectorAll('#levelSegment .seg').forEach(el => {
   el.addEventListener('click', () => {
-    document.querySelectorAll('#levelSegment .seg').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('#levelSegment .seg').forEach(e => {
+      e.classList.remove('active');
+      e.setAttribute('aria-selected', 'false');
+    });
     el.classList.add('active');
+    el.setAttribute('aria-selected', 'true');
     educator.setLevel(parseInt(el.dataset.level, 10));
     triggerHaptic('light');
   });
@@ -2315,7 +2355,7 @@ function updateInfoOverlay() {
   // Determine shape name
   let shapeName = 'Box';
   if (b.shape === SHAPE.CIRCLE) shapeName = 'Ball';
-  else if (b.shape === SHAPE.POLYGON && b.vertices?.length === 3) shapeName = 'Triangle';
+  else if (b.shape === SHAPE.POLYGON && b.localVertices?.length === 3) shapeName = 'Triangle';
   else if (b.shape === SHAPE.POLYGON) shapeName = 'Polygon';
   
   // Get material name (capitalize first letter)
@@ -2403,6 +2443,10 @@ const FREE_MODE = (() => {
 })();
 const Pro = (() => {
   const KEY = 'ps.pro';
+  // Honor-system gift codes — plaintext on purpose; anyone with devtools can
+  // grab them. Acceptable for a $9 one-time Pro tier intended for friends and
+  // early supporters. If/when Pro moves to server-issued tokens, this list
+  // becomes an API check and the codes can be rotated/revoked.
   const REDEEM_CODES = new Set(['STACKLIS-EARLY', 'STACKLIS-PRO']);
   function isActive() {
     if (FREE_MODE) return false;
@@ -2924,6 +2968,9 @@ async function decodeShareToken(token) {
   const bytes = base64UrlToBytes(token.slice(colon + 1));
   let json;
   if (prefix === 'r1') {
+    if (bytes.byteLength > SHARE_DECOMPRESSED_MAX) {
+      throw new Error(`Raw scene exceeds ${SHARE_DECOMPRESSED_MAX} bytes`);
+    }
     json = new TextDecoder().decode(bytes);
   } else if (prefix === 'v1') {
     if (typeof DecompressionStream === 'undefined') {
@@ -3016,8 +3063,8 @@ window.addEventListener('keydown', (ev) => {
     document.querySelector(`.tool[data-tool="${map2d[ev.key]}"]`).click();
   }
   if (ev.key === ' ') {
+    // Space is handled on keyup to disambiguate tap (pause) vs hold-drag (pan).
     ev.preventDefault();
-    ui.pauseBtn.click();
   } else if (ev.key === 'r' || ev.key === 'R') {
     ui.resetBtn.click();
   } else if (ev.key === 'c' || ev.key === 'C') {
