@@ -44,6 +44,21 @@ body {
 button { font: inherit; color: inherit; cursor: pointer; }
 input, button { font: inherit; }
 
+/* Scrollbars — dark-themed, matches accent on hover */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,229,160,0.38); }
+::-webkit-scrollbar-corner { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.10) transparent; }
+
+/* Collapse button — hidden base; desktop overrides to inline-flex */
+.panel-collapse { display: none; }
+
+/* Overlay panels are always floating — hide their collapse+dock buttons */
+#infoOverlay .panel-collapse,
+#lessonOverlay .panel-collapse { display: none !important; }
+
 /* ======================= TOPBAR ======================= */
 .topbar {
   position: relative;
@@ -1689,9 +1704,11 @@ body {
     position: absolute;
     z-index: 30;
     border-radius: 12px;
-    border: none;
-    box-shadow: none;
-    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50), 0 2px 8px rgba(0, 0, 0, 0.30);
+    background: rgba(8, 12, 20, 0.82);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -1722,27 +1739,17 @@ body {
      handle — those drags should track the cursor 1:1, not lag behind. */
   body.resizing-dock { transition: none; }
   .canvas-host .panel.floating.active { z-index: 31; }
-  /* Header gets a subtle dark chip so the drag handle and pop-out button stay
-     findable over an arbitrary canvas background. */
   .canvas-host .panel.floating .panel-header {
     cursor: grab;
     user-select: none;
-    background: rgba(8, 12, 20, 0.55);
-    backdrop-filter: blur(8px) saturate(1.2);
-    -webkit-backdrop-filter: blur(8px) saturate(1.2);
-    border-radius: 8px 8px 0 0;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   }
-  /* Body content sits directly on canvas — text-shadow keeps values legible
-     over busy scenes without painting a background box. */
-  .canvas-host .panel.floating .panel-body,
-  .canvas-host .panel.floating .panel-body * {
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.6);
-  }
-  /* When user is actively dragging or resizing, fade in a faint background
-     so they can see the panel boundary they're moving. */
+  /* When user is actively dragging or resizing, boost opacity slightly so the
+     panel boundary is extra crisp while moving. */
   .canvas-host .panel.floating.dragging,
   .canvas-host .panel.floating.resizing {
-    background: rgba(8, 12, 20, 0.25);
+    background: rgba(8, 12, 20, 0.92);
   }
   .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
   .canvas-host .panel.floating .resize-corner {
@@ -1830,6 +1837,24 @@ body {
     transform: scale(1.08);
   }
   .panel-pop:active { transform: scale(0.96); }
+
+  /* Topbar overlay toggle buttons */
+  .panel-vis-btn {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    opacity: 0.5;
+    transition: opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+  .panel-vis-btn.active {
+    opacity: 1;
+    border-color: var(--accent);
+    color: var(--accent-2);
+    background: rgba(0, 229, 160, 0.10);
+  }
+  /* Hidden overlay panels */
+  .panel-overlay-hidden { display: none !important; }
+
   /* When a level-badge is present (educator), keep it before the pop button. */
   .panel-header .level-badge + .panel-pop { margin-left: 6px; }
   /* The first-of-class margin-left rule above pushes the badge right; reset
@@ -1855,7 +1880,94 @@ body {
   }
 
   .tabbar { display: none; }
+
+  /* =========================================================
+     COLLAPSE BUTTONS — desktop only
+     ========================================================= */
+  .panel-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    background: rgba(0, 229, 160, 0.07);
+    border: 1px solid rgba(0, 229, 160, 0.22);
+    color: var(--accent-2);
+    border-radius: 5px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  }
+  .panel-collapse:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .panel-collapse:active { transform: scale(0.96); }
+
+  #toolsPanel .panel-collapse { margin-left: auto; }
+  #infoOverlay .panel-collapse,
+  #lessonOverlay .panel-collapse { margin-left: 4px; }
+
+  /* Floating panels don't use the dock-collapse affordance */
+  .canvas-host .panel.floating .panel-collapse { display: none; }
+
+  /* =========================================================
+     COLLAPSED DOCK STATES
+     ========================================================= */
+  .panel.dock-collapsed .panel-body,
+  .panel.dock-collapsed .panel-grabber { display: none; }
+
+  .panel.dock-collapsed .panel-pop,
+  .panel.dock-collapsed .panel-close,
+  .panel.dock-collapsed .overlay-close,
+  .panel.dock-collapsed .level-badge { display: none; }
+
+  /* Sidebar strips (tools + readings): vertical layout */
+  #toolsPanel.dock-collapsed .panel-header,
+  #infoOverlay.dock-collapsed .panel-header {
+    flex-direction: column;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px 4px 10px;
+    gap: 10px;
+    border-bottom: none;
+    overflow: hidden;
+  }
+
+  #toolsPanel.dock-collapsed .panel-title,
+  #infoOverlay.dock-collapsed .panel-title {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    overflow: hidden;
+    max-height: 140px;
+    flex-shrink: 1;
+  }
+
+  #toolsPanel.dock-collapsed .panel-collapse,
+  #infoOverlay.dock-collapsed .panel-collapse { margin: auto 0 0 0; }
+
+  /* Educator bottom strip */
+  #lessonOverlay.dock-collapsed .panel-header {
+    height: 100%;
+    padding: 0 14px;
+    border-bottom: none;
+    align-items: center;
+  }
+  #lessonOverlay.dock-collapsed .panel-collapse { margin-left: auto; }
+
+  /* Hide dock-edge handles whose panel is collapsed */
+  body[data-tools-collapsed="true"] .dock-edge[data-edge="tools-edge"],
+  body[data-readings-collapsed="true"] .dock-edge[data-edge="readings-edge"],
+  body[data-educator-collapsed="true"] .dock-edge[data-edge="educator-edge"] { display: none; }
 }
+
 
 /* ===================== MOBILE (<=768px) ===================== */
 @media (max-width: 768px) {
@@ -2481,6 +2593,22 @@ canvas.panning { cursor: grabbing !important; }
     cursor: pointer;
     flex-shrink: 0;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
+    /* FAB — floats above the tabbar, user can drag it anywhere on screen. */
+    position: fixed;
+    right: 16px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    top: auto;
+    transform: none;
+    z-index: 200;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .topbar-more.ps-dragging {
+    opacity: 0.75;
+    cursor: grabbing;
+    transition: none;
   }
   .topbar-more:hover,
   .topbar-more:focus-visible {
@@ -2495,10 +2623,10 @@ canvas.panning { cursor: grabbing !important; }
   }
   .topbar-overflow {
     display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 8px;
-    z-index: 40;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 300;
     flex-direction: column;
     align-items: stretch;
     min-width: 180px;
@@ -2535,8 +2663,8 @@ canvas.panning { cursor: grabbing !important; }
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale) { display: none !important; }
-  /* No sticky buttons left → shrink right padding. */
-  .topbar { padding-right: 20px !important; }
+  /* ⋯ is now a fixed FAB — no reserved right padding needed. */
+  .topbar { padding-right: 14px !important; }
 }
 
 /* =====================================================================

@@ -3,11 +3,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 
+// Touch-device detection — phones/tablets pay too much for MSAA; skip unless the
+// device is also low-DPR (where AA still helps perceived edge quality).
+const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)
+  || (typeof window !== 'undefined' && 'ontouchstart' in window)
+  || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
+
 export class Renderer3D {
   constructor({ canvas, hostEl }) {
     this.canvas = canvas;
     this.hostEl = hostEl;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_TOUCH || (window.devicePixelRatio || 1) < 2, alpha: false });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;

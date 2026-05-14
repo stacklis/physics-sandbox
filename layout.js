@@ -479,12 +479,13 @@ function readState(key) {
   return 'docked';
 }
 function readRect(key) {
-  try {
-    const raw = localStorage.getItem(LS[key + 'Rect']);
-    if (!raw) return null;
-    const r = JSON.parse(raw);
-    if (r && Number.isFinite(r.w) && Number.isFinite(r.h)) return r;
-  } catch {}
+  let raw;
+  try { raw = localStorage.getItem(LS[key + 'Rect']); } catch { raw = null; }
+  if (!raw) return null;
+  let r;
+  try { r = JSON.parse(raw); }
+  catch (e) { r = DEFAULTS[key + 'Rect']; console.warn('[layout] bad JSON for ' + key + 'Rect', e); }
+  if (r && Number.isFinite(r.w) && Number.isFinite(r.h)) return r;
   return null;
 }
 function writeRect(key, rect) {
@@ -586,6 +587,9 @@ function floatPanel(key) {
   const panelEl = panels[key];
   if (!panelEl || !canvasHost) return;
   if (panelEl.classList.contains('floating')) return;
+  // Clear any stale dock-collapsed state — overlay panels have no dock slot.
+  panelEl.classList.remove('dock-collapsed');
+  delete body.dataset[key + 'Collapsed'];
   // Set body attr first so grid template collapses BEFORE we re-parent the
   // panel — avoids a one-frame flash where the grid still allocates the dock
   // column but the panel is already absolute-positioned.
@@ -951,6 +955,7 @@ function setupCollapseButton(key) {
 function restoreCollapseStates() {
   if (mobile) return;
   for (const key of TABS) {
+    if (FLOAT_KEYS.includes(key)) continue; // overlay-only panels have no dock slot
     dockCollapsed[key] = readDockCollapsed(key);
     if (dockCollapsed[key]) applyDockCollapse(key);
     else updateCollapseBtn(key);
@@ -1151,7 +1156,13 @@ function positionFabMenu() {
   function constrain(left, top) {
     return { left: clamp(left, 8, window.innerWidth - SZ - 8), top: clamp(top, 8, window.innerHeight - SZ - 8) };
   }
-  function loadPos() { try { const s = localStorage.getItem(LS); return s ? JSON.parse(s) : null; } catch { return null; } }
+  function loadPos() {
+    let s;
+    try { s = localStorage.getItem(LS); } catch { return null; }
+    if (!s) return null;
+    try { return JSON.parse(s); }
+    catch (e) { console.warn('[layout] bad JSON for ' + LS, e); return null; }
+  }
   function savePos(l, t) { try { localStorage.setItem(LS, JSON.stringify({ left: l, top: t })); } catch {} }
 
   function initPos() {

@@ -175,6 +175,11 @@ let cssW = 0, cssH = 0, dpr = 1;
 const PX_PER_M = 50;          // 1 meter = 50 px (constant for now)
 const camera = { x: 0, y: 0, scale: PX_PER_M };
 
+// Touch-device detection — used to skip expensive shadowBlur effects on phones/tablets.
+const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)
+  || ('ontouchstart' in window)
+  || (navigator.maxTouchPoints > 1);
+
 function resize() {
   const rect = canvas.parentElement.getBoundingClientRect();
   cssW = rect.width; cssH = rect.height;
@@ -213,15 +218,29 @@ function enforceBodyCap() {
 }
 let walls = [];
 let floorY = 0; // world-Y of the physics floor top surface (set by rebuildBoundaries)
+// Max physics world height in px — keeps the active area compact regardless
+// of how tall the canvas gets (e.g. when overlay panels are hidden).
+const WORLD_H_PX = 600;
+const FLOOR_MARGIN_PX = 20;
+
+function homeCamera() {
+  const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
+  camera.scale = PX_PER_M;
+  camera.x = 0;
+  // Anchor floor 20 px above the canvas bottom.
+  camera.y = (cssH - FLOOR_MARGIN_PX) - worldHpx;
+  state.cameraLock = null;
+}
+
 function rebuildBoundaries() {
   for (const w of walls) world.remove(w);
   walls = [];
   if (cssW === 0) return;
-  const Wm = cssW / PX_PER_M, Hm = cssH / PX_PER_M;
+  const Wm = cssW / PX_PER_M;
   const t = 0.4;
-  // Cap the play-field height at 10 m so on tall mobile screens objects don't
-  // fall 15+ m to a floor that is barely visible near the canvas edge.
-  floorY = Math.min(Math.max(1, Hm - 1), 10);
+  const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
+  floorY = worldHpx / PX_PER_M;
+  homeCamera(); // keep floor anchored to canvas bottom on every resize
   walls.push(world.add(makeBox(Wm / 2, floorY + t / 2, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
   // ceiling
@@ -881,19 +900,8 @@ canvas.addEventListener('pointercancel', () => {
   state.slicePath = null;
 });
 
-// Scroll-wheel zoom: zoom centred on cursor so the world point under the cursor stays fixed.
-canvas.addEventListener('wheel', (ev) => {
-  ev.preventDefault();
-  const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
-  const rect = canvas.getBoundingClientRect();
-  const mx = ev.clientX - rect.left;
-  const my = ev.clientY - rect.top;
-  const wx = (mx - camera.x) / camera.scale;
-  const wy = (my - camera.y) / camera.scale;
-  camera.scale = Math.max(10, Math.min(400, camera.scale * factor));
-  camera.x = mx - wx * camera.scale;
-  camera.y = my - wy * camera.scale;
-}, { passive: false });
+// Prevent accidental page scroll over the canvas; zoom is disabled.
+canvas.addEventListener('wheel', (ev) => { ev.preventDefault(); }, { passive: false });
 
 // Double-click on a body: toggle camera lock (smooth follow).
 canvas.addEventListener('dblclick', (ev) => {
@@ -1154,11 +1162,11 @@ function render() {
   ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
-  // axes (world origin X/Y lines)
-  drawAxes();
-
-  // bodies
-  for (const b of world.bodies) drawBody(b);
+  // bodies — skip wall boundaries (physics still active, just not rendered)
+  for (const b of world.bodies) {
+    if (walls.includes(b)) continue;
+    drawBody(b);
+  }
 
   // constraints
   for (const c of world.constraints) drawConstraint(c);
@@ -1207,10 +1215,12 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  // Floor line — tracks the actual physics floor position (floorY world units)
+  // Ground: subtle fill below floor line + surface stroke.
   const floorSy = floorY * camera.scale + camera.y;
   if (floorSy >= 0 && floorSy <= cssH) {
-    ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+    ctx.fillStyle = 'rgba(50, 60, 85, 0.18)';
+    ctx.fillRect(0, floorSy, cssW, cssH - floorSy);
+    ctx.strokeStyle = 'rgba(160, 170, 200, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, floorSy); ctx.lineTo(cssW, floorSy);
@@ -1384,9 +1394,11 @@ function drawConstraint(c) {
   const nx = -uy, ny = ux;
   const coils = Math.max(8, Math.floor(len / 8));
   
-  // Glow effect for springs
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
-  ctx.shadowBlur = 8;
+  // Glow effect for springs — skip the blur cost entirely on touch devices.
+  if (!IS_TOUCH) {
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
+    ctx.shadowBlur = 8;
+  }
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   for (let i = 1; i < coils; i++) {
@@ -1400,10 +1412,12 @@ function drawConstraint(c) {
   ctx.stroke();
   ctx.shadowBlur = 0;
   
-  // anchor dots with glow
+  // anchor dots with glow — skip the blur cost entirely on touch devices.
   ctx.fillStyle = '#00ffc8';
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
-  ctx.shadowBlur = 6;
+  if (!IS_TOUCH) {
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
+    ctx.shadowBlur = 6;
+  }
   ctx.beginPath(); ctx.arc(a.x, a.y, 3.5, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
@@ -3297,6 +3311,9 @@ function init() {
 if (document.readyState === 'complete') init();
 else window.addEventListener('load', init);
 
+// Expose resize so layout.js can force a re-measure after panel transitions.
+window.PSandboxResize = resize;
+
 /* =========================== zen mode =========================== */
 const zenToggle = document.getElementById('zenToggle');
 function toggleZen() {
@@ -3318,10 +3335,7 @@ window.addEventListener('keydown', e => {
 
 /* =========================== reset camera =========================== */
 function resetCamera() {
-  camera.x = 0;
-  camera.y = 0;
-  camera.scale = PX_PER_M;
-  state.cameraLock = null;
+  homeCamera();
 }
 const resetCameraBtn = document.getElementById('resetCameraBtn');
 if (resetCameraBtn) {
