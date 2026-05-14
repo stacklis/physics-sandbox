@@ -557,12 +557,12 @@ class World {
     this.bodies = [];
     this.constraints = [];
     this.gravity = opts.gravity != null ? opts.gravity : 9.81;
-    this.iterations = opts.iterations ?? 8;
+    this.iterations = opts.iterations ?? 5; // was 8 — 5 is plenty for sandbox quality
     this.contacts = [];
-    this.events = [];   // { type, ... }
+    this.events = [];
     this.eventListeners = [];
     this.timeAccumulator = 0;
-    this.fixedDt = 1 / 120;
+    this.fixedDt = 1 / 60; // was 1/120 — 60Hz physics is smooth enough and halves substeps
     this.preSubstep = null; // optional callback fn(dt) called before each substep's integration
     // Hard caps to prevent numerical blowups from constraint stacking (grab + walls + collisions).
     // 80 m/s is well above realistic sandbox speeds (orbit preset peaks ~49 m/s)
@@ -570,13 +570,15 @@ class World {
     // wall thickness, limiting how badly a fast body can tunnel.
     this.maxLinearVelocity = 80;    // m/s
     this.maxAngularVelocity = 50;   // rad/s
+    this._stepClock = 0;            // frame counter for collision dedup
+    this._collidedThisFrame = new Map();
   }
 
   add(body) { this.bodies.push(body); return body; }
   remove(body) {
+    body._destroyed = true; // flag for fast preSubstep checks
     const i = this.bodies.indexOf(body);
     if (i >= 0) this.bodies.splice(i, 1);
-    // also remove constraints touching it
     this.constraints = this.constraints.filter(c => c.A !== body && c.B !== body);
   }
   clear() { this.bodies.length = 0; this.constraints.length = 0; }
@@ -591,14 +593,16 @@ class World {
   /* Variable framerate; we run substeps at fixed dt for stability. */
   step(frameDt) {
     if (frameDt > 0.1) frameDt = 0.1; // clamp on tab-defocus
+    this._stepClock++;
+    this._collidedThisFrame.clear(); // reset per-frame collision dedup
     this.timeAccumulator += frameDt;
     let steps = 0;
-    while (this.timeAccumulator >= this.fixedDt && steps < 6) {
+    while (this.timeAccumulator >= this.fixedDt && steps < 3) { // was 6
       this._substep(this.fixedDt);
       this.timeAccumulator -= this.fixedDt;
       steps++;
     }
-    if (steps === 6) this.timeAccumulator = 0;
+    if (steps === 3) this.timeAccumulator = 0;
   }
 
   _substep(dt) {
@@ -632,13 +636,25 @@ class World {
         if (m) {
           const contact = new Contact(A, B, m);
           this.contacts.push(contact);
-          // event for new collision (cheap dedupe by id-pair would be nicer)
-          this.emit({
-            type: 'collision', a: A, b: B,
-            point: m.contacts[0],
-            normal: m.normal,
-            relVelocity: B.velocityAt(m.contacts[0]).sub(A.velocityAt(m.contacts[0])).length()
-          });
+          // Only emit collision events when impact is non-trivial and bodies
+          // haven't already collided this frame (cooldown per body-pair).
+          // This eliminates the main source of lag: hundreds of collision events
+          // per frame when many bodies are resting against each other.
+          const relV = B.velocityAt(m.contacts[0]).sub(A.velocityAt(m.contacts[0])).length();
+          if (relV > 0.8) {
+            const now = this._stepClock;
+            const key = A.id < B.id ? (A.id * 65536 + B.id) : (B.id * 65536 + A.id);
+            const last = this._collidedThisFrame.get(key) || 0;
+            if (now - last >= 1) { // at least 1 frame gap
+              this._collidedThisFrame.set(key, now);
+              this.emit({
+                type: 'collision', a: A, b: B,
+                point: m.contacts[0],
+                normal: m.normal,
+                relVelocity: relV,
+              });
+            }
+          }
         }
       }
     }

@@ -44,6 +44,21 @@ body {
 button { font: inherit; color: inherit; cursor: pointer; }
 input, button { font: inherit; }
 
+/* Scrollbars — dark-themed, matches accent on hover */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,229,160,0.38); }
+::-webkit-scrollbar-corner { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.10) transparent; }
+
+/* Collapse button — hidden base; desktop overrides to inline-flex */
+.panel-collapse { display: none; }
+
+/* Overlay panels are always floating — hide their collapse+dock buttons */
+#infoOverlay .panel-collapse,
+#lessonOverlay .panel-collapse { display: none !important; }
+
 /* ======================= TOPBAR ======================= */
 .topbar {
   position: relative;
@@ -209,6 +224,31 @@ input, button { font: inherit; }
   background: rgba(255, 107, 157, 0.1);
 }
 
+.btn.pro-btn {
+  background: linear-gradient(135deg, rgba(0, 229, 160, 0.15), rgba(0, 255, 200, 0.08));
+  border: 1px solid rgba(0, 229, 160, 0.4);
+  color: var(--accent-2);
+  font-weight: 600;
+  font-size: 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  box-shadow: 0 0 15px rgba(0, 229, 160, 0.2);
+}
+
+.btn.pro-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 229, 160, 0.25), rgba(0, 255, 200, 0.15));
+  border-color: rgba(0, 229, 160, 0.6);
+  box-shadow: 0 0 25px rgba(0, 229, 160, 0.35), 0 2px 12px rgba(0, 229, 160, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn.pro-btn:active {
+  transform: translateY(0);
+}
+
 /* ======================= TOGGLES ======================= */
 .bar-toggle {
   width: 38px;
@@ -235,7 +275,7 @@ input, button { font: inherit; }
 
 .bar-toggle::before { content: '▴'; }
 .topbar.collapsed .bar-toggle::before { content: '▾'; }
-.topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
+.topbar.collapsed > :not(.brand):not(.bar-toggle):not(.pro-btn) { display: none; }
 .topbar.collapsed { padding: 8px 20px; }
 
 /* ======================= TOPBAR DIVIDER ======================= */
@@ -675,6 +715,7 @@ body.interacting * {
 }
 .pro-badge.inline { display: inline-block; }
 body.pro .pro-badge { display: inline-block; }
+body.pro .btn.pro-btn { display: none; }
 .locked::before {
   content: '🔒';
   font-size: 10px;
@@ -954,6 +995,10 @@ body.pro .locked::before { content: none; }
   will-change: contents;
   contain: strict;
   }
+
+/* Default (desktop): show mouse hint, hide touch hint. Mobile @media flips these. */
+.hint-touch { display: none; }
+.hint-mouse { display: inline; }
 
 .hint {
   position: absolute;
@@ -1338,20 +1383,13 @@ body.pro .locked::before { content: none; }
 
 /* =====================================================================
    LAYOUT REWORK 2026-05-08 — bottom-tab/sheet (mobile) + derived
-   sidebars (desktop). Single breakpoint at 1024px.
+   sidebars (desktop). Single breakpoint at 768px.
    ===================================================================== */
 
-/* --- Hide legacy resize/collapse affordances (removed in rework). ---
-   Kept hidden globally so existing app.js init paths that set classes on
-   these targets remain harmless if they ever fire. */
+/* --- Hide legacy resize/collapse affordances (removed in rework). --- */
 .topbar-divider,
 .tools-divider,
 .tools-collapse-btn,
-.drawer-toggle,
-.drawer-backdrop,
-.hud-toggle,
-.lesson-toast,
-.overlay-toggles,
 .floating-overlay {
   display: none !important;
 }
@@ -1435,6 +1473,11 @@ body {
   padding: 10px 14px 8px;
   border-bottom: 1px solid var(--line);
 }
+
+/* Hidden by default; shown as a close affordance on mobile. */
+.panel-close { display: none; }
+/* Overlay close buttons hidden on desktop — panel-pop serves that role. */
+.overlay-close { display: none; }
 .panel-title {
   font-size: 11px;
   text-transform: uppercase;
@@ -1538,8 +1581,8 @@ body {
 }
 .tabbar .tab:active { transform: scale(0.96); }
 
-/* ===================== DESKTOP (>1024px) ===================== */
-@media (min-width: 1025px) {
+/* ===================== DESKTOP (>=768px) ===================== */
+@media (min-width: 769px) {
   :root {
     --tools-w: 280px;
     --readings-w: 320px;
@@ -1613,7 +1656,7 @@ body {
   }
   .dock-edge[data-edge="tools-edge"],
   .dock-edge[data-edge="readings-edge"] {
-    width: 6px;
+    width: 8px;
     cursor: col-resize;
     top: 0;
     bottom: 0;
@@ -1633,7 +1676,7 @@ body {
     width: 2px;
   }
   .dock-edge[data-edge="educator-edge"] {
-    height: 6px;
+    height: 8px;
     cursor: row-resize;
     left: 0;
     right: 0;
@@ -1661,18 +1704,52 @@ body {
     position: absolute;
     z-index: 30;
     border-radius: 12px;
-    border: 1px solid var(--line-2);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    background: linear-gradient(180deg, var(--bg-1), var(--bg));
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50), 0 2px 8px rgba(0, 0, 0, 0.30);
+    background: rgba(8, 12, 20, 0.82);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     /* Width/height/top/left set inline by layout.js. */
+    animation: float-pop-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform-origin: center center;
   }
+  .canvas-host .panel.floating.dock-exit {
+    animation: float-pop-out 180ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    pointer-events: none;
+  }
+  @keyframes float-pop-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes float-pop-out {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.94); }
+  }
+  /* Smooth dock collapse / expand when a panel pops out or back in.
+     Animating grid-template-* requires concrete numeric tracks, which we have
+     (var --tools-w, --readings-w, --educator-h are all px values). */
+  body {
+    transition: grid-template-columns 240ms cubic-bezier(0.32, 0.72, 0, 1),
+                grid-template-rows 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Skip the body-grid transition while user is actively dragging a dock-edge
+     handle — those drags should track the cursor 1:1, not lag behind. */
+  body.resizing-dock { transition: none; }
   .canvas-host .panel.floating.active { z-index: 31; }
   .canvas-host .panel.floating .panel-header {
     cursor: grab;
     user-select: none;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+  /* When user is actively dragging or resizing, boost opacity slightly so the
+     panel boundary is extra crisp while moving. */
+  .canvas-host .panel.floating.dragging,
+  .canvas-host .panel.floating.resizing {
+    background: rgba(8, 12, 20, 0.92);
   }
   .canvas-host .panel.floating.dragging .panel-header { cursor: grabbing; }
   .canvas-host .panel.floating .resize-corner {
@@ -1738,26 +1815,46 @@ body {
   /* Pop-out / dock button in panel headers. */
   .panel-pop {
     margin-left: auto;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    width: 26px;
-    height: 22px;
+    background: rgba(0, 229, 160, 0.10);
+    border: 1px solid var(--accent);
+    color: var(--accent-2);
+    width: 32px;
+    height: 26px;
     padding: 0;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
   }
   .panel-pop:hover {
-    color: var(--accent-2);
+    color: var(--bg);
     border-color: var(--accent);
-    background: rgba(0, 229, 160, 0.06);
+    background: var(--accent);
+    transform: scale(1.08);
   }
+  .panel-pop:active { transform: scale(0.96); }
+
+  /* Topbar overlay toggle buttons */
+  .panel-vis-btn {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    opacity: 0.5;
+    transition: opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+  .panel-vis-btn.active {
+    opacity: 1;
+    border-color: var(--accent);
+    color: var(--accent-2);
+    background: rgba(0, 229, 160, 0.10);
+  }
+  /* Hidden overlay panels */
+  .panel-overlay-hidden { display: none !important; }
+
   /* When a level-badge is present (educator), keep it before the pop button. */
   .panel-header .level-badge + .panel-pop { margin-left: 6px; }
   /* The first-of-class margin-left rule above pushes the badge right; reset
@@ -1783,16 +1880,112 @@ body {
   }
 
   .tabbar { display: none; }
+
+  /* =========================================================
+     COLLAPSE BUTTONS — desktop only
+     ========================================================= */
+  .panel-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    background: rgba(0, 229, 160, 0.07);
+    border: 1px solid rgba(0, 229, 160, 0.22);
+    color: var(--accent-2);
+    border-radius: 5px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  }
+  .panel-collapse:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .panel-collapse:active { transform: scale(0.96); }
+
+  #toolsPanel .panel-collapse { margin-left: auto; }
+  #infoOverlay .panel-collapse,
+  #lessonOverlay .panel-collapse { margin-left: 4px; }
+
+  /* Floating panels don't use the dock-collapse affordance */
+  .canvas-host .panel.floating .panel-collapse { display: none; }
+
+  /* =========================================================
+     COLLAPSED DOCK STATES
+     ========================================================= */
+  .panel.dock-collapsed .panel-body,
+  .panel.dock-collapsed .panel-grabber { display: none; }
+
+  .panel.dock-collapsed .panel-pop,
+  .panel.dock-collapsed .panel-close,
+  .panel.dock-collapsed .overlay-close,
+  .panel.dock-collapsed .level-badge { display: none; }
+
+  /* Sidebar strips (tools + readings): vertical layout */
+  #toolsPanel.dock-collapsed .panel-header,
+  #infoOverlay.dock-collapsed .panel-header {
+    flex-direction: column;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px 4px 10px;
+    gap: 10px;
+    border-bottom: none;
+    overflow: hidden;
+  }
+
+  #toolsPanel.dock-collapsed .panel-title,
+  #infoOverlay.dock-collapsed .panel-title {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    overflow: hidden;
+    max-height: 140px;
+    flex-shrink: 1;
+  }
+
+  #toolsPanel.dock-collapsed .panel-collapse,
+  #infoOverlay.dock-collapsed .panel-collapse { margin: auto 0 0 0; }
+
+  /* Educator bottom strip */
+  #lessonOverlay.dock-collapsed .panel-header {
+    height: 100%;
+    padding: 0 14px;
+    border-bottom: none;
+    align-items: center;
+  }
+  #lessonOverlay.dock-collapsed .panel-collapse { margin-left: auto; }
+
+  /* Hide dock-edge handles whose panel is collapsed */
+  body[data-tools-collapsed="true"] .dock-edge[data-edge="tools-edge"],
+  body[data-readings-collapsed="true"] .dock-edge[data-edge="readings-edge"],
+  body[data-educator-collapsed="true"] .dock-edge[data-edge="educator-edge"] { display: none; }
 }
 
-/* ===================== MOBILE (<=1024px) ===================== */
-@media (max-width: 1024px) {
+
+/* ===================== MOBILE (<=768px) ===================== */
+@media (max-width: 768px) {
   body {
     grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       "topbar"
       "main";
+    /* 100dvh = dynamic viewport height (shrinks/grows with browser chrome).
+       Falls back to 100svh then 100vh on older browsers.
+       padding-bottom reserves space for the fixed tabbar + safe area. */
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+    /* 60px tabbar + safe-area + 16px breathing room so shapes near the floor
+       never sit flush against the tabbar edge. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 
   /* Topbar becomes scrollable strip so the action bar always fits. */
@@ -1806,28 +1999,29 @@ body {
     gap: 14px;
     padding: 10px 14px;
     padding-top: max(10px, env(safe-area-inset-top));
-    padding-right: 56px;
+    /* 52px clears the sticky ⋯ button. */
+    padding-right: 52px;
   }
-  /* Bigger touch-friendly hit areas + readable labels on the topbar strip. */
+  /* Touch-friendly hit areas. */
   .topbar .seg { padding: 8px 12px; font-size: 12px; }
   .topbar .bar-group label { font-size: 12px; }
   .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
   .topbar::-webkit-scrollbar { display: none; }
   .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
   .topbar .bar-group.btns { margin-left: 0; }
-  .topbar.collapsed > :not(.brand):not(.bar-toggle) { display: none; }
-  /* Pin the collapse/expand toggle to the right viewport edge of the topbar.
-     `position: absolute` (default) would scroll with the row content; sticky
-     keeps it visible while the horizontal scroll moves the bar-groups. */
-  .topbar .bar-toggle {
-    position: sticky;
-    right: 8px;
-    margin-left: auto;
-    flex-shrink: 0;
-    /* Make it visually float above the scroll content so labels behind it
-       are obscured rather than visually colliding. */
-    box-shadow: -10px 0 14px rgba(10,10,15,0.85);
-  }
+  .topbar .seg-label { display: none; }
+  /* On mobile, hide gravity/time sliders, mode switch, and collapse toggle —
+     only keep brand, level, pause, and ⋯. */
+  .topbar .bar-group:has(#modeSegment),
+  .topbar .bar-group:has(#gravity),
+  .topbar .bar-group:has(#timeScale),
+  .topbar .bar-toggle { display: none; }
+  /* Hide topbar Pro link — upgrade dialog triggered by locked feature clicks. */
+  .topbar .btn.pro-btn { display: none; }
+  /* Reorder strip: brand → level → ⋯ → pause. */
+  .topbar .brand { order: -2; }
+  .topbar .bar-group:has(#levelSegment) { order: -1; }
+  /* No more right-side padding reservation needed with fewer items. */
 
   .canvas-host { grid-area: main; }
 
@@ -1836,9 +2030,9 @@ body {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 60px;
-    height: var(--sheet-height, 60vh);
-    max-height: 95vh;
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    height: var(--sheet-height, 42vh);
+    max-height: 90vh;
     background: rgba(12, 14, 20, 0.96);
     backdrop-filter: blur(14px) saturate(1.2);
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -1855,11 +2049,10 @@ body {
     pointer-events: none;
   }
   body[data-sheet-height="low"] .panel { --sheet-height: 30vh; }
-  body[data-sheet-height="mid"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="high"] .panel { --sheet-height: 80vh; }
-  /* Legacy values still resolve sanely. */
-  body[data-sheet-height="default"] .panel { --sheet-height: 60vh; }
-  body[data-sheet-height="tall"] .panel { --sheet-height: 80vh; }
+  body[data-sheet-height="mid"] .panel { --sheet-height: 42vh; }
+  body[data-sheet-height="high"] .panel { --sheet-height: 70vh; }
+  body[data-sheet-height="default"] .panel { --sheet-height: 42vh; }
+  body[data-sheet-height="tall"] .panel { --sheet-height: 70vh; }
   .panel.visible {
     transform: translateY(0);
     pointer-events: auto;
@@ -1889,21 +2082,180 @@ body {
   /* No floating panels on mobile — hide the pop button entirely. */
   .panel-pop { display: none; }
 
+  /* ================================================================
+     OVERLAY PANELS — readings + educator float over the canvas as
+     compact, always-visible, semi-transparent overlays.
+     #toolsPanel keeps the bottom-sheet behaviour.
+     ================================================================ */
+
+  /* Override sheet geometry + animation for overlay panels */
+  #infoOverlay,
+  #lessonOverlay {
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 12px;
+    background: rgba(8, 10, 18, 0.86);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    /* Fade instead of slide; visibility hides backdrop-filter artifact */
+    transform: none !important;
+    transition: opacity 180ms ease, visibility 0s 180ms !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #infoOverlay.visible,
+  #lessonOverlay.visible {
+    backdrop-filter: blur(10px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(1.2) !important;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 180ms ease, visibility 0s !important;
+    pointer-events: auto;
+    padding-bottom: 0 !important;
+  }
+
+  /* No drag handle on overlay panels */
+  #infoOverlay .panel-grabber,
+  #lessonOverlay .panel-grabber { display: none; }
+
+  /* Overlay headers are tappable to collapse / expand */
+  #infoOverlay .panel-header,
+  #lessonOverlay .panel-header {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Collapsed: hide body, keep header visible */
+  #infoOverlay.panel-collapsed .panel-body,
+  #lessonOverlay.panel-collapsed .panel-body { display: none !important; }
+
+  /* Overlay close buttons — shown on mobile, right side of header */
+  .overlay-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .overlay-close:active { background: var(--bg-3); color: var(--text); }
+  /* panel-pop is desktop-only; on mobile it's hidden so close takes that role */
+  #infoOverlay .panel-pop,
+  #lessonOverlay .panel-pop { display: none; }
+  /* Educator header has level-badge which already has margin-left:auto — the
+     close button must NOT also use auto or it splits the free space, pushing
+     the badge toward center instead of right-edge. */
+  #lessonOverlay .overlay-close { margin-left: 0; }
+
+  /* Readings: compact overlay anchored to top-right, below topbar */
+  #infoOverlay {
+    position: fixed;
+    top: calc(58px + env(safe-area-inset-top) + 4px);
+    right: 8px;
+    width: 158px;
+    max-height: 56vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #infoOverlay .panel-body { padding: 0 10px 10px; gap: 5px; }
+  #infoOverlay .readout-grid { grid-template-columns: 1fr; gap: 3px; }
+  #infoOverlay .metric { padding: 3px 0; }
+  #infoOverlay .metric-label { font-size: 9px; }
+  #infoOverlay .metric-val { font-size: 12px; margin-top: 1px; }
+  #infoOverlay .metric-val .unit { font-size: 10px; }
+  #infoOverlay .totals-mini {
+    font-size: 10px; padding-top: 5px; gap: 6px;
+    flex-direction: column; align-items: flex-start;
+  }
+
+  /* Educator: slim overlay anchored above the tabbar, full width */
+  #lessonOverlay {
+    position: fixed;
+    bottom: calc(60px + env(safe-area-inset-bottom) + 6px);
+    left: 8px;
+    right: 8px;
+    max-height: 32vh;
+    overflow: hidden;
+  }
+  #lessonOverlay.panel-collapsed { max-height: none; }
+  #lessonOverlay .panel-body {
+    padding: 4px 12px 10px;
+    flex-direction: column;
+    max-height: 27vh;
+    overflow-y: auto;
+  }
+  #lessonOverlay .lesson-body { max-width: none; font-size: 12px; line-height: 1.55; }
+  #lessonOverlay .formula { font-size: 11px; }
+  #lessonOverlay .concepts-touched { min-width: 0; }
+
+  /* Close button in tools panel header (mobile only) */
+  .panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+  }
+  .panel-close:active { background: var(--bg-3); color: var(--text); }
+
   .tabbar {
     display: flex;
     gap: 4px;
+    /* Expand to absorb safe-area-inset-bottom so tab content isn't squashed. */
+    height: calc(60px + env(safe-area-inset-bottom));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
   .canvas-host .hint {
     left: 12px;
-    bottom: 72px;
+    /* Stay above tabbar + safe area so it never overlaps the nav bar. */
+    bottom: calc(72px + env(safe-area-inset-bottom));
     max-width: calc(100% - 24px);
   }
+  /* Show touch-friendly hint copy, hide mouse/keyboard instructions. */
+  .hint-touch { display: inline; }
+  .hint-mouse { display: none; }
 }
 
 /* ======================= EMBED MODE (preserved) =======================
    The landing page hosts the free demo via /app/?free=1 (no longer iframed
    post-rework, but embed-mode stays in case anyone still embeds /app/?embed=1). */
+body.embed-mode .topbar {
+  display: none !important;
+}
+/* Adjust grid when topbar is hidden in embed mode */
+body.embed-mode {
+  grid-template-rows: 1fr;
+  grid-template-areas: "main";
+}
 body.embed-mode .brand .by,
 body.embed-mode .brand .pro-badge,
 body.embed-mode #saveBtn,
@@ -2084,7 +2436,7 @@ body[data-sheet-locked="true"] {
   overscroll-behavior: none;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   html { overscroll-behavior: none; }
 }
 
@@ -2148,11 +2500,68 @@ body[data-sheet-locked="true"] {
 }
 
 /* =====================================================================
+   ZEN MODE — hides all UI chrome so only the canvas is visible.
+   Toggle with the floating button (bottom-right) or press Z.
+   ===================================================================== */
+.zen-toggle {
+  position: fixed;
+  /* On mobile, sit above the tabbar + safe area instead of overlapping it. */
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  right: 12px;
+  z-index: 200;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(10, 10, 15, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: 0;
+}
+.zen-toggle:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+body.zen-mode .topbar,
+body.zen-mode .panel,
+body.zen-mode .tabbar,
+body.zen-mode .hint {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+body.zen-mode .zen-toggle {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+body.zen-mode .canvas-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+/* =====================================================================
+   PAN TOOL — cursor and canvas-panning state styles.
+   ===================================================================== */
+body.space-pan canvas { cursor: grab; }
+body.space-pan.panning canvas,
+canvas.panning { cursor: grabbing !important; }
+
+/* =====================================================================
    TOPBAR OVERFLOW MENU
-   - Desktop (>=1025px): .topbar-overflow uses display:contents so its
+   - Desktop (>=769px): .topbar-overflow uses display:contents so its
      children flow inline with the topbar exactly as before. The ⋯ button
      hides.
-   - Mobile (<=1024px): .topbar-overflow becomes an absolute dropdown
+   - Mobile (<=768px): .topbar-overflow becomes an absolute dropdown
      panel anchored under the ⋯ button; default hidden, shown when
      body[data-topbar-overflow-open="true"].
    ===================================================================== */
@@ -2161,12 +2570,12 @@ body[data-sheet-locked="true"] {
 .topbar-overflow { display: contents; }
 .topbar-more { display: none; }
 
-@media (min-width: 1025px) {
+@media (min-width: 769px) {
   .topbar-overflow { display: contents; }
   .topbar-more { display: none; }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .topbar-more {
     display: inline-flex;
     align-items: center;
@@ -2184,6 +2593,22 @@ body[data-sheet-locked="true"] {
     cursor: pointer;
     flex-shrink: 0;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
+    /* FAB — floats above the tabbar, user can drag it anywhere on screen. */
+    position: fixed;
+    right: 16px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    top: auto;
+    transform: none;
+    z-index: 200;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .topbar-more.ps-dragging {
+    opacity: 0.75;
+    cursor: grabbing;
+    transition: none;
   }
   .topbar-more:hover,
   .topbar-more:focus-visible {
@@ -2198,10 +2623,10 @@ body[data-sheet-locked="true"] {
   }
   .topbar-overflow {
     display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 8px;
-    z-index: 40;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 300;
     flex-direction: column;
     align-items: stretch;
     min-width: 180px;
@@ -2228,13 +2653,27 @@ body[data-sheet-locked="true"] {
   }
 }
 
+/* Zen-toggle has no purpose on mobile (no sidebars to collapse).
+   Bar-toggle collapses the topbar strip — meaningless gesture on mobile.
+   Both must live AFTER their base rules to win the cascade. */
+@media (max-width: 768px) {
+  .zen-toggle { display: none !important; }
+  .topbar .bar-toggle { display: none !important; }
+  /* Strip topbar to: [PS] [C|S|U|E] [⏸] [⋯]  — everything else is in ⋯ menu. */
+  .topbar .bar-group:has(#modeSegment),
+  .topbar .bar-group:has(#gravity),
+  .topbar .bar-group:has(#timeScale) { display: none !important; }
+  /* ⋯ is now a fixed FAB — no reserved right padding needed. */
+  .topbar { padding-right: 14px !important; }
+}
+
 /* =====================================================================
    LANDSCAPE MOBILE — phones held sideways. Sheet pulls from the right,
    tabbar moves to a vertical strip on the right edge, topbar shrinks.
    Triggered via body[data-layout-mode="landscape-mobile"] from layout.js
-   (matched against (max-width:1024px) + landscape + max-height:600px).
+   (matched against (max-width:768px) + landscape + max-height:600px).
    ===================================================================== */
-@media (max-width: 1024px) and (orientation: landscape) and (max-height: 600px) {
+@media (max-width: 768px) and (orientation: landscape) and (max-height: 600px) {
   body {
     grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
@@ -2355,3 +2794,26 @@ body[data-sheet-locked="true"] {
 body[data-mode="2d"] [data-mode-only="3d"] { display: none !important; }
 body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
 
+
+/* ======================= 3D MODE =======================
+   3D mode reuses the 2D grid layout. The toolsPanel/infoOverlay/lessonOverlay
+   each carry their own data-mode-only="3d" sections, so the panels stay
+   useful in 3D. The WebGL canvas is clipped to canvas-host (overflow: hidden),
+   so docked-panel borders don't bleed. */
+
+/* ===================== NARROW PHONES (<=480px) =====================
+   On 412px Galaxy portrait the full level segment won't fit alongside
+   the brand. Collapse the brand to logo-only and abbreviate level
+   buttons to single letters so key controls appear without scrolling. */
+@media (max-width: 480px) {
+  .topbar .brand .title { display: none; }
+  #levelSegment .seg {
+    font-size: 0;
+    padding: 8px 5px;
+    min-width: 28px;
+  }
+  #levelSegment [data-level="1"]::after { content: "C"; font-size: 11px; font-weight: 600; }
+  #levelSegment [data-level="2"]::after { content: "S"; font-size: 11px; font-weight: 600; }
+  #levelSegment [data-level="3"]::after { content: "U"; font-size: 11px; font-weight: 600; }
+  #levelSegment [data-level="4"]::after { content: "E"; font-size: 11px; font-weight: 600; }
+}

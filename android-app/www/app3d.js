@@ -1,9 +1,9 @@
 // app3d.js — 3D mode: input, drag-spawn, basic action tools, main loop.
 'use strict';
 import * as THREE from 'three';
-import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=66';
-import { Renderer3D } from './render3d.js?v=66';
-import { getConcept } from './education3d.js?v=66';
+import { World, makeCube, makeSphere, makeCylinder, makeCapsule, makePrism, makeWall, _ready } from './engine3d.js?v=71';
+import { Renderer3D } from './render3d.js?v=71';
+import { getConcept } from './education3d.js?v=71';
 
 const PALETTE = ['#00e5a0', '#ff6b9d', '#6b8bff', '#ffc46a', '#00ffc8', '#ff8bb8', '#a0ffdb', '#ffb366', '#c9a0ff'];
 let palIdx = 0;
@@ -25,22 +25,23 @@ let world, renderer, raf, lastT;
 let canvas, hostEl;
 let tool = 'grab';
 let dragStart = null, dragNow = null; // screen px
-let dragSpawnZ = 0;
+const SPAWN_Y = 3; // height above floor where objects spawn
 let grabbed = null, grabOffset = null, grabPlane = null;
+let selectedBody = null;
+let pointerDownTime = 0, pointerDownPos = null;
 
 export async function init3D(opts) {
   canvas = opts.canvas; hostEl = opts.hostEl;
   await _ready;
-  world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 80 });
+  world = new World({ gravity: { x: 0, y: -9.81, z: 0 }, maxDynamicBodies: 40 }); // was 80
   renderer = new Renderer3D({ canvas, hostEl });
 
-  // Static playfield — floor + side walls + invisible Z-clamps.
+  // Static playfield — matches render3d.js dimensions (D=50, floorZ=5).
   const W = renderer.playfield.W, H = renderer.playfield.H, D = renderer.playfield.D;
-  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: 0 }, size: { x: W, y: 0.4, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: -W / 2 - 0.2, y: H / 2, z: 0 }, size: { x: 0.4, y: H, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: W / 2 + 0.2, y: H / 2, z: 0 }, size: { x: 0.4, y: H, z: D + 1 } }));
-  world.addBody(makeWall({ position: { x: 0, y: H / 2, z: -D / 2 - 0.2 }, size: { x: W + 1, y: H, z: 0.4 } })); // back
-  world.addBody(makeWall({ position: { x: 0, y: H / 2, z: D / 2 + 0.2 }, size: { x: W + 1, y: H, z: 0.4 } })); // front (invisible)
+  const FZ = 5; // must match floorZ in render3d.js
+  world.addBody(makeWall({ position: { x: 0, y: -0.2, z: FZ }, size: { x: W, y: 0.4, z: D } }));
+  world.addBody(makeWall({ position: { x: -W / 2 - 0.15, y: H / 2, z: FZ }, size: { x: 0.3, y: H, z: D } }));
+  world.addBody(makeWall({ position: { x:  W / 2 + 0.15, y: H / 2, z: FZ }, size: { x: 0.3, y: H, z: D } }));
 
   bindToolbar();
   bindCanvas();
@@ -64,9 +65,14 @@ function bindCanvas() {
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('contextmenu', e => e.preventDefault()); // suppress browser right-click menu
 }
 
-function screenToWorldOnPlane(ev, planeZ = 0) {
+// Project a screen point onto a horizontal Y-plane (default y=2, above the floor).
+// Spawning on a Y-plane means x/z come from where the user points,
+// and the spawn height is always above the floor — objects fall correctly
+// regardless of camera angle.
+function screenToWorldOnPlane(ev, spawnY = 2) {
   const r = canvas.getBoundingClientRect();
   const ndc = new THREE.Vector2(
     ((ev.clientX - r.left) / r.width) * 2 - 1,
@@ -74,9 +80,14 @@ function screenToWorldOnPlane(ev, planeZ = 0) {
   );
   const ray = new THREE.Raycaster();
   ray.setFromCamera(ndc, renderer.camera);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -planeZ);
+  // Horizontal plane at y = spawnY
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -spawnY);
   const out = new THREE.Vector3();
-  ray.ray.intersectPlane(plane, out);
+  if (!ray.ray.intersectPlane(plane, out)) {
+    // Ray parallel to plane (camera horizontal) — fall back to a point 12 units ahead
+    ray.ray.at(12, out);
+    out.y = spawnY;
+  }
   return out;
 }
 
@@ -97,9 +108,15 @@ function pickBody(ev) {
 }
 
 function onDown(ev) {
+  // Track pointer-down for tap detection on both left (select) and right (revert to grab).
+  if (ev.button === 0 || ev.button === 2) {
+    pointerDownTime = performance.now();
+    pointerDownPos = { x: ev.clientX, y: ev.clientY };
+  }
   if (tool === 'delete') {
     const rb = pickBody(ev);
     if (rb) {
+      if (rb === selectedBody) selectedBody = null;
       renderer.removeBodyMesh(rb);
       world.removeBody(rb);
     }
@@ -117,7 +134,8 @@ function onDown(ev) {
     }
     return;
   }
-  // Spawn tool — start a drag.
+  // Spawn tool — start a drag (left button only).
+  if (ev.button !== 0) return;
   dragStart = { x: ev.clientX, y: ev.clientY };
   dragNow = { x: ev.clientX, y: ev.clientY };
 }
@@ -144,19 +162,39 @@ function onUp(ev) {
     grabbed = null; grabOffset = null;
     return;
   }
+
+  // Tap detection: < 250 ms, < 5 px movement.
+  if (pointerDownPos) {
+    const elapsed = performance.now() - pointerDownTime;
+    const moved = Math.hypot(ev.clientX - pointerDownPos.x, ev.clientY - pointerDownPos.y);
+    if (elapsed < 250 && moved < 5) {
+      if (ev.button === 0) {
+        // Left tap → select body for live readings.
+        const rb = pickBody(ev);
+        selectedBody = rb || null;
+        highlightSelected();
+      } else if (ev.button === 2) {
+        // Right tap → revert to grab tool.
+        const btn = document.querySelector('.tool[data-tool3d="grab"]');
+        if (btn) btn.click();
+      }
+    }
+    pointerDownPos = null;
+  }
+
   if (!dragStart) return;
-  const start = screenToWorldOnPlane({ clientX: dragStart.x, clientY: dragStart.y }, dragSpawnZ);
-  const end = screenToWorldOnPlane({ clientX: ev.clientX, clientY: ev.clientY }, dragSpawnZ);
-  const dx = end.x - start.x, dy = end.y - start.y;
-  const len = Math.hypot(dx, dy);
-  const cx = (start.x + end.x) / 2, cy = (start.y + end.y) / 2;
-  const jitter = (Math.random() - 0.5) * 0.1;
-  const pos = { x: cx, y: cy, z: dragSpawnZ + jitter };
+  // Project drag onto the horizontal spawn plane — x/z from screen, y fixed above floor.
+  const start = screenToWorldOnPlane({ clientX: dragStart.x, clientY: dragStart.y }, SPAWN_Y);
+  const end   = screenToWorldOnPlane({ clientX: ev.clientX, clientY: ev.clientY }, SPAWN_Y);
+  const dx = end.x - start.x, dz = end.z - start.z;
+  const len = Math.hypot(dx, dz);
+  const cx = (start.x + end.x) / 2, cz = (start.z + end.z) / 2;
+  const pos = { x: cx, y: SPAWN_Y, z: cz };
   try {
     let spec;
     switch (tool) {
       case 'cube': {
-        const size = Math.max(0.3, Math.min(3, Math.max(Math.abs(dx), Math.abs(dy)) || 0.6));
+        const size = Math.max(0.3, Math.min(3, len || 0.6));
         spec = makeCube({ position: pos, size, color: nextColor() });
         break;
       }
@@ -166,27 +204,25 @@ function onUp(ev) {
         break;
       }
       case 'cylinder': {
-        const radius = Math.max(0.2, Math.min(1.2, Math.abs(dx) / 2 || 0.4));
-        const half = Math.max(0.2, Math.min(1.5, Math.abs(dy) / 2 || 0.5));
-        spec = makeCylinder({ position: pos, radius, halfHeight: half, color: nextColor() });
+        const radius = Math.max(0.2, Math.min(1.2, len / 2 || 0.4));
+        spec = makeCylinder({ position: pos, radius, halfHeight: radius * 1.2, color: nextColor() });
         break;
       }
       case 'capsule': {
-        const radius = Math.max(0.15, Math.min(0.8, Math.abs(dx) / 2 || 0.3));
-        const half = Math.max(0.2, Math.min(1.5, Math.abs(dy) / 2 || 0.5));
-        spec = makeCapsule({ position: pos, radius, halfHeight: half, color: nextColor() });
+        const radius = Math.max(0.15, Math.min(0.8, len / 3 || 0.3));
+        spec = makeCapsule({ position: pos, radius, halfHeight: radius * 1.5, color: nextColor() });
         break;
       }
       case 'prism': {
         const radius = Math.max(0.25, Math.min(1.5, len / 2 || 0.5));
         const sides = 5 + ((Math.random() * 4) | 0);
-        spec = makePrism({ position: pos, sides, radius, depth: 0.5, color: nextColor() });
+        spec = makePrism({ position: pos, sides, radius, depth: Math.max(0.3, radius * 0.8), color: nextColor() });
         break;
       }
       case 'wall': {
-        const w = Math.max(0.5, Math.min(8, Math.abs(dx) || 2));
-        const h = Math.max(0.2, Math.min(4, Math.abs(dy) || 0.4));
-        spec = makeWall({ position: pos, size: { x: w, y: h, z: 0.6 } });
+        const w = Math.max(0.5, Math.min(10, Math.abs(dx) || 3));
+        const h = Math.max(0.3, Math.min(5, Math.abs(dz) || 0.5));
+        spec = makeWall({ position: pos, size: { x: w, y: 1.5, z: h } });
         break;
       }
     }
@@ -210,6 +246,77 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2200);
 }
 
+function highlightSelected() {
+  if (!renderer) return;
+  for (const [rb, mesh] of renderer.bodyMeshes) {
+    if (!mesh.material) continue;
+    if (rb === selectedBody) {
+      mesh.material.emissive = new THREE.Color(0x334455);
+    } else {
+      mesh.material.emissive = new THREE.Color(0x000000);
+    }
+  }
+}
+
+function fmt(n, d = 2) { return Number.isFinite(n) ? n.toFixed(d) : '0'; }
+
+function updateReadings() {
+  const sel = document.getElementById('ov-selected');
+  const mass = document.getElementById('ov-mass');
+  const speed = document.getElementById('ov-speed');
+  const ke = document.getElementById('ov-ke');
+  const pe = document.getElementById('ov-pe');
+  const momentum = document.getElementById('ov-momentum');
+  const angular = document.getElementById('ov-angular');
+  const count = document.getElementById('ov-count');
+  const total = document.getElementById('ov-total');
+
+  // Body count (dynamic only).
+  let bodyCount = 0, systemKE = 0;
+  if (world) {
+    for (const rb of world.bodies) {
+      if (rb.isFixed()) continue;
+      bodyCount++;
+      const v = rb.linvel();
+      const spd = Math.hypot(v.x, v.y, v.z);
+      systemKE += 0.5 * rb.mass() * spd * spd;
+    }
+  }
+  if (count) count.textContent = bodyCount;
+  if (total) total.textContent = fmt(systemKE);
+
+  if (!selectedBody || !world) {
+    if (sel) sel.textContent = '—';
+    if (mass) mass.textContent = '0';
+    if (speed) speed.textContent = '0';
+    if (ke) ke.textContent = '0';
+    if (pe) pe.textContent = '0';
+    if (momentum) momentum.textContent = '0';
+    if (angular) angular.textContent = '0';
+    return;
+  }
+
+  const rb = selectedBody;
+  const u = rb.userData || {};
+  const m = rb.mass();
+  const lv = rb.linvel();
+  const av = rb.angvel();
+  const t = rb.translation();
+  const spd = Math.hypot(lv.x, lv.y, lv.z);
+  const angSpd = Math.hypot(av.x, av.y, av.z);
+  const kineticE = 0.5 * m * spd * spd;
+  const potentialE = m * 9.81 * Math.max(0, t.y);
+  const mom = m * spd;
+
+  if (sel) sel.textContent = u.kind || '—';
+  if (mass) mass.textContent = fmt(m);
+  if (speed) speed.textContent = fmt(spd);
+  if (ke) ke.textContent = fmt(kineticE);
+  if (pe) pe.textContent = fmt(potentialE);
+  if (momentum) momentum.textContent = fmt(mom);
+  if (angular) angular.textContent = fmt(angSpd);
+}
+
 function loop() {
   if (!world || !renderer) return;
   const now = performance.now();
@@ -219,7 +326,9 @@ function loop() {
   for (const rb of [...world.bodies]) {
     if (rb.isFixed()) continue;
     const t = rb.translation();
-    if (Math.abs(t.x) > 50 || t.y < -20 || Math.abs(t.z) > 20) {
+    // Remove bodies that escape the playfield OR have NaN positions (Rapier crash prevention)
+    if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.z) ||
+        Math.abs(t.x) > 60 || t.y < -30 || t.y > 40 || Math.abs(t.z) > 60) {
       renderer.removeBodyMesh(rb);
       world.removeBody(rb);
     }
@@ -227,6 +336,7 @@ function loop() {
   world.step(dt);
   renderer.syncMeshes();
   renderer.render();
+  updateReadings();
   raf = requestAnimationFrame(loop);
 }
 
@@ -234,6 +344,7 @@ export function teardown3D() {
   if (raf) cancelAnimationFrame(raf);
   if (renderer) { renderer.dispose(); renderer = null; }
   if (world) { world.free(); world = null; }
+  selectedBody = null;
 }
 
 const SCHEMA_3D = 'physics-sandbox/scene-3d/v1';
@@ -269,6 +380,7 @@ export function deserialize3D(json) {
   if (!json || json.type !== SCHEMA_3D) {
     throw new Error('Not a 3D scene file.');
   }
+  selectedBody = null;
   // Wipe dynamic bodies (keep static playfield).
   for (const rb of [...world.bodies]) {
     if (!rb.isFixed()) {

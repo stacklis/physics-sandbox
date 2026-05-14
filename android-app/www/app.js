@@ -35,10 +35,13 @@ async function setPhysicsMode(next) {
   _setToggleUI(next);
   if (next === '3d') {
     document.body.dataset.mode = '3d';
+    // Switch canvases: 2D canvas has a 2d context; Three.js needs a fresh WebGL canvas.
+    document.getElementById('canvas').style.display = 'none';
+    document.getElementById('canvas3d').style.display = 'block';
     try {
-      const mod = await import('./app3d.js?v=66');
+      const mod = await import('./app3d.js?v=72');
       _3dHandle = await mod.init3D({
-        canvas: document.getElementById('canvas'),
+        canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
       });
     } catch (err) {
@@ -46,6 +49,8 @@ async function setPhysicsMode(next) {
       console.error('[Sandbox] 3D init failed, reverting to 2D:', err);
       try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
       document.body.dataset.mode = '2d';
+      document.getElementById('canvas').style.display = '';
+      document.getElementById('canvas3d').style.display = 'none';
       _setToggleUI('2d');
       alert('Could not load 3D mode. Reverted to 2D.');
     } finally {
@@ -53,9 +58,11 @@ async function setPhysicsMode(next) {
     }
   } else {
     document.body.dataset.mode = '2d';
+    document.getElementById('canvas3d').style.display = 'none';
+    document.getElementById('canvas').style.display = '';
     if (_3dHandle) {
       try {
-        const mod = await import('./app3d.js?v=66');
+        const mod = await import('./app3d.js?v=72');
         mod.teardown3D();
       } catch {}
       _3dHandle = null;
@@ -73,31 +80,26 @@ document.addEventListener('DOMContentLoaded', () => {
     seg.addEventListener('click', e => {
       const btn = e.target.closest('[data-mode]');
       if (!btn) return;
-      // 3D mode is a Pro feature — intercept before setPhysicsMode.
-      if (btn.dataset.mode === '3d' && !Pro.isActive()) {
-        openUpgradeModal();
-        return;
-      }
+      // 3D mode is free for all users.
       setPhysicsMode(btn.dataset.mode);
     });
   }
-  // Apply persisted mode (don't prompt — user already chose this previously).
-  // But re-check Pro: a lapsed-Pro user with a stale '3d' flag should boot 2D.
-  if (getPhysicsMode() === '3d' && !Pro.isActive()) {
-    try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
-  }
   if (getPhysicsMode() === '3d') {
     document.body.dataset.mode = '3d';
+    document.getElementById('canvas').style.display = 'none';
+    document.getElementById('canvas3d').style.display = 'block';
     _setToggleUI('3d');
-    import('./app3d.js?v=66').then(async mod => {
+    import('./app3d.js?v=72').then(async mod => {
       _3dHandle = await mod.init3D({
-        canvas: document.getElementById('canvas'),
+        canvas: document.getElementById('canvas3d'),
         hostEl: document.querySelector('main.canvas-host'),
       });
     }).catch(err => {
       console.error('[Sandbox] 3D init failed on persisted-mode boot, reverting:', err);
       try { localStorage.setItem(MODE_KEY, '2d'); } catch {}
       document.body.dataset.mode = '2d';
+      document.getElementById('canvas').style.display = '';
+      document.getElementById('canvas3d').style.display = 'none';
       _setToggleUI('2d');
       alert('Could not load 3D mode. Reverted to 2D. Reload to retry.');
     });
@@ -124,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // by stopping propagation). Re-check Pro here so non-Pro users hit the
     // upsell instead of getting a free download.
     if (!Pro.isActive()) { openUpgradeModal(); return; }
-    const mod = await import('./app3d.js?v=66');
+    const mod = await import('./app3d.js?v=72');
     const scene = mod.serialize3D();
     const blob = new Blob([JSON.stringify(scene, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -155,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       return;
     }
-    const mod = await import('./app3d.js?v=66');
+    const mod = await import('./app3d.js?v=72');
     try { mod.deserialize3D(json); }
     catch (e) { alert('Failed to load scene: ' + e.message); }
     finally { fileInput.value = ''; }
@@ -172,6 +174,11 @@ const ctx = canvas.getContext('2d');
 let cssW = 0, cssH = 0, dpr = 1;
 const PX_PER_M = 50;          // 1 meter = 50 px (constant for now)
 const camera = { x: 0, y: 0, scale: PX_PER_M };
+
+// Touch-device detection — used to skip expensive shadowBlur effects on phones/tablets.
+const IS_TOUCH = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)
+  || ('ontouchstart' in window)
+  || (navigator.maxTouchPoints > 1);
 
 function resize() {
   const rect = canvas.parentElement.getBoundingClientRect();
@@ -190,25 +197,59 @@ const screenToWorld = (sx, sy) => new Vec2((sx - camera.x) / camera.scale, (sy -
 const worldToScreen = (wx, wy) => ({ x: wx * camera.scale + camera.x, y: wy * camera.scale + camera.y });
 
 /* =========================== world =========================== */
-const world = new World({ gravity: 9.81, iterations: 10 });
+const world = new World({ gravity: 9.81, iterations: 5 }); // 5 is plenty for sandbox
+const MAX_DYNAMIC_BODIES = 30; // hard cap — evict oldest before spawning above this
+
+function enforceBodyCap() {
+  let dynCount = 0;
+  let oldest = null;
+  for (const b of world.bodies) {
+    if (b.isStatic || walls.includes(b)) continue;
+    dynCount++;
+    if (!oldest || (!oldest._isFragment && b._isFragment)) continue;
+    if (!oldest._isFragment) oldest = b; // prefer evicting non-fragments
+    else if (!oldest) oldest = b;
+  }
+  if (dynCount >= MAX_DYNAMIC_BODIES && oldest) {
+    if (state.selected === oldest) state.selected = null;
+    if (state.cameraLock === oldest) state.cameraLock = null;
+    world.remove(oldest);
+  }
+}
 let walls = [];
+let floorY = 0; // world-Y of the physics floor top surface (set by rebuildBoundaries)
+// Max physics world height in px — keeps the active area compact regardless
+// of how tall the canvas gets (e.g. when overlay panels are hidden).
+const WORLD_H_PX = 600;
+const FLOOR_MARGIN_PX = 20;
+
+function homeCamera() {
+  const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
+  camera.scale = PX_PER_M;
+  camera.x = 0;
+  // Anchor floor 20 px above the canvas bottom.
+  camera.y = (cssH - FLOOR_MARGIN_PX) - worldHpx;
+  state.cameraLock = null;
+}
+
 function rebuildBoundaries() {
   for (const w of walls) world.remove(w);
   walls = [];
   if (cssW === 0) return;
-  const Wm = cssW / PX_PER_M, Hm = cssH / PX_PER_M;
+  const Wm = cssW / PX_PER_M;
   const t = 0.4;
-  // floor
-  walls.push(world.add(makeBox(Wm / 2, Hm + t / 2 - 0.05, Wm + t * 2, t,
+  const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
+  floorY = worldHpx / PX_PER_M;
+  homeCamera(); // keep floor anchored to canvas bottom on every resize
+  walls.push(world.add(makeBox(Wm / 2, floorY + t / 2, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
   // ceiling
   walls.push(world.add(makeBox(Wm / 2, -t / 2 + 0.05, Wm + t * 2, t,
     { isStatic: true, color: '#3a4055' })));
-  // left
-  walls.push(world.add(makeBox(-t / 2 + 0.05, Hm / 2, t, Hm + t * 2,
+  // left and right walls span ceiling → floor
+  walls.push(world.add(makeBox(-t / 2 + 0.05, floorY / 2, t, floorY + t * 2,
     { isStatic: true, color: '#3a4055' })));
-  // right
-  walls.push(world.add(makeBox(Wm + t / 2 - 0.05, Hm / 2, t, Hm + t * 2,
+  walls.push(world.add(makeBox(Wm + t / 2 - 0.05, floorY / 2, t, floorY + t * 2,
     { isStatic: true, color: '#3a4055' })));
 }
 
@@ -424,6 +465,12 @@ const state = {
   grabStrength: 1.0,
   // track grabbed body velocity for throw detection
   grabVelocityHistory: [],
+  // pan drag state: { startX, startY, camX0, camY0 } while panning
+  panDrag: null,
+  // camera lock: body to follow smoothly (null = unlocked)
+  cameraLock: null,
+  // current pointer position in screen coords (for crosshair)
+  pointerPos: null,
   };
 
 /* =========================== DESTRUCTION SYSTEM =========================== */
@@ -441,7 +488,7 @@ function destroyBody(body, impactPoint, impactForce) {
   const bodySize = body.shape === SHAPE.CIRCLE 
     ? body.radius * 2 
     : Math.max(body.width || 1, body.height || 1);
-  const fragmentCount = Math.min(12, Math.max(4, Math.floor(bodySize * 2 + impactForce * 0.5)));
+  const fragmentCount = Math.min(5, Math.max(3, Math.floor(bodySize + 1))); // was 4-12
   const fragmentSize = Math.max(0.15, bodySize / fragmentCount * 0.8);
   
   // Create voxel fragments
@@ -472,7 +519,7 @@ function destroyBody(body, impactPoint, impactForce) {
     );
     frag.angularVelocity = (Math.random() - 0.5) * 15;
     frag._isFragment = true;
-    frag._fragmentLife = 5 + Math.random() * 3; // Fragments fade after 5-8 seconds
+    frag._fragmentLife = 1.5 + Math.random() * 1; // 1.5-2.5s (was 5-8s)
     
     fragments.push(frag);
   }
@@ -491,18 +538,12 @@ function destroyBody(body, impactPoint, impactForce) {
 function updateFragments(dt) {
   if (!state.destructionMode) return;
   
-  for (const body of [...world.bodies]) {
-    if (body._isFragment) {
-      body._fragmentLife -= dt;
-      if (body._fragmentLife <= 0) {
-        world.remove(body);
-      } else if (body._fragmentLife < 1) {
-        // Fade out - shrink the fragment
-        const scale = body._fragmentLife;
-        body.width *= 0.98;
-        body.height *= 0.98;
-      }
-    }
+  // Iterate backwards so splice doesn't skip entries.
+  for (let i = world.bodies.length - 1; i >= 0; i--) {
+    const body = world.bodies[i];
+    if (!body._isFragment) continue;
+    body._fragmentLife -= dt;
+    if (body._fragmentLife <= 0) world.remove(body);
   }
 }
 
@@ -591,6 +632,24 @@ function switchToGrabTool() {
   triggerHaptic('light');
 }
 
+// Space-bar held → temporary pan mode (grab-cursor, then drag to pan).
+// Space still toggles pause on a single tap (via the existing keydown handler).
+// When held and used with drag, the cursor shows grab mode.
+let spaceHeld = false;
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.repeat && !e.target.matches('input, textarea')) {
+    spaceHeld = true;
+    document.body.classList.add('space-pan');
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceHeld = false;
+    document.body.classList.remove('space-pan');
+    if (!state.panDrag) canvas.classList.remove('panning');
+  }
+});
+
 // Right-click: deselect tool and switch to grab
 canvas.addEventListener('contextmenu', (ev) => {
   ev.preventDefault();
@@ -640,10 +699,18 @@ canvas.addEventListener('pointercancel', () => {
 canvas.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   canvas.setPointerCapture(ev.pointerId);
+
+  // Middle-mouse, pan tool, or space+drag → start canvas pan
+  if (ev.button === 1 || state.tool === 'pan' || (spaceHeld && ev.button === 0)) {
+    state.panDrag = { startX: ev.clientX, startY: ev.clientY, camX0: camera.x, camY0: camera.y };
+    canvas.classList.add('panning');
+    return;
+  }
+
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
   const body = world.bodyAt(wp);
-  
+
   // Material applicator mode - apply on left click, reset on right click
   if (state.activeMaterial && body && !body.isStatic && !walls.includes(body)) {
     if (ev.pointerType === 'mouse' && ev.button === 2) {
@@ -709,8 +776,17 @@ canvas.addEventListener('pointerdown', (ev) => {
 });
 
 canvas.addEventListener('pointermove', (ev) => {
+  // Handle canvas pan drag
+  if (state.panDrag) {
+    camera.x = state.panDrag.camX0 + (ev.clientX - state.panDrag.startX);
+    camera.y = state.panDrag.camY0 + (ev.clientY - state.panDrag.startY);
+    state.cameraLock = null;
+    return;
+  }
+
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
+  state.pointerPos = cp; // track for crosshair + hover
   if (state.dragStart) state.dragCurrent = cp;
   if (state.grabConstraint) {
     // Track mouse velocity for throw force calculation using rolling average
@@ -761,6 +837,15 @@ canvas.addEventListener('pointermove', (ev) => {
 });
 
 canvas.addEventListener('pointerup', (ev) => {
+  // End canvas pan
+  if (state.panDrag && (ev.button === 1 || state.tool === 'pan' || spaceHeld || ev.button === 0)) {
+    state.panDrag = null;
+    canvas.classList.remove('panning');
+    // Restore grab cursor if space is still held (not a mid-drag release)
+    if (!spaceHeld && state.tool !== 'pan') canvas.style.cursor = '';
+    return;
+  }
+
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
   const cp = canvasPos(ev);
   const wp = screenToWorld(cp.x, cp.y);
@@ -804,11 +889,31 @@ canvas.addEventListener('pointerup', (ev) => {
 });
 
 canvas.addEventListener('pointercancel', () => {
+  if (state.panDrag) {
+    state.panDrag = null;
+    canvas.classList.remove('panning');
+  }
   if (state.grabConstraint) endGrab();
   state.dragStart = null; state.dragCurrent = null;
   state.springStart = null;
   state.impulseBody = null;
   state.slicePath = null;
+});
+
+// Prevent accidental page scroll over the canvas; zoom is disabled.
+canvas.addEventListener('wheel', (ev) => { ev.preventDefault(); }, { passive: false });
+
+// Double-click on a body: toggle camera lock (smooth follow).
+canvas.addEventListener('dblclick', (ev) => {
+  const cp = canvasPos(ev);
+  const wp = screenToWorld(cp.x, cp.y);
+  const body = world.bodyAt(wp);
+  if (body && !walls.includes(body)) {
+    state.cameraLock = (state.cameraLock === body) ? null : body;
+    body._lockFlash = 8;
+  } else {
+    state.cameraLock = null;
+  }
 });
 
 /* =========================== grab constraint =========================== */
@@ -953,6 +1058,7 @@ function getMaxObjectSize() {
 }
 
 function finishSpawn(start, end) {
+  enforceBodyCap(); // evict oldest if at limit before adding new body
   const ws = screenToWorld(start.x, start.y);
   const we = screenToWorld(end.x, end.y);
   const dx = we.x - ws.x, dy = we.y - ws.y;
@@ -1056,8 +1162,11 @@ function render() {
   ctx.fillRect(0, 0, cssW, cssH);
   drawGrid();
 
-  // bodies
-  for (const b of world.bodies) drawBody(b);
+  // bodies — skip wall boundaries (physics still active, just not rendered)
+  for (const b of world.bodies) {
+    if (walls.includes(b)) continue;
+    drawBody(b);
+  }
 
   // constraints
   for (const c of world.constraints) drawConstraint(c);
@@ -1080,6 +1189,9 @@ function render() {
   // selection ring
   if (state.selected && !walls.includes(state.selected)) drawSelectionRing(state.selected);
 
+  // Camera lock ring — drawn over selection so it's always visible
+  if (state.cameraLock && !state.cameraLock._destroyed) drawCameraLockRing(state.cameraLock);
+
   // FPS overlay (drawn last so it sits on top)
   if (ui.showFPS.checked) drawFPS();
 }
@@ -1087,25 +1199,75 @@ function render() {
 function drawGrid() {
   const step = 1; // 1 m
   const sPx = step * camera.scale;
-  // Subtle grid - neutral color for visibility
-  ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
+
+  // Only draw 1m grid lines when zoomed in enough — at low zoom they become
+  // visual noise denser than a pixel apart.
+  if (camera.scale >= 25) {
+    ctx.strokeStyle = 'rgba(120, 130, 160, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = (camera.x % sPx); x < cssW; x += sPx) {
+      ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+    }
+    for (let y = (camera.y % sPx); y < cssH; y += sPx) {
+      ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
+    }
+    ctx.stroke();
+  }
+
+  // Ground: subtle fill below floor line + surface stroke.
+  const floorSy = floorY * camera.scale + camera.y;
+  if (floorSy >= 0 && floorSy <= cssH) {
+    ctx.fillStyle = 'rgba(50, 60, 85, 0.18)';
+    ctx.fillRect(0, floorSy, cssW, cssH - floorSy);
+    ctx.strokeStyle = 'rgba(160, 170, 200, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, floorSy); ctx.lineTo(cssW, floorSy);
+    ctx.stroke();
+  }
+}
+
+// World-space X and Y axes through the origin — only drawn when visible.
+function drawAxes() {
+  const ox = camera.x; // screen x of world origin
+  const oy = camera.y; // screen y of world origin
+  const pad = 40;
+
+  ctx.font = '11px "JetBrains Mono", monospace';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = (camera.x % sPx); x < cssW; x += sPx) {
-  ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, cssH);
+
+  // X axis — horizontal line at world y=0
+  if (oy >= -pad && oy <= cssH + pad) {
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.35)';
+    ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(cssW, oy); ctx.stroke();
+    // Tick marks every 1m (or 5m when zoomed out) — no labels
+    const step = camera.scale >= 30 ? 1 : 5;
+    const sPx = step * camera.scale;
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.25)';
+    for (let sx = ((camera.x % sPx) + sPx) % sPx; sx < cssW; sx += sPx) {
+      ctx.beginPath(); ctx.moveTo(sx, oy - 4); ctx.lineTo(sx, oy + 4); ctx.stroke();
+    }
   }
-  for (let y = (camera.y % sPx); y < cssH; y += sPx) {
-  ctx.moveTo(0, y + 0.5); ctx.lineTo(cssW, y + 0.5);
+
+  // Y axis — vertical line at world x=0
+  if (ox >= -pad && ox <= cssW + pad) {
+    ctx.strokeStyle = 'rgba(100, 140, 255, 0.35)';
+    ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, cssH); ctx.stroke();
+    const step = camera.scale >= 30 ? 1 : 5;
+    const sPx = step * camera.scale;
+    ctx.strokeStyle = 'rgba(100, 140, 255, 0.25)';
+    for (let sy = ((camera.y % sPx) + sPx) % sPx; sy < cssH; sy += sPx) {
+      ctx.beginPath(); ctx.moveTo(ox - 4, sy); ctx.lineTo(ox + 4, sy); ctx.stroke();
+    }
   }
-  ctx.stroke();
-  
-  // Floor line with accent
-  ctx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(0, cssH - 1); ctx.lineTo(cssW, cssH - 1);
-  ctx.stroke();
+
+  // Origin dot
+  if (ox >= 0 && ox <= cssW && oy >= 0 && oy <= cssH) {
+    ctx.fillStyle = 'rgba(200, 220, 255, 0.6)';
+    ctx.beginPath(); ctx.arc(ox, oy, 3, 0, Math.PI * 2); ctx.fill();
   }
+}
 
 // Speed → color: blue (slow) → cyan → green → yellow → red (fast).
 // Mapped over 0..30 m/s, which covers most sandbox motion before the velocity
@@ -1135,47 +1297,46 @@ function speedColor(v) {
 }
 
 function drawBody(b) {
-  ctx.save();
   const useHeatmap = ui.showHeatmap.checked && !b.isStatic && !walls.includes(b);
   const fillColor = useHeatmap ? speedColor(b.velocity.length()) : b.color;
-  const isDynamic = !b.isStatic && !walls.includes(b);
-  
-  // Add subtle glow for dynamic bodies
-  if (isDynamic) {
-  ctx.shadowColor = withAlpha(fillColor, 0.4);
-  ctx.shadowBlur = 10;
-  }
-  
+
   if (b.shape === SHAPE.CIRCLE) {
-  const p = worldToScreen(b.position.x, b.position.y);
-  const r = b.radius * camera.scale;
-  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
-  ctx.strokeStyle = fillColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // orientation marker
-  ctx.shadowBlur = 0;
-  const ex = p.x + Math.cos(b.angle) * r;
-  const ey = p.y + Math.sin(b.angle) * r;
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+    const p = worldToScreen(b.position.x, b.position.y);
+    const r = b.radius * camera.scale;
+    // Viewport cull
+    if (p.x + r < 0 || p.x - r > cssW || p.y + r < 0 || p.y - r > cssH) return;
+    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.5 : 0.9);
+    ctx.strokeStyle = fillColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // orientation marker
+    const ex = p.x + Math.cos(b.angle) * r;
+    const ey = p.y + Math.sin(b.angle) * r;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
   } else {
-  const verts = b.worldVertices();
-  ctx.beginPath();
-  for (let i = 0; i < verts.length; i++) {
-  const p = worldToScreen(verts[i].x, verts[i].y);
-  if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    const verts = b.worldVertices();
+    // Viewport cull — skip if all vertices are outside the canvas
+    let inView = false;
+    for (const v of verts) {
+      const p = worldToScreen(v.x, v.y);
+      if (p.x >= 0 && p.x <= cssW && p.y >= 0 && p.y <= cssH) { inView = true; break; }
+    }
+    if (!inView) return;
+    ctx.beginPath();
+    for (let i = 0; i < verts.length; i++) {
+      const p = worldToScreen(verts[i].x, verts[i].y);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
+    ctx.strokeStyle = fillColor;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.fillStyle = withAlpha(fillColor, b.isStatic ? 0.4 : 0.9);
-  ctx.strokeStyle = fillColor;
-  ctx.lineWidth = 2;
-  ctx.fill();
-  ctx.stroke();
-  }
-  ctx.restore();
-  }
+}
 
 function drawAABBs() {
   ctx.strokeStyle = 'rgba(107, 139, 255, 0.4)';
@@ -1205,7 +1366,7 @@ function drawFPS() {
   ctx.font = '500 12px "JetBrains Mono", monospace';
   ctx.textBaseline = 'top';
   const fps = state.fpsEMA.toFixed(1);
-  const dyn = world.bodies.filter(b => !b.isStatic).length;
+  let dyn = 0; for (const b of world.bodies) if (!b.isStatic) dyn++;
   ctx.fillStyle = '#00e5a0';
   ctx.fillText(`${fps} fps`, 18, 16);
   ctx.fillStyle = '#8888a0';
@@ -1233,9 +1394,11 @@ function drawConstraint(c) {
   const nx = -uy, ny = ux;
   const coils = Math.max(8, Math.floor(len / 8));
   
-  // Glow effect for springs
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
-  ctx.shadowBlur = 8;
+  // Glow effect for springs — skip the blur cost entirely on touch devices.
+  if (!IS_TOUCH) {
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
+    ctx.shadowBlur = 8;
+  }
   ctx.beginPath();
   ctx.moveTo(a.x, a.y);
   for (let i = 1; i < coils; i++) {
@@ -1249,10 +1412,12 @@ function drawConstraint(c) {
   ctx.stroke();
   ctx.shadowBlur = 0;
   
-  // anchor dots with glow
+  // anchor dots with glow — skip the blur cost entirely on touch devices.
   ctx.fillStyle = '#00ffc8';
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
-  ctx.shadowBlur = 6;
+  if (!IS_TOUCH) {
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.6)';
+    ctx.shadowBlur = 6;
+  }
   ctx.beginPath(); ctx.arc(a.x, a.y, 3.5, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
@@ -1264,138 +1429,144 @@ function applyTransform(b, local) {
                   local.x * sin + local.y * cos + b.position.y);
 }
 
+const SPAWN_TOOLS = new Set(['box','circle','polygon','triangle','wall','rope']);
+
 function drawToolOverlay() {
-  // Spawn drag preview with glow - thinner, sleeker outlines matching shape geometry
+  const maxSize = getMaxObjectSize();
+
+  // ── Spawn preview ──────────────────────────────────────────────────────────
+  // Dimensions are computed identically to finishSpawn so the preview
+  // exactly matches the spawned body.
   if (state.dragStart && state.dragCurrent) {
     const a = state.dragStart, b = state.dragCurrent;
-    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-    const r = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 14;
-    
-    ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
-    ctx.fillStyle = 'rgba(0, 229, 160, 0.06)';
-    ctx.setLineDash([4, 3]);
+    const ws = screenToWorld(a.x, a.y);
+    const we = screenToWorld(b.x, b.y);
+    const dx = we.x - ws.x, dy = we.y - ws.y;
+    const dragLen = Math.hypot(dx, dy);
+    const scx = (a.x + b.x) / 2, scy = (a.y + b.y) / 2; // screen centre
+
+    const isWall = state.tool === 'wall';
+    ctx.strokeStyle = isWall ? 'rgba(150,160,200,0.75)' : 'rgba(0,229,160,0.8)';
+    ctx.fillStyle   = isWall ? 'rgba(74,80,104,0.12)'   : 'rgba(0,229,160,0.08)';
+    ctx.setLineDash([5, 3]);
     ctx.lineWidth = 1.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    let label = '';
+
     ctx.beginPath();
-    
     switch (state.tool) {
-      case 'circle':
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        break;
-        
-      case 'triangle': {
-        // Equilateral triangle pointing up, sized by drag radius
-        const triR = Math.max(14, r);
-        for (let i = 0; i < 3; i++) {
-          const angle = -Math.PI / 2 + (i * 2 * Math.PI / 3);
-          const px = cx + Math.cos(angle) * triR;
-          const py = cy + Math.sin(angle) * triR;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
+      case 'box': {
+        // Spawn: w = min(max, abs(dx)*2), centered at midpoint
+        const wm = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dx) * 2 || 1));
+        const hm = Math.min(maxSize.dimension, Math.max(0.5, Math.abs(dy) * 2 || 1));
+        const spx = wm * camera.scale / 2, spy = hm * camera.scale / 2;
+        ctx.roundRect(scx - spx, scy - spy, wm * camera.scale, hm * camera.scale, 3);
+        label = `${wm.toFixed(1)} × ${hm.toFixed(1)} m`;
         break;
       }
-      
+      case 'circle': {
+        const rm = Math.min(maxSize.radius, Math.max(0.25, dragLen / 2 || 0.5));
+        ctx.arc(scx, scy, rm * camera.scale, 0, Math.PI * 2);
+        label = `r ${rm.toFixed(2)} m`;
+        break;
+      }
+      case 'triangle':
       case 'polygon': {
-        // Pentagon preview (polygon spawns 5-8 sides randomly)
-        const polyR = Math.max(14, r);
-        const sides = 5;
+        const sides = state.tool === 'triangle' ? 3 : 5;
+        const rm = Math.min(maxSize.radius, Math.max(0.3, dragLen / 2 || 0.6));
+        const rs = rm * camera.scale;
         for (let i = 0; i < sides; i++) {
-          const angle = -Math.PI / 2 + (i * 2 * Math.PI / sides);
-          const px = cx + Math.cos(angle) * polyR;
-          const py = cy + Math.sin(angle) * polyR;
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
+          const ang = -Math.PI / 2 + (i * 2 * Math.PI / sides);
+          const px = scx + Math.cos(ang) * rs, py = scy + Math.sin(ang) * rs;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
+        label = `r ${rm.toFixed(2)} m`;
         break;
       }
-      
-      case 'rope': {
-        // Rope preview - a dotted line from start to end
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        // Draw small circles at endpoints
-        ctx.moveTo(a.x + 6, a.y);
-        ctx.arc(a.x, a.y, 6, 0, Math.PI * 2);
-        ctx.moveTo(b.x + 6, b.y);
-        ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
-        break;
-      }
-      
       case 'wall': {
-        // Wall preview - rectangle with no rounded corners, different color
-        ctx.strokeStyle = 'rgba(74, 80, 104, 0.8)';
-        ctx.fillStyle = 'rgba(74, 80, 104, 0.1)';
-        ctx.shadowColor = 'rgba(74, 80, 104, 0.3)';
+        const wm = Math.min(maxSize.wallDim, Math.max(0.5, Math.abs(dx) || 2));
+        const hm = Math.min(maxSize.wallDim, Math.max(0.2, Math.abs(dy) || 0.4));
         const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-        const w = Math.max(20, Math.abs(b.x - a.x));
-        const h = Math.max(10, Math.abs(b.y - a.y));
-        ctx.rect(x0, y0, w, h);
+        ctx.rect(x0, y0, Math.max(20, Math.abs(b.x - a.x)), Math.max(10, Math.abs(b.y - a.y)));
+        label = `${wm.toFixed(1)} × ${hm.toFixed(1)} m`;
         break;
       }
-      
-      case 'box':
-      default: {
-        // Box preview - rectangle with slight rounding
-        const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
-        const w = Math.max(20, Math.abs(b.x - a.x));
-        const h = Math.max(20, Math.abs(b.y - a.y));
-        ctx.roundRect(x0, y0, w, h, 2);
+      case 'rope': {
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.moveTo(a.x + 5, a.y); ctx.arc(a.x, a.y, 5, 0, Math.PI * 2);
+        ctx.moveTo(b.x + 5, b.y); ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+        label = `${dragLen.toFixed(2)} m`;
         break;
       }
     }
-    
-    ctx.fill();
-    ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
+
+    // Spawn anchor dot at drag start
+    ctx.fillStyle = 'rgba(0,229,160,0.9)';
+    ctx.beginPath(); ctx.arc(a.x, a.y, 3, 0, Math.PI * 2); ctx.fill();
+
+    // Dimension label
+    if (label) {
+      ctx.font = '11px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(200,220,255,0.85)';
+      ctx.fillText(label, scx, scy - (state.tool === 'rope' ? 14 : Math.max(20, dragLen * camera.scale / 2 + 14)));
+      ctx.textAlign = 'left';
+    }
   }
-  
-  // Spring drag preview with glow
+
+  // ── Crosshair (spawn tools only, when not dragging) ────────────────────────
+  const isCrosshairTool = SPAWN_TOOLS.has(state.tool);
+  if (isCrosshairTool && state.pointerPos && !state.dragStart) {
+    const { x, y } = state.pointerPos;
+    const arm = 10, gap = 4;
+    ctx.strokeStyle = 'rgba(0,229,160,0.6)';
+    ctx.lineWidth = 1;
+    // horizontal
+    ctx.beginPath();
+    ctx.moveTo(x - arm - gap, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + gap, y);       ctx.lineTo(x + arm + gap, y);
+    // vertical
+    ctx.moveTo(x, y - arm - gap); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + gap);       ctx.lineTo(x, y + arm + gap);
+    ctx.stroke();
+    // centre dot
+    ctx.fillStyle = 'rgba(0,229,160,0.9)';
+    ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── Spring preview ─────────────────────────────────────────────────────────
   if (state.springStart && state.dragCurrent) {
-  const wA = applyTransform(state.springStart, state.springStartLocal);
-  const a = worldToScreen(wA.x, wA.y);
-  ctx.shadowColor = 'rgba(0, 255, 200, 0.5)';
-  ctx.shadowBlur = 10;
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = '#00ffc8';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
+    const wA = applyTransform(state.springStart, state.springStartLocal);
+    const a = worldToScreen(wA.x, wA.y);
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = '#00ffc8';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y); ctx.stroke();
+    ctx.setLineDash([]);
   }
   
-  // Impulse drag preview with glow
+  // ── Impulse preview ────────────────────────────────────────────────────────
   if (state.impulseBody && state.impulseStart && state.impulseEnd) {
-  const a = state.impulseStart, b = state.impulseEnd;
-  ctx.shadowColor = 'rgba(255, 196, 106, 0.5)';
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-  drawArrowhead(a, b, '#ffc46a');
-  ctx.shadowBlur = 0;
+    const a = state.impulseStart, b = state.impulseEnd;
+    ctx.strokeStyle = '#ffc46a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    drawArrowhead(a, b, '#ffc46a');
   }
-  
-  // Slice stroke preview with glow
+
+  // ── Slice preview ──────────────────────────────────────────────────────────
   if (state.slicePath && state.slicePath.length > 1) {
-  ctx.shadowColor = 'rgba(255, 107, 157, 0.6)';
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = '#ff6b9d';
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
-  for (let i = 1; i < state.slicePath.length; i++) {
-  ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
-  }
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#ff6b9d';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(state.slicePath[0].x, state.slicePath[0].y);
+    for (let i = 1; i < state.slicePath.length; i++) ctx.lineTo(state.slicePath[i].x, state.slicePath[i].y);
+    ctx.stroke();
   }
 }
 
@@ -1432,41 +1603,30 @@ function drawVelocities() {
   ctx.strokeStyle = '#6b8bff';
   ctx.lineWidth = 2;
   ctx.shadowColor = 'rgba(107, 139, 255, 0.5)';
-  ctx.shadowBlur = 6;
   for (const b of world.bodies) {
-  if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
-  const p = worldToScreen(b.position.x, b.position.y);
-  const ex = p.x + b.velocity.x * camera.scale * 0.25;
-  const ey = p.y + b.velocity.y * camera.scale * 0.25;
-  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
-  drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
+    if (b.isStatic || b.velocity.lengthSq() < 0.01) continue;
+    const p = worldToScreen(b.position.x, b.position.y);
+    const ex = p.x + b.velocity.x * camera.scale * 0.25;
+    const ey = p.y + b.velocity.y * camera.scale * 0.25;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+    drawArrowhead(p, { x: ex, y: ey }, '#6b8bff');
   }
-  ctx.shadowBlur = 0;
   }
   
   function drawTrails() {
-  for (const [id, pts] of state.trails) {
-  if (pts.length < 2) continue;
-  // Gradient trail from transparent to vibrant
-  const gradient = ctx.createLinearGradient(
-    worldToScreen(pts[0].x, pts[0].y).x,
-    worldToScreen(pts[0].x, pts[0].y).y,
-    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).x,
-    worldToScreen(pts[pts.length-1].x, pts[pts.length-1].y).y
-  );
-  gradient.addColorStop(0, 'rgba(0, 229, 160, 0.1)');
-  gradient.addColorStop(1, 'rgba(0, 229, 160, 0.6)');
-  ctx.strokeStyle = gradient;
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  for (let i = 0; i < pts.length; i++) {
-  const s = worldToScreen(pts[i].x, pts[i].y);
-  if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-  }
-  ctx.stroke();
-  }
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const [, pts] of state.trails) {
+      if (pts.length < 2) continue;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const s = worldToScreen(pts[i].x, pts[i].y);
+        if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+      }
+      ctx.stroke();
+    }
   }
 
 function drawSelectionRing(b) {
@@ -1480,16 +1640,46 @@ function drawSelectionRing(b) {
   const y = min.y - pad;
   const r = 4; // corner radius
   
-  // Subtle glow
-  ctx.shadowColor = 'rgba(0, 229, 160, 0.3)';
-  ctx.shadowBlur = 6;
   ctx.strokeStyle = 'rgba(0, 229, 160, 0.7)';
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.stroke();
-  ctx.shadowBlur = 0;
   }
+
+function drawCameraLockRing(b) {
+  const sp = b.shape === SHAPE.CIRCLE
+    ? worldToScreen(b.position.x, b.position.y)
+    : (() => {
+        const aabb = b.aabb();
+        return {
+          x: (worldToScreen(aabb.minX, aabb.minY).x + worldToScreen(aabb.maxX, aabb.maxY).x) / 2,
+          y: (worldToScreen(aabb.minX, aabb.minY).y + worldToScreen(aabb.maxX, aabb.maxY).y) / 2
+        };
+      })();
+  const baseR = b.shape === SHAPE.CIRCLE
+    ? b.radius * camera.scale
+    : (() => {
+        const aabb = b.aabb();
+        const min = worldToScreen(aabb.minX, aabb.minY);
+        const max = worldToScreen(aabb.maxX, aabb.maxY);
+        return Math.max(Math.abs(max.x - min.x), Math.abs(max.y - min.y)) / 2;
+      })();
+  const r = Math.max(20, baseR + 10);
+
+  // Pulse based on time so it breathes
+  const pulse = 0.4 + 0.2 * Math.sin(performance.now() / 400);
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(100, 220, 255, ${pulse})`;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(sp.x, sp.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
 
 function withAlpha(hex, a) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
@@ -1517,15 +1707,13 @@ function fmtNumRest(n, threshold) {
   return Math.abs(n) < threshold ? '0.00' : fmtNum(n);
 }
 
-// PE reference: floor's top surface (matches the visual floor the user sees).
+// PE reference: floor's top surface (floorY, set by rebuildBoundaries).
 // Measured against the body's lowest point (aabb.maxY in screen-down coords)
 // so a body resting on the floor reads ~0 J. Tiny negative values from contact
-// penetration are clamped to 0 for clarity.
-const FLOOR_SURFACE_OFFSET = 0.05; // matches makeBox offset in rebuildBoundaries
+// penetration are clamped to 0.
 function bodyHeightAboveFloor(body) {
-  const floorTop = cssH / PX_PER_M - FLOOR_SURFACE_OFFSET;
   const aabb = body.aabb();
-  const h = floorTop - aabb.maxY;
+  const h = floorY - aabb.maxY;
   return h > 0 ? h : 0;
 }
 
@@ -1537,16 +1725,18 @@ function updateReadouts() {
 /* =========================== trails update =========================== */
 function updateTrails() {
   if (!ui.showTrails.checked) { state.trails.clear(); return; }
+  const liveIds = new Set();
   for (const b of world.bodies) {
     if (b.isStatic) continue;
+    liveIds.add(b.id);
     let arr = state.trails.get(b.id);
     if (!arr) { arr = []; state.trails.set(b.id, arr); }
     arr.push(b.position.copy());
-    if (arr.length > 60) arr.shift();
+    if (arr.length > 30) arr.shift(); // was 60
   }
-  // prune for removed bodies
-  for (const id of [...state.trails.keys()]) {
-    if (!world.bodies.find(b => b.id === id)) state.trails.delete(id);
+  // O(1) cleanup — only iterate existing trail keys
+  for (const id of state.trails.keys()) {
+    if (!liveIds.has(id)) state.trails.delete(id);
   }
 }
 
@@ -1593,6 +1783,10 @@ document.querySelectorAll('.tool').forEach(el => {
     // Deselect material applicator when switching tools
     state.activeMaterial = null;
     document.querySelectorAll('.material').forEach(e => e.classList.remove('active'));
+    // Set canvas cursor for pan tool; clear it for all others
+    if (state.tool === 'pan') canvas.style.cursor = 'grab';
+    else if (SPAWN_TOOLS.has(state.tool)) canvas.style.cursor = 'none'; // use canvas crosshair
+    else canvas.style.cursor = '';
     triggerHaptic('light');
   });
 });
@@ -1669,6 +1863,10 @@ document.querySelectorAll('#levelSegment .seg').forEach(el => {
 // collapse / dismiss controls
 const topbarEl = document.querySelector('.topbar');
 const hintEl = document.getElementById('hint');
+// Start collapsed on mobile so the canvas gets maximum space
+if (window.matchMedia('(max-width: 768px)').matches) {
+  topbarEl.classList.add('collapsed');
+}
 document.getElementById('topbarToggle').addEventListener('click', () => {
   topbarEl.classList.toggle('collapsed');
   // ResizeObserver picks this up, but call resize() directly so canvas redraws this frame.
@@ -2183,15 +2381,16 @@ function updateTipsOverlay() {
 // When that lands, the redeem-code branch becomes the API verification call,
 // and Pro.activate() should also store the token for revocation/expiry checks.
 //
-// STRIPE_PAYMENT_LINK: paste the real Stripe Payment Link URL here once the
-// operator has created the one-time $9 product in the Stripe dashboard.
+// STRIPE_PAYMENT_LINK: replace 'REPLACE_WITH_REAL_LINK' with the Payment Link
+// slug from Stripe Dashboard once the one-time $9 product is created.
 //   - Product:     Physics Sandbox Pro, one-time $9 USD
-//   - Success URL: https://sandbox.stacklis.com/app/?pro=1&src=stripe
+//   - Success URL: https://physics.stacklis.com/app/?pro=1&src=stripe
 //                  (note: /app/, not /, so Pro.checkUrlParam() below runs and
 //                  flips the localStorage flag immediately)
-//   - Cancel URL:  https://sandbox.stacklis.com/app/
-// Until pasted, the upgrade button shows a placeholder alert.
-const STRIPE_PAYMENT_LINK = '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>';
+//   - Cancel URL:  https://physics.stacklis.com/app/
+const STRIPE_CHECKOUT_URL = 'https://buy.stripe.com/28E8wPdCQ2gs7DdamB0Jq01';
+// Keep legacy alias so any code referencing STRIPE_PAYMENT_LINK still works.
+const STRIPE_PAYMENT_LINK = STRIPE_CHECKOUT_URL;
 // ?free=1 — force the app into free-tier mode regardless of localStorage.
 // Used by the landing page CTA (/app/?free=1) and the /free legacy redirect.
 // Pro features stay locked while this is set; the URL param persists across
@@ -2202,7 +2401,7 @@ const FREE_MODE = (() => {
 })();
 const Pro = (() => {
   const KEY = 'ps.pro';
-  const REDEEM_CODES = new Set(['STACKLIS-EARLY']);
+  const REDEEM_CODES = new Set(['STACKLIS-EARLY', 'STACKLIS-PRO']);
   function isActive() {
     if (FREE_MODE) return false;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
@@ -2269,13 +2468,13 @@ function openUpgradeModal() {
 function closeUpgradeModal() { upgradeDialog?.close(); }
 
 if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
-  if (STRIPE_PAYMENT_LINK && STRIPE_PAYMENT_LINK !== '<<REPLACE_WITH_STRIPE_PAYMENT_LINK>>') {
-    window.location.href = STRIPE_PAYMENT_LINK;
+  if (STRIPE_CHECKOUT_URL && !STRIPE_CHECKOUT_URL.includes('REPLACE_WITH_REAL_LINK')) {
+    window.open(STRIPE_CHECKOUT_URL, '_blank');
     return;
   }
-  // Stripe Payment Link not yet configured. Operator must paste the real URL
-  // into STRIPE_PAYMENT_LINK at the top of the Pro module.
-  alert('Stripe link not yet configured — operator must paste Payment Link into app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
+  // Stripe Payment Link not yet configured. Operator must replace
+  // 'REPLACE_WITH_REAL_LINK' in STRIPE_CHECKOUT_URL at the top of the Pro module.
+  alert('Stripe link not yet configured — operator must update STRIPE_CHECKOUT_URL in app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
 });
 if (upgradeLaterBtn) upgradeLaterBtn.addEventListener('click', closeUpgradeModal);
 if (redeemBtnEl) redeemBtnEl.addEventListener('click', () => {
@@ -2297,6 +2496,19 @@ if (redeemInputEl) redeemInputEl.addEventListener('keydown', (ev) => {
 if (upgradeDialog) upgradeDialog.addEventListener('click', (ev) => {
   if (ev.target === upgradeDialog) closeUpgradeModal();
 });
+
+// ?upgrade=1 — auto-open upgrade dialog when arriving from the landing page CTA.
+// Consumed once; stripped from the URL so back-navigation is clean.
+(function () {
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.get('upgrade') === '1') {
+      u.searchParams.delete('upgrade');
+      window.history.replaceState(null, '', u.toString());
+      if (!Pro.isActive()) setTimeout(openUpgradeModal, 350);
+    }
+  } catch (_) {}
+})();
 
 /* =========================== derivations export (Pro) =========================== */
 function escapeHtml(s) {
@@ -2772,19 +2984,28 @@ if (window.PSandboxScene) {
 // keyboard
 window.addEventListener('keydown', (ev) => {
   if (ev.target.matches('input, textarea')) return;
-  const map = { '1':'box', '2':'circle', '3':'polygon', '4':'wall',
-                '5':'triangle', '6':'rope',
-                'g':'grab', 'G':'grab', 's':'spring', 'S':'spring',
-                'p':'impulse', 'P':'impulse', 'x':'delete', 'X':'delete',
-                'n':'pin', 'N':'pin', 'k':'slice', 'K':'slice' };
+  const map2d = { '1':'box', '2':'circle', '3':'polygon', '4':'wall',
+                  '5':'triangle', '6':'rope',
+                  'g':'grab', 'G':'grab', 's':'spring', 'S':'spring',
+                  'p':'impulse', 'P':'impulse', 'x':'delete', 'X':'delete',
+                  'n':'pin', 'N':'pin', 'k':'slice', 'K':'slice' };
+  const map3d = { '1':'cube', '2':'sphere', '3':'cylinder', '4':'capsule',
+                  '5':'prism', '6':'wall',
+                  'g':'grab', 'G':'grab', 'x':'delete', 'X':'delete' };
   if (ev.shiftKey && /[1-4]/.test(ev.key)) {
     const lv = parseInt(ev.key, 10);
     document.querySelector(`#levelSegment .seg[data-level="${lv}"]`).click();
     return;
   }
-  if (map[ev.key]) {
-    document.querySelector(`.tool[data-tool="${map[ev.key]}"]`).click();
-  } else if (ev.key === ' ') {
+  if (getPhysicsMode() === '3d') {
+    if (map3d[ev.key]) {
+      const btn = document.querySelector(`.tool[data-tool3d="${map3d[ev.key]}"]`);
+      if (btn) btn.click();
+    }
+  } else if (map2d[ev.key]) {
+    document.querySelector(`.tool[data-tool="${map2d[ev.key]}"]`).click();
+  }
+  if (ev.key === ' ') {
     ev.preventDefault();
     ui.pauseBtn.click();
   } else if (ev.key === 'r' || ev.key === 'R') {
@@ -2816,13 +3037,13 @@ function loadPreset(name) {
   switch (name) {
     case 'default':
       // a few balls and a box to start
-      world.add(makeCircle(Wm * 0.4, Hm * 0.3, 0.5, { color: '#6aa6ff' }));
-      world.add(makeCircle(Wm * 0.6, Hm * 0.2, 0.4, { color: '#ffc46a' }));
-      world.add(makeBox(Wm * 0.5, Hm * 0.5, 1.2, 1.2, { color: '#9bf2e0' }));
+      world.add(makeCircle(Wm * 0.4, floorY * 0.3, 0.5, { color: '#6aa6ff' }));
+      world.add(makeCircle(Wm * 0.6, floorY * 0.2, 0.4, { color: '#ffc46a' }));
+      world.add(makeBox(Wm * 0.5, floorY * 0.5, 1.2, 1.2, { color: '#9bf2e0' }));
       break;
     case 'stack': {
       const x = Wm * 0.5;
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       for (let i = 0; i < 8; i++) {
         const y = baseY - 0.45 - i * 0.85;
         world.add(makeBox(x + (Math.random() - 0.5) * 0.05, y, 0.8, 0.8, {
@@ -2870,7 +3091,7 @@ function loadPreset(name) {
       const verts = [new Vec2(-3, -0.2), new Vec2(3, -0.2), new Vec2(3, 0.2), new Vec2(-3, 0.2)];
       const ramp = new Body({
         shape: SHAPE.POLYGON,
-        position: new Vec2(Wm * 0.5, Hm * 0.7),
+        position: new Vec2(Wm * 0.5, floorY * 0.7),
         vertices: verts,
         isStatic: true,
         color: '#4a5068'
@@ -2878,14 +3099,14 @@ function loadPreset(name) {
       ramp.angle = -0.3;
       ramp._cachedAngle = NaN;
       world.add(ramp);
-      world.add(makeCircle(Wm * 0.5 - 2.5, Hm * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
+      world.add(makeCircle(Wm * 0.5 - 2.5, floorY * 0.7 - 1.5, 0.4, { color: '#ffc46a', restitution: 0.4, friction: 0.3 }));
       // a wall to roll into
-      world.add(makeBox(Wm * 0.5 + 3.5, Hm - 1.2, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
+      world.add(makeBox(Wm * 0.5 + 3.5, floorY - 0.6, 0.4, 1.6, { isStatic: true, color: '#4a5068' }));
       break;
     }
     case 'orbit': {
       world.gravity = 0;
-      const cx = Wm * 0.5, cy = Hm * 0.5;
+      const cx = Wm * 0.5, cy = floorY * 0.5;
       // central mass (static)
       const sun = world.add(makeCircle(cx, cy, 0.5, { isStatic: true, color: '#ffc46a' }));
       // orbiters
@@ -2910,7 +3131,7 @@ function loadPreset(name) {
 
       world.preSubstep = (dt) => {
         for (const p of planets) {
-          if (!world.bodies.includes(p)) continue;
+          if (p._destroyed) continue;
           const r = sun.position.sub(p.position);
           const distSq = Math.max(r.lengthSq(), 0.25);
           const dist = Math.sqrt(distSq);
@@ -2921,7 +3142,7 @@ function loadPreset(name) {
       break;
     }
     case 'dominoes': {
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const w = 0.18, h = 1.6;
       const N = 12;
       const spacing = 0.7;
@@ -2941,7 +3162,7 @@ function loadPreset(name) {
     }
     case 'tower': {
       // Pyramid of boxes.
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const bw = 0.7, bh = 0.7;
       const rows = 7;
       for (let row = 0; row < rows; row++) {
@@ -2959,7 +3180,7 @@ function loadPreset(name) {
     case 'wreckingball': {
       // Heavy pendulum + a stack of small boxes for it to demolish.
       const ax = Wm * 0.25, ay = 0.6;
-      const ropeLen = Math.min(4.5, Hm * 0.55);
+      const ropeLen = Math.min(4.5, floorY * 0.5);
       const anchor = world.add(makeCircle(ax, ay, 0.1, { isStatic: true, color: '#4a5068' }));
       const ball = world.add(makeCircle(ax - ropeLen * 0.7, ay + ropeLen * 0.3, 0.55, {
         color: '#cfd6e6', density: 18, restitution: 0.2, friction: 0.5
@@ -2971,7 +3192,7 @@ function loadPreset(name) {
 
       // Stack of small boxes on the right.
       const stackX = Wm * 0.7;
-      const baseY = Hm - 0.4;
+      const baseY = floorY - 0.2;
       const sw = 0.5, sh = 0.5;
       for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 4; col++) {
@@ -2992,36 +3213,62 @@ let lastTime = performance.now();
 function loop(now) {
   const rawDt = (now - lastTime) / 1000;
   lastTime = now;
+
+  // Skip render entirely when the tab is hidden — saves GPU and prevents
+  // giant rawDt values from causing physics explosions on tab-switch-back.
+  if (document.hidden) { requestAnimationFrame(loop); return; }
+
+  // Cap dt so a stall frame (GC pause, tab backgrounded briefly) can't
+  // send bodies flying. ~33 ms = max one "slow" frame at 30 fps.
+  const dt = Math.min(rawDt, 1 / 30);
+
   // FPS exponential moving average — smooth jitter so the readout doesn't flicker.
   if (rawDt > 0 && rawDt < 0.5) {
     const inst = 1 / rawDt;
     state.fpsEMA = state.fpsEMA * 0.92 + inst * 0.08;
   }
   if (!state.paused) {
-if (state.grabBody && !state.grabBody.isStatic) {
+    if (state.grabBody && !state.grabBody.isStatic) {
       // Off-center grab forces produce torque; strongly damp angular velocity
       // while held so the body doesn't spiral out of control.
-      const dampedDt = rawDt * state.timeScale;
+      const dampedDt = dt * state.timeScale;
       state.grabBody.angularVelocity *= Math.exp(-9 * dampedDt);
-      
+
       // Track velocity for throw detection
       const vel = state.grabBody.velocity.length();
       state.grabVelocityHistory.push(vel);
       // Keep only last 10 samples
       if (state.grabVelocityHistory.length > 10) state.grabVelocityHistory.shift();
     }
-    world.step(rawDt * state.timeScale);
+    world.step(dt * state.timeScale);
     sampleEnvironment(now);
     updateTrails();
-    updateFragments(rawDt);
+    updateFragments(dt);
   }
-render();
+
+  // Smooth camera follow when a body is locked.
+  if (state.cameraLock && !state.cameraLock._destroyed) {
+    const targetX = cssW / 2 - state.cameraLock.position.x * camera.scale;
+    const targetY = cssH / 2 - state.cameraLock.position.y * camera.scale;
+    camera.x += (targetX - camera.x) * 0.12;
+    camera.y += (targetY - camera.y) * 0.12;
+  } else if (state.cameraLock && state.cameraLock._destroyed) {
+    state.cameraLock = null;
+  }
+
+  render();
   updateReadouts();
-  updateInfoOverlay();
-  updateLessonOverlay();
-  updateTipsOverlay();
-  requestAnimationFrame(loop);
+  // Throttle heavy DOM updates to ~15fps — they read many DOM nodes and
+  // trigger layout; running them every rAF (60fps) is the #2 source of lag.
+  if (_overlayTick % 4 === 0) {
+    updateInfoOverlay();
+    updateLessonOverlay();
+    updateTipsOverlay();
   }
+  _overlayTick++;
+  requestAnimationFrame(loop);
+}
+let _overlayTick = 0;
 
 /* =========================== bootstrap =========================== */
 function init() {
@@ -3063,5 +3310,39 @@ function init() {
 }
 if (document.readyState === 'complete') init();
 else window.addEventListener('load', init);
+
+// Expose resize so layout.js can force a re-measure after panel transitions.
+window.PSandboxResize = resize;
+
+/* =========================== zen mode =========================== */
+const zenToggle = document.getElementById('zenToggle');
+function toggleZen() {
+  document.body.classList.toggle('zen-mode');
+  const isZen = document.body.classList.contains('zen-mode');
+  if (zenToggle) {
+    zenToggle.title = isZen ? 'Exit zen mode (Z)' : 'Toggle zen mode (Z)';
+    zenToggle.textContent = isZen ? '⤡' : '⤢';
+  }
+}
+if (zenToggle) {
+  zenToggle.addEventListener('click', toggleZen);
+}
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.metaKey && !e.target.matches('input, textarea')) {
+    toggleZen();
+  }
+});
+
+/* =========================== reset camera =========================== */
+function resetCamera() {
+  homeCamera();
+}
+const resetCameraBtn = document.getElementById('resetCameraBtn');
+if (resetCameraBtn) {
+  resetCameraBtn.addEventListener('click', resetCamera);
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'Home' && !e.target.matches('input, textarea')) resetCamera();
+});
 
 })();

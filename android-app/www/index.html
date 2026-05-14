@@ -7,22 +7,29 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <title>Physics Sandbox — learn by playing</title>
+<meta name="description" content="Interactive 2D physics simulator. Drag objects, see live readouts, learn across four knowledge levels. Pro saves your scenes." />
+<meta property="og:title" content="Physics Sandbox" />
+<meta property="og:description" content="Learn physics by playing. Interactive 2D simulator with real-time readouts." />
+<meta property="og:image" content="https://physics.stacklis.com/icon-512.svg" />
+<meta property="og:url" content="https://physics.stacklis.com" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#0a0a0f" />
 <link rel="manifest" href="manifest.json" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="favicon.ico" sizes="any" />
-<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico" />
-<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="apple-touch-icon" href="icon-192.svg" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Sandbox" />
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="styles.css?v=66" />
+<link rel="stylesheet" href="styles.css?v=84" />
 <script type="importmap">
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js",
     "@dimforge/rapier3d-compat": "https://esm.sh/@dimforge/rapier3d-compat@0.14.0"
   }
 }
@@ -38,7 +45,7 @@
     <label class="seg-label">Mode</label>
     <div class="segment" id="modeSegment" role="tablist" aria-label="Physics mode">
       <button data-mode="2d" class="seg active" type="button" role="tab" aria-selected="true">2D</button>
-      <button data-mode="3d" class="seg locked" type="button" role="tab" aria-selected="false" title="3D mode (Pro)">3D</button>
+      <button data-mode="3d" class="seg" type="button" role="tab" aria-selected="false" title="3D mode">3D</button>
     </div>
   </div>
   <div class="bar-group">
@@ -59,6 +66,8 @@
     <input id="timeScale" type="range" min="0" max="2" step="0.05" value="1" />
   </div>
   <div class="bar-group btns">
+    <button id="toggleReadingsBtn" class="btn ghost panel-vis-btn" data-vis-panel="readings" title="Toggle live readings (R)">Readings</button>
+    <button id="toggleEducatorBtn" class="btn ghost panel-vis-btn" data-vis-panel="educator" title="Toggle lesson panel (E)">Lesson</button>
     <button id="pauseBtn" class="btn ghost" title="Pause / Play (space)">⏸</button>
     <input id="loadFileInput" type="file" accept="application/json,.json" hidden />
   </div>
@@ -67,17 +76,21 @@
     <button id="loadBtn" class="btn ghost" title="Load scene from a file">Load</button>
     <button id="shareBtn" class="btn ghost" title="Copy a shareable URL to the clipboard">Share</button>
     <button id="derivationsBtn" class="btn ghost locked" title="Download your encountered concepts and derivations as a printable doc (Pro)">Derivations</button>
+    <button id="resetCameraBtn" class="btn ghost" title="Reset camera (Home)">&#x21BA; View</button>
     <button id="resetBtn" class="btn ghost" title="Reset scene">Reset</button>
     <button id="clearBtn" class="btn danger" title="Clear all">Clear</button>
   </div>
   <button id="topbarMore" class="topbar-more" type="button" aria-label="More actions" aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
+  <a href="https://buy.stripe.com/28E8wPdCQ2gs7DdamB0Jq01" target="_blank" rel="noopener noreferrer" class="btn pro-btn" title="Upgrade to Pro — $9 one-time">Pro</a>
   <button id="topbarToggle" class="bar-toggle" aria-label="Collapse top bar" title="Collapse / expand top bar"></button>
 </header>
 
 <main class="canvas-host">
   <canvas id="canvas"></canvas>
+  <canvas id="canvas3d" style="display:none;position:absolute;inset:0;width:100%;height:100%;"></canvas>
   <div id="hint" class="hint">
-    <span>Click and drag in empty space to spawn. Click an object to interact. Press <kbd>?</kbd> for keys.</span>
+    <span class="hint-touch">Tap &amp; drag to spawn. Tap an object to inspect. Use tabs below for tools.</span>
+    <span class="hint-mouse">Drag to spawn · Right-drag/scroll to pan/zoom · Click an object to inspect. <kbd>?</kbd> for keys.</span>
     <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
   </div>
 </main>
@@ -88,6 +101,8 @@
     <div class="panel-grabber" aria-hidden="true"></div>
     <div class="panel-header">
       <span class="panel-title">Tools</span>
+      <button class="panel-collapse" data-collapse="tools" type="button" aria-label="Collapse tools" title="Collapse tools">‹</button>
+      <button class="panel-close" id="toolsClose" type="button" aria-label="Hide tools">&#xd7;</button>
     </div>
     <div class="panel-body">
       <div class="tool-section" data-mode-only="2d">
@@ -145,6 +160,10 @@
           <button class="tool" data-tool="slice" title="Slice constraints (K)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19l8-8M14 10l5-5M11 13l3 3"/></svg>
             <span>Slice</span>
+          </button>
+          <button class="tool" data-tool="pan" title="Pan canvas (middle-mouse or Space+drag)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M12 7V5M12 19v-2M7 12H5M19 12h-2"/><path d="M8.5 8.5L7 7M17 17l-1.5-1.5M15.5 8.5L17 7M7 17l1.5-1.5"/></svg>
+            <span>Pan</span>
           </button>
         </div>
       </div>
@@ -259,6 +278,8 @@
     <div class="panel-header">
       <span class="panel-title">Live Readings</span>
       <button class="panel-pop" data-pop="readings" type="button" aria-label="Detach panel" title="Pop out">⊞</button>
+      <button class="panel-collapse" data-collapse="readings" type="button" aria-label="Collapse readings" title="Collapse readings">›</button>
+      <button class="panel-close overlay-close" id="readingsClose" type="button" aria-label="Hide readings">&#xd7;</button>
     </div>
     <div class="panel-body">
       <div class="readout-grid">
@@ -285,6 +306,8 @@
       <span class="panel-title" id="ov-lessonTitle">Physics Concepts</span>
       <span class="level-badge" id="ov-levelBadge">Curious</span>
       <button class="panel-pop" data-pop="educator" type="button" aria-label="Detach panel" title="Pop out">⊞</button>
+      <button class="panel-collapse" data-collapse="educator" type="button" aria-label="Collapse educator" title="Collapse educator">⌄</button>
+      <button class="panel-close overlay-close" id="educatorClose" type="button" aria-label="Hide educator">&#xd7;</button>
     </div>
     <div class="panel-body">
       <p id="ov-lessonBody" class="lesson-body">Drag in empty space to spawn objects. This panel explains the physics behind what you see.</p>
@@ -345,20 +368,29 @@
 
 <dialog id="helpDialog" class="help">
   <h2>Keyboard</h2>
-  <ul>
+  <ul data-mode-only="2d">
     <li><kbd>1</kbd>–<kbd>6</kbd> spawn tools (box, ball, polygon, wall, triangle, rope)</li>
     <li><kbd>G</kbd> grab · <kbd>S</kbd> spring · <kbd>P</kbd> push · <kbd>X</kbd> delete · <kbd>N</kbd> pin · <kbd>K</kbd> slice</li>
     <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
     <li><kbd>I</kbd> readings · <kbd>L</kbd> educator · <kbd>T</kbd> help · <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> level</li>
-    <li>Drag in empty space to spawn sized objects</li>
-    <li>Right-click drag to pan, scroll to zoom</li>
+    <li>Drag in empty space to spawn a sized object</li>
+    <li>Right-click drag to pan · scroll to zoom</li>
+  </ul>
+  <ul data-mode-only="3d">
+    <li><kbd>1</kbd> cube · <kbd>2</kbd> sphere · <kbd>3</kbd> cylinder · <kbd>4</kbd> capsule · <kbd>5</kbd> prism · <kbd>6</kbd> wall</li>
+    <li><kbd>G</kbd> grab · <kbd>X</kbd> delete</li>
+    <li><kbd>Space</kbd> pause/play · <kbd>R</kbd> reset · <kbd>C</kbd> clear</li>
+    <li><kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd> knowledge level</li>
+    <li>Drag in empty space to spawn a sized object</li>
+    <li>Click and drag a body to grab · release to throw</li>
   </ul>
   <form method="dialog"><button class="btn">Close</button></form>
 </dialog>
 
-<script src="engine.js?v=66"></script>
-<script src="education.js?v=66"></script>
-<script src="app.js?v=66"></script>
-<script type="module" src="layout.js?v=66"></script>
+<button id="zenToggle" class="zen-toggle" title="Toggle zen mode (Z)" aria-label="Toggle zen mode">&#x2922;</button>
+<script src="engine.js?v=74"></script>
+<script src="education.js?v=74"></script>
+<script src="app.js?v=79"></script>
+<script type="module" src="layout.js?v=78"></script>
 </body>
 </html>

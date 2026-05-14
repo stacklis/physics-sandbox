@@ -190,7 +190,10 @@ class Educator {
   constructor(world, ui) {
     this.world = world;
     this.ui = ui; // { lessonTitle, lessonBody, lessonFormula, lessonTags, levelBadge, conceptList }
-    this.level = 1;
+    const saved = (function () {
+      try { return localStorage.getItem('ps.educator.level'); } catch { return null; }
+    })();
+    this.level = saved && /^[1-4]$/.test(saved) ? parseInt(saved, 10) : 1;
     this.currentConcept = null;
     this.encountered = new Set();
     this.cooldownUntil = 0; // wallclock
@@ -208,6 +211,7 @@ class Educator {
     } else {
       this.show('intro', 'Welcome', this._introText(), null, []);
     }
+    try { localStorage.setItem('ps.educator.level', String(this.level)); } catch {}
   }
 
   _introText() {
