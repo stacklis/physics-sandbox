@@ -2453,6 +2453,8 @@ const Pro = (() => {
   ]);
   function isActive() {
     if (FREE_MODE) return false;
+    // Stacklis Pro entitlement: if the global module verified this user, grant Pro.
+    if (window.stacklisPro && window.stacklisPro.isActive()) return true;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
   }
   function activate() {
