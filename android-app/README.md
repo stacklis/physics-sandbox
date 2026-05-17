@@ -37,7 +37,7 @@ From Android Studio, hit **Run** with an attached device or emulator. The app lo
 
 ## How sync works
 
-`sync.mjs` mirrors the served files (`index.html`, `landing.html`, `app/`, `app.js`, `app3d.js`, `engine.js`, `engine3d.js`, `education.js`, `education3d.js`, `layout.js`, `render3d.js`, `styles.css`, `manifest.json`, icons, and `privacy.html` / `terms.html`) into `android-app/www/`. Then `cap sync android` propagates the result into the native project. Edit web files in the repo root, never directly in `android-app/www/` — your changes will be overwritten on the next sync.
+`sync.mjs` mirrors the served files (`app/`, `app.js`, `app3d.js`, `engine.js`, `engine3d.js`, `education.js`, `education3d.js`, `layout.js`, `render3d.js`, `styles.css`, `manifest.json`, icons, and `privacy.html` / `terms.html`) into `android-app/www/`. Then `cap sync android` propagates the result into the native project. Edit web files in the repo root, never directly in `android-app/www/` — your changes will be overwritten on the next sync.
 
 ## Release build
 

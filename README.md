@@ -19,7 +19,6 @@ The free demo is at `/app/?free=1`. The landing page is `/`. The full app shell 
 
 ```
 index.html         Landing page (marketing + pricing + FAQ)
-landing.html       Alternate landing layout (rarely served, kept for A/B)
 app/index.html     The actual sandbox shell — topbar, panels, importmap
 app.js             2D mode glue — tools, UI events, save/load, Pro gating
 app3d.js           3D mode glue — same role as app.js but for Three.js scene

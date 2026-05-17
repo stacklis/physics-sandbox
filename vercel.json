@@ -3,6 +3,9 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/landing.html", "destination": "/", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/free", "destination": "/app/?free=1" },
     { "source": "/free/", "destination": "/app/?free=1" }

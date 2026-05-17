@@ -44,7 +44,7 @@
     max-width: 1100px; margin: 0 auto;
     gap: 12px;
   }
-  .lp-nav .brand { gap: 10px; font-weight: 600; min-width: 0; }
+  .lp-nav .brand { gap: 10px; font-weight: 600; min-width: 0; text-decoration: none; color: var(--text); }
   .lp-nav .brand .logo { width: 28px; height: 28px; font-size: 16px; flex: 0 0 auto; }
   .lp-nav .brand .title { font-size: 15px; white-space: nowrap; }
   .lp-nav .brand .by { font-size: 11px; opacity: 0.7; white-space: nowrap; }
@@ -268,11 +268,11 @@
 
 <!-- NAV ------------------------------------------------------------------ -->
 <nav class="lp-nav" aria-label="Primary">
-  <div class="brand">
+  <a class="brand" href="/">
     <img class="logo" src="/icon-192.svg" alt="Physics Sandbox icon" width="28" height="28" style="border-radius:6px;" />
     <span class="title">Physics Sandbox</span>
     <span class="by">by Stacklis</span>
-  </div>
+  </a>
   <div class="lp-nav-links">
     <a href="#features">Features</a>
     <a href="#pricing">Pricing</a>
@@ -444,6 +444,7 @@
       <a href="/app/">App</a>
       <a href="/app/?free=1">Free demo</a>
       <a href="https://github.com/stacklis/physics-sandbox" rel="noopener">GitHub</a>
+      <a href="https://stacklis.com" rel="noopener">Stacklis</a>
     </div>
   </div>
 </footer>
