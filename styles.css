@@ -559,67 +559,34 @@ input[type=range]::-moz-range-thumb {
   isolation: isolate;
 }
 
-/* Disable ALL transitions during resize/interaction to prevent flicker */
-.layout.resizing,
-.layout.resizing *,
-.layout.resizing .tools,
-.layout.resizing .tool-section,
-.layout.resizing .tool-grid,
-.layout.resizing .tool-grid > *,
-.layout.resizing .stage {
-  transition: none !important;
-}
-
-.topbar.resizing,
-.topbar.resizing * {
+/* Disable transitions during active dock-edge resize (body class from layout.js) */
+body.resizing-dock,
+body.resizing-dock * {
   transition: none !important;
 }
 
 /* ======================= ANTI-FLICKER RULES ======================= */
 /* Completely disable ALL transitions on layout-critical elements */
-.layout,
-.layout *,
 .stage,
 .stage *,
-.tools,
-.tools *,
 .topbar,
 .topbar *,
-.topbar-divider,
-.topbar-divider *,
-.tools-divider,
-.tools-divider *,
 #canvas {
   transition: none !important;
   animation: none !important;
 }
 
 /* Prevent any rendering glitches with GPU layers - but NOT on stage (breaks pointer coords) */
-.layout,
-.tools,
-.topbar,
-.topbar-divider,
-.tools-divider {
+.topbar {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
 
-/* Global interaction class - extra safety during pointer activity */
-body.interacting * {
-  transition: none !important;
-  animation: none !important;
-}
 
-/* Only allow micro-transitions on interactive elements that don't affect layout */
-.tool:hover,
-.preset:hover,
-.material:hover,
-.check:hover,
-.overlay-toggle:hover {
-  transition: none !important;
-}
+/* Tool/preset/material hover transitions are intentional micro-feedback;
+   no suppression needed here since only .topbar and .stage are transition-frozen. */
 
 /* Destruction mode toggle - special styling */
 .destruction-toggle {
@@ -690,15 +657,15 @@ body.interacting * {
   transition: gap 0.2s ease;
 }
 
-/* Smooth settling animation for all tool items */
+/* Smooth color + border transitions on tool items (no layout props to avoid jank) */
 .tool-grid > * {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .section-title {
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1px;
   color: var(--muted);
   margin-bottom: 6px;
   font-weight: 600;
@@ -1177,7 +1144,7 @@ body.pro .locked::before { content: none; }
 }
 
 .metric-val {
-  font-size: 15px;
+  font-size: 16px;
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -1218,7 +1185,7 @@ body.pro .locked::before { content: none; }
 
 .lesson-body {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.65;
   color: var(--text);
 }
@@ -1381,36 +1348,7 @@ body.pro .locked::before { content: none; }
 }
 
 /* ======================= ANIMATIONS ======================= */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.tool, .preset, .card, .metric {
-  animation: slideIn 0.3s ease backwards;
-}
-
-.tool:nth-child(1) { animation-delay: 0.02s; }
-.tool:nth-child(2) { animation-delay: 0.04s; }
-.tool:nth-child(3) { animation-delay: 0.06s; }
-.tool:nth-child(4) { animation-delay: 0.08s; }
-.tool:nth-child(5) { animation-delay: 0.10s; }
-.tool:nth-child(6) { animation-delay: 0.12s; }
+/* float-pop-in / float-pop-out defined in the desktop @media block below. */
 
 /* =====================================================================
    LAYOUT REWORK 2026-05-08 — bottom-tab/sheet (mobile) + derived
@@ -1510,9 +1448,9 @@ body {
 /* Overlay close buttons hidden on desktop — panel-pop serves that role. */
 .overlay-close { display: none; }
 .panel-title {
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: var(--accent);
   font-weight: 600;
 }
@@ -1545,7 +1483,7 @@ body {
 }
 #infoOverlay .totals-mini b { color: var(--accent-2); font-weight: 600; }
 
-#lessonOverlay .lesson-body { font-size: 13px; line-height: 1.6; color: var(--text); margin: 0; }
+#lessonOverlay .lesson-body { font-size: 14px; line-height: 1.6; color: var(--text); margin: 0; }
 #lessonOverlay .formula {
   background: var(--bg-3); padding: 10px 12px; border-radius: 8px;
   margin: 0;
@@ -2047,6 +1985,9 @@ body {
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
   .topbar .bar-toggle { display: none; }
+  /* Readings + Lesson topbar toggles are no-ops on mobile (tab bar handles
+     overlay visibility). Hide them so they don't litter the scrollable topbar. */
+  #toggleReadingsBtn, #toggleEducatorBtn { display: none; }
   /* Hide topbar Pro link — upgrade dialog triggered by locked feature clicks. */
   .topbar .btn.pro-btn { display: none; }
   /* Reorder strip: brand → level → ⋯ → pause. */
@@ -2233,7 +2174,7 @@ body {
     max-height: 27vh;
     overflow-y: auto;
   }
-  #lessonOverlay .lesson-body { max-width: none; font-size: 12px; line-height: 1.55; }
+  #lessonOverlay .lesson-body { max-width: none; font-size: 13px; line-height: 1.55; }
   #lessonOverlay .formula { font-size: 11px; }
   #lessonOverlay .concepts-touched { min-width: 0; }
 
@@ -2596,15 +2537,9 @@ canvas.panning { cursor: grabbing !important; }
      panel anchored under the ⋯ button; default hidden, shown when
      body[data-topbar-overflow-open="true"].
    ===================================================================== */
-.topbar { position: relative; }
-
 .topbar-overflow { display: contents; }
 .topbar-more { display: none; }
 
-@media (min-width: 769px) {
-  .topbar-overflow { display: contents; }
-  .topbar-more { display: none; }
-}
 
 @media (max-width: 768px) {
   .topbar-more {

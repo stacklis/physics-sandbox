@@ -12,11 +12,11 @@
 <meta property="og:url" content="https://physics.stacklis.com/" />
 <meta property="og:title" content="Physics Sandbox — Learn physics by playing" />
 <meta property="og:description" content="Interactive 2D physics simulator. Drag objects, see live readouts, learn across four knowledge levels. Pro saves your scenes." />
-<meta property="og:image" content="https://physics.stacklis.com/icon-512.svg" />
+<meta property="og:image" content="https://physics.stacklis.com/og-image.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Physics Sandbox" />
 <meta name="twitter:description" content="Learn physics by playing. Interactive 2D simulator with real-time readouts." />
-<meta name="twitter:image" content="https://physics.stacklis.com/icon-512.svg" />
+<meta name="twitter:image" content="https://physics.stacklis.com/og-image.png" />
 
 <!-- Icons -->
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -26,7 +26,7 @@
 <meta name="theme-color" content="#0a0a0f" />
 
 <!-- Reuse the app's CSS so the landing inherits the brand palette + tokens. -->
-<link rel="stylesheet" href="/styles.css?v=86" />
+<link rel="stylesheet" href="/styles.css?v=89" />
 
 <style>
   /* Landing-only overrides. The base styles.css locks `body` to a 100vw grid
@@ -350,20 +350,11 @@
   </div>
 </section>
 
-<!-- DEMO VIDEO ----------------------------------------------------------- -->
-<section class="lp-sect">
-  <div class="lp">
-    <h2>See it in 45 seconds.</h2>
-    <p class="sect-sub">A short demo of the things the live embed above doesn't show — Pro saves, derivations export, knowledge-level switching.</p>
-    <!-- Drop demo.mp4 into /marketing/demo.mp4 once recorded; replace this placeholder with a <video> tag. -->
-    <div class="demo-video">
-      <div>
-        <strong>Demo video</strong><br>
-        Coming soon — see <code>marketing/CAPTURE.md</code> for the recording script.
-      </div>
-    </div>
-  </div>
-</section>
+<!-- DEMO VIDEO — hidden until /marketing/demo.mp4 is recorded.
+     Removed 2026-05-17: shipping the placeholder publicly exposed the
+     internal capture script path and read like an unfinished site. When
+     demo.mp4 lands, restore this section with a <video src="/marketing/demo.mp4"
+     controls preload="metadata"> tag. -->
 
 <!-- AUDIENCE ------------------------------------------------------------- -->
 <section class="lp-sect">

@@ -1236,31 +1236,34 @@ function drawGrid() {
     ctx.stroke();
   }
 
-  // Ground: faded accent band below the surface + glowing accent line at the floor.
+  // Ground: solid dark slab below the floor surface + subtle ambient glow above it.
   const floorSy = floorY * camera.scale + camera.y;
   if (floorSy >= 0 && floorSy <= cssH) {
-    const bandH = Math.min(40, cssH - floorSy);
-    if (bandH > 0) {
-      const grad = ctx.createLinearGradient(0, floorSy, 0, floorSy + bandH);
-      grad.addColorStop(0, 'rgba(94, 234, 212, 0.10)');
-      grad.addColorStop(1, 'rgba(94, 234, 212, 0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, floorSy, cssW, bandH);
+    const slabH = cssH - floorSy;
+
+    // Main slab fill — dark charcoal, visually heavier than the canvas bg.
+    if (slabH > 0) {
+      ctx.fillStyle = '#13151e';
+      ctx.fillRect(0, floorSy, cssW, slabH);
+
+      // Subtle surface stripe — a 4px lighter band at the very top of the slab.
+      ctx.fillStyle = '#1e2235';
+      ctx.fillRect(0, floorSy, cssW, Math.min(4, slabH));
     }
-    if (cssH - floorSy > bandH) {
-      ctx.fillStyle = 'rgba(10, 14, 22, 0.45)';
-      ctx.fillRect(0, floorSy + bandH, cssW, cssH - floorSy - bandH);
+
+    // Ambient glow just above the floor — faint upward bloom, no accent colour.
+    const glowH = Math.min(28, floorSy);
+    if (glowH > 0) {
+      const glow = ctx.createLinearGradient(0, floorSy - glowH, 0, floorSy);
+      glow.addColorStop(0, 'rgba(40, 50, 80, 0)');
+      glow.addColorStop(1, 'rgba(40, 50, 80, 0.18)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, floorSy - glowH, cssW, glowH);
     }
-    ctx.strokeStyle = 'rgba(94, 234, 212, 0.65)';
-    ctx.lineWidth = 1.25;
-    if (!IS_TOUCH) {
-      ctx.shadowColor = 'rgba(94, 234, 212, 0.55)';
-      ctx.shadowBlur = 6;
-    }
-    ctx.beginPath();
-    ctx.moveTo(0, floorSy + 0.5); ctx.lineTo(cssW, floorSy + 0.5);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+
+    // Top-edge stripe — a 2px bright band at the slab top; no stroke needed.
+    ctx.fillStyle = 'rgba(60, 75, 110, 0.80)';
+    ctx.fillRect(0, floorSy, cssW, 2);
   }
 }
 
@@ -3060,7 +3063,11 @@ window.addEventListener('keydown', (ev) => {
       if (btn) btn.click();
     }
   } else if (map2d[ev.key]) {
-    document.querySelector(`.tool[data-tool="${map2d[ev.key]}"]`).click();
+    // Null-guard parity with the 3D branch above (was null-deref crash that
+    // killed every keyboard shortcut for the session if the button was
+    // absent — e.g. between layout reflows or before tools panel rendered).
+    const btn = document.querySelector(`.tool[data-tool="${map2d[ev.key]}"]`);
+    if (btn) btn.click();
   }
   if (ev.key === ' ') {
     // Space is handled on keyup to disambiguate tap (pause) vs hold-drag (pan).
@@ -3162,7 +3169,11 @@ function loadPreset(name) {
       break;
     }
     case 'orbit': {
+      // Sync the slider too, otherwise the UI shows "9.81" while the world
+      // runs at 0 — and any later slider nudge causes a visible physics jump.
       world.gravity = 0;
+      ui.gravity.value = 0;
+      ui.gravityVal.textContent = '0.00';
       const cx = Wm * 0.5, cy = floorY * 0.5;
       // central mass (static)
       const sun = world.add(makeCircle(cx, cy, 0.5, { isStatic: true, color: '#ffc46a' }));
