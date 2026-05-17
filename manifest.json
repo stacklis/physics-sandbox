@@ -1,6 +1,6 @@
 {
   "name": "Physics Sandbox",
-  "short_name": "PhysicsSandbox",
+  "short_name": "Physics Sandbox",
   "description": "Interactive 2D physics simulator with real-time readouts",
   "start_url": "/app/",
   "scope": "/",

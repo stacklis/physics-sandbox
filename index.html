@@ -208,14 +208,14 @@
   }
 
   /* Audience */
-  .aud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .aud-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (min-width: 760px) { .aud-grid { grid-template-columns: repeat(4, 1fr); } }
   .aud {
     background: var(--bg-1); border: 1px solid var(--line); border-radius: 10px;
     padding: 18px; font-size: 14px; color: var(--text);
   }
   .aud strong { color: var(--accent-2); display: block; margin-bottom: 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; }
   .aud span { color: var(--muted); }
-  @media (max-width: 760px) { .aud-grid { grid-template-columns: 1fr; } }
 
   /* Pricing card */
   .price-card {
@@ -283,10 +283,10 @@
 
 <!-- HERO ----------------------------------------------------------------- -->
 <header class="hero lp">
-  <h1>Learn physics by <span class="accent">playing</span>.</h1>
-  <p class="lede">A 2D rigid-body sandbox that explains itself. Drag in empty space to spawn. Watch live energy and momentum readouts. Scale the explanations from "Curious" to "Expert" as you go.</p>
+  <h1>The physics sandbox that <span class="accent">teaches itself</span>.</h1>
+  <p class="lede">Drag to spawn objects, watch live energy and momentum numbers update in real time, and read explanations that scale from "Curious" to "Expert" — no textbook required.</p>
   <div class="cta-row">
-    <a class="cta primary" href="/app/?free=1" target="_blank" rel="noopener">Try it free →</a>
+    <a class="cta primary" href="/app/?free=1" target="_blank" rel="noopener">Try it free — no signup →</a>
     <a class="cta" href="#pricing">Get Pro · $9 one-time</a>
   </div>
   <a id="try" class="demo-launch" href="/app/?free=1" target="_blank" rel="noopener" aria-label="Launch the interactive physics demo in a new tab">
@@ -361,9 +361,10 @@
   <div class="lp">
     <h2>Who it's for</h2>
     <div class="aud-grid">
-      <div class="aud"><strong>Curious adults</strong><span>The people who watch physics YouTube and wish they could grab the simulation themselves. You can.</span></div>
-      <div class="aud"><strong>Students</strong><span>Build the scenarios in your textbook and watch the variables move. The Student and University tiers cover most of intro mechanics.</span></div>
-      <div class="aud"><strong>Teachers</strong><span>Drop a sandbox preset on the projector to anchor a class. Save the scene, hand the file to a student to take home.</span></div>
+      <div class="aud"><strong>Teachers</strong><span>Drop a preset on the projector to anchor a lesson. Save the scene, hand the file to students to explore at home.</span></div>
+      <div class="aud"><strong>Homeschoolers</strong><span>No equipment needed. Simulate pendulums, collisions, orbits, and inclined planes — all the labs without the storage closet.</span></div>
+      <div class="aud"><strong>Students</strong><span>Build the scenarios from your textbook and watch the variables move. The Student and University tiers cover most of intro mechanics.</span></div>
+      <div class="aud"><strong>Curious adults</strong><span>Physics YouTube is great. Actually grabbing the simulation is better. Drag a ball off a ramp and watch kinetic energy spike in real time.</span></div>
     </div>
   </div>
 </section>
@@ -381,11 +382,12 @@
         <li>Reload saved scenes anywhere</li>
         <li>Export your encountered concepts as a printable doc</li>
         <li>All future v1 updates included</li>
-        <li>14-day refund, no questions</li>
+        <li>14-day refund, no questions asked</li>
+        <li>Works fully offline as a PWA</li>
       </ul>
       <!-- The "Get Pro" CTA opens the app; the in-app upgrade dialog handles -->
       <!-- the actual Stripe redirect. -->
-      <a class="cta primary" href="/app/?upgrade=1">Open app & upgrade</a>
+      <a class="cta primary" href="/app/?upgrade=1">Get Pro — $9 one-time →</a>
       <p class="small">Secure checkout via Stripe. The free edition has every simulation feature.</p>
     </div>
   </div>

@@ -3101,11 +3101,10 @@ function loadPreset(name) {
 
   switch (name) {
     case 'default':
-      // a few balls and a box to start
-      world.add(makeCircle(Wm * 0.4, floorY * 0.3, 0.5, { color: '#6aa6ff' }));
-      world.add(makeCircle(Wm * 0.6, floorY * 0.2, 0.4, { color: '#ffc46a' }));
-      world.add(makeBox(Wm * 0.5, floorY * 0.5, 1.2, 1.2, { color: '#9bf2e0' }));
-      break;
+      // Newton's cradle as the opening scene — visually compelling,
+      // immediately demonstrates pendulums + collision + momentum conservation.
+      loadPreset('newton');
+      return;
     case 'stack': {
       const x = Wm * 0.5;
       const baseY = floorY - 0.2;
