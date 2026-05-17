@@ -2446,11 +2446,11 @@ const FREE_MODE = (() => {
 })();
 const Pro = (() => {
   const KEY = 'ps.pro';
-  // Honor-system gift codes — plaintext on purpose; anyone with devtools can
-  // grab them. Acceptable for a $9 one-time Pro tier intended for friends and
-  // early supporters. If/when Pro moves to server-issued tokens, this list
-  // becomes an API check and the codes can be rotated/revoked.
-  const REDEEM_CODES = new Set(['STACKLIS-EARLY', 'STACKLIS-PRO']);
+  // SHA-256 digests of personal/friend distribution codes — plaintext never stored here.
+  const REDEEM_HASHES = new Set([
+    'cdc61265ac4009c31b89163b6c74054eeb9fe674e5fa1cf995a11f2dcb4c42da',
+    '2418796f9a3e0ea91f491496cd2da528e2362ee295c476a5677d009e94c3949a',
+  ]);
   function isActive() {
     if (FREE_MODE) return false;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
@@ -2463,18 +2463,19 @@ const Pro = (() => {
     try { localStorage.setItem(KEY, '0'); } catch (e) {}
     updateUI();
   }
-  function redeem(code) {
+  async function redeem(code) {
     const trimmed = String(code || '').trim().toUpperCase();
-    if (REDEEM_CODES.has(trimmed)) { activate(); return true; }
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(trimmed));
+    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (REDEEM_HASHES.has(hex)) { activate(); return true; }
     return false;
   }
   function checkUrlParam() {
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('pro') === '1') {
+      if (url.searchParams.get('pro') === '1' && url.searchParams.get('src') === 'stripe') {
         activate();
         url.searchParams.delete('pro');
-        // Also strip the Stripe attribution token so we don't leak it.
         url.searchParams.delete('src');
         window.history.replaceState(null, '', url.toString());
       }
@@ -2526,9 +2527,9 @@ if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
   alert('Stripe link not yet configured — operator must update STRIPE_CHECKOUT_URL in app.js.\n\nIf you have an early-access code, expand "Have a code?" below to redeem it.');
 });
 if (upgradeLaterBtn) upgradeLaterBtn.addEventListener('click', closeUpgradeModal);
-if (redeemBtnEl) redeemBtnEl.addEventListener('click', () => {
+if (redeemBtnEl) redeemBtnEl.addEventListener('click', async () => {
   if (!redeemMsgEl) return;
-  const ok = Pro.redeem(redeemInputEl?.value);
+  const ok = await Pro.redeem(redeemInputEl?.value);
   if (ok) {
     redeemMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
     redeemMsgEl.className = 'redeem-msg ok';
