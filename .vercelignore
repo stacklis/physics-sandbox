@@ -1,10 +1,12 @@
+.git/
 .claude/
-.DS_Store
-Thumbs.db
+.github/
 node_modules/
-*.log
-
-# Diag + screenshot artifacts (Playwright captures)
+android-app/
+tests/
+scripts/
+docs/
+marketing/
 /diag*.json
 /cur-*.png
 /prev-*.png

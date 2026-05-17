@@ -40,10 +40,13 @@
   <p><strong>Nothing personally identifying.</strong> No accounts, no email, no name, no IP-address logging by us, no tracking pixels, no analytics scripts.</p>
 
   <h2>What is stored on your device</h2>
-  <p>The app uses your browser's <code>localStorage</code> to remember a few preferences. These never leave your device and we cannot read them remotely:</p>
+  <p>The app uses your browser's <code>localStorage</code> to remember a few preferences. These never leave your device and we cannot read them remotely. The full list:</p>
   <ul>
-    <li><code>ps.pro</code> — a flag indicating whether you've unlocked Pro features.</li>
-    <li>UI preferences — collapsed-panel state, dismissed hint, panel sizes.</li>
+    <li><code>physicsMode</code> — your 2D or 3D mode preference.</li>
+    <li><code>ps.pro</code> — local Pro flag. Honest disclosure: this is a local flag in your browser; it's the same kind of toggle a settings page uses. Anyone with developer tools can change it on their own device. Pro is sold on the honor system — if you genuinely paid via Stripe, the flag stays set; if you set it yourself, that's between you and your conscience.</li>
+    <li><code>ps.hintDismissed</code> — whether you've dismissed the onboarding hint.</li>
+    <li><code>ps.educator.level</code> — your selected educator level (Curious / Beginner / Intermediate / Expert).</li>
+    <li><code>ps:layout:*</code> — panel widths, heights, dock state, floating rects, collapsed/hidden flags.</li>
     <li>(Pro) Locally saved scenes you choose to download as <code>.json</code>.</li>
   </ul>
   <p>You can clear all of this at any time via your browser's "Clear site data" tools, or by visiting Settings → Privacy in your browser.</p>

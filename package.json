@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "description": "Physics Sandbox — learn by playing",
   "scripts": {
-    "dev": "npx serve -l 3000",
-    "start": "npx serve -l 3000"
+    "dev": "npx serve -l tcp://0.0.0.0:8081",
+    "start": "npx serve -l tcp://0.0.0.0:8081",
+    "test": "node --test tests/**/*.test.mjs",
+    "generate-icons": "python scripts/generate_icons.py"
   },
   "keywords": [
     "physics",
