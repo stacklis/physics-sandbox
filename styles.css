@@ -2062,6 +2062,30 @@ body {
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
   }
 
+  /* Live Readings expands as a COMPACT TRANSPARENT corner overlay so the
+     canvas behind stays visible. Glanceable while interacting with shapes. */
+  #infoOverlay.panel-expanded {
+    left: auto !important;
+    right: 8px !important;
+    width: min(210px, calc(100vw - 16px)) !important;
+    max-height: 56vh !important;
+    background: rgba(14, 16, 24, 0.42) !important;
+    border-color: rgba(0, 229, 160, 0.22) !important;
+    box-shadow:
+      0 12px 28px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(0, 229, 160, 0.08) inset;
+    backdrop-filter: blur(8px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(1.2) !important;
+  }
+  #infoOverlay.panel-expanded .panel-header {
+    background: rgba(0, 229, 160, 0.06) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  #infoOverlay.panel-expanded .panel-body {
+    background: transparent;
+    padding: 8px 12px 12px;
+  }
+
   /* === Headers — chip form by default, panel form when expanded. === */
   .panel-header {
     display: flex !important;
