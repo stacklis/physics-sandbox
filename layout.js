@@ -716,6 +716,16 @@ function bindFloatHeader(panelEl, headerEl, key) {
   let startRect = null;
   let raf = 0;
   let liveRect = null;
+  // Inertia: keep a short ring of recent move samples so release can compute
+  // an average velocity over the last ~120ms (single-frame deltas are noisy
+  // on touchscreens and lead to teleporting or dead releases).
+  const SAMPLE_MS = 120;
+  let samples = []; // [{ t, x, y }]
+  let momentumRaf = 0;
+
+  function cancelMomentum() {
+    if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+  }
 
   headerEl.addEventListener('pointerdown', e => {
     if (!panelEl.classList.contains('floating')) return;
@@ -723,6 +733,7 @@ function bindFloatHeader(panelEl, headerEl, key) {
     // the level-badge (clickable-feeling span on the educator panel).
     if (e.target.closest('button')) return;
     if (e.target.closest('.level-badge')) return;
+    cancelMomentum(); // a new grab cancels any in-flight glide
     dragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -730,6 +741,7 @@ function bindFloatHeader(panelEl, headerEl, key) {
     const host = getCanvasHostRect();
     startRect = { x: r.left - host.left, y: r.top - host.top, w: r.width, h: r.height };
     liveRect = { ...startRect };
+    samples = [{ t: performance.now(), x: e.clientX, y: e.clientY }];
     panelEl.classList.add('dragging');
     raiseFloat(key);
     try { headerEl.setPointerCapture(e.pointerId); } catch {}
@@ -741,6 +753,10 @@ function bindFloatHeader(panelEl, headerEl, key) {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     liveRect = clampRectToHost({ x: startRect.x + dx, y: startRect.y + dy, w: startRect.w, h: startRect.h });
+    const now = performance.now();
+    samples.push({ t: now, x: e.clientX, y: e.clientY });
+    // Drop samples older than the velocity window.
+    while (samples.length > 2 && now - samples[0].t > SAMPLE_MS) samples.shift();
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
@@ -753,14 +769,64 @@ function bindFloatHeader(panelEl, headerEl, key) {
     if (!dragging) return;
     dragging = false;
     panelEl.classList.remove('dragging');
-    // If we're in the dock zone, dock instead of saving rect.
+    // If we're in the dock zone, dock instead of saving rect or gliding.
     if (isInDockZone(key, liveRect)) {
       dockPanel(key);
       hideDockZones();
       return;
     }
     hideDockZones();
-    writeRect(key, liveRect);
+
+    // Compute release velocity (px / ms) from the last sample window.
+    let vx = 0, vy = 0;
+    if (samples.length >= 2) {
+      const first = samples[0];
+      const last = samples[samples.length - 1];
+      const dtMs = Math.max(1, last.t - first.t);
+      vx = (last.x - first.x) / dtMs;
+      vy = (last.y - first.y) / dtMs;
+    }
+    const speed = Math.hypot(vx, vy);
+
+    if (speed < 0.25) {
+      // Slow release — no glide, just persist the resting rect.
+      writeRect(key, liveRect);
+      return;
+    }
+
+    // Inertia loop: ease velocity to zero, advancing liveRect by vx/vy each
+    // frame. Decay factor chosen so a fast flick travels ~250-400ms before
+    // resting. Stop when speed drops below threshold or rect saturates.
+    const decay = 0.92;
+    const minSpeed = 0.03;
+    let lastT = performance.now();
+    const step = () => {
+      const now = performance.now();
+      const frameMs = Math.min(48, now - lastT);
+      lastT = now;
+      const before = { x: liveRect.x, y: liveRect.y };
+      const candidate = {
+        x: liveRect.x + vx * frameMs,
+        y: liveRect.y + vy * frameMs,
+        w: liveRect.w,
+        h: liveRect.h,
+      };
+      liveRect = clampRectToHost(candidate);
+      applyFloatStyles(panelEl, liveRect);
+      // If the clamp ate the entire delta, we've hit a wall — kill velocity
+      // on that axis so we don't burn frames sliding against an edge.
+      if (liveRect.x === before.x) vx = 0;
+      if (liveRect.y === before.y) vy = 0;
+      vx *= decay; vy *= decay;
+      const s = Math.hypot(vx, vy);
+      if (s < minSpeed) {
+        momentumRaf = 0;
+        writeRect(key, liveRect);
+        return;
+      }
+      momentumRaf = requestAnimationFrame(step);
+    };
+    momentumRaf = requestAnimationFrame(step);
   }
   headerEl.addEventListener('pointerup', release);
   headerEl.addEventListener('pointercancel', release);

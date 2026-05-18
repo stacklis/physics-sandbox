@@ -2040,7 +2040,8 @@ body {
     transform: none !important;
     transition: none !important;
     width: auto !important;
-    min-width: 105px;
+    min-width: 92px;
+    max-width: 140px;
     height: 36px !important;
     max-height: 36px !important;
     pointer-events: auto !important;
@@ -2051,6 +2052,18 @@ body {
     box-shadow: none;
     z-index: auto;
     overflow: hidden;
+  }
+  /* Dynamic titles (educator carries the active concept name like "Newton's
+     Laws of Motion") truncate with ellipsis instead of widening the chip
+     past the visible viewport. */
+  #toolsPanel:not(.panel-expanded) .panel-title,
+  #infoOverlay:not(.panel-expanded) .panel-title,
+  #lessonOverlay:not(.panel-expanded) .panel-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
   }
 
   /* === Expanded panel: fixed-position overlay above canvas. === */

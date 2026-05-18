@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=98" />
+<link rel="stylesheet" href="../styles.css?v=99" />
 <script type="importmap">
 {
   "imports": {
@@ -206,6 +206,14 @@
             <span>Grab</span>
             <input id="grabStrength" type="range" min="0.5" max="5" step="0.1" value="1" />
           </label>
+        </div>
+      </div>
+      <div class="tool-section" data-mode-only="2d">
+        <div class="section-title">Camera</div>
+        <div class="segment camera-segment" id="cameraSegment" role="tablist" aria-label="Camera mode">
+          <button data-camera="free" class="seg active" type="button" role="tab" aria-selected="true" title="Free pan/zoom · double-click body to lock follow">Free</button>
+          <button data-camera="wide" class="seg" type="button" role="tab" aria-selected="false" title="Static wide view — full sandbox always visible">Wide</button>
+          <button data-camera="track" class="seg" type="button" role="tab" aria-selected="false" title="Auto-frame: zoom + pan to fit all moving bodies">Track</button>
         </div>
       </div>
       <div class="tool-section" data-mode-only="2d">
@@ -396,7 +404,7 @@
 <script src="../engine.js?v=75"></script>
 <script src="../education.js?v=74"></script>
 <script src="../lib/stacklisPro.js?v=1"></script>
-<script src="../app.js?v=87"></script>
-<script type="module" src="../layout.js?v=83"></script>
+<script src="../app.js?v=88"></script>
+<script type="module" src="../layout.js?v=84"></script>
 </body>
 </html>

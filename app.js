@@ -233,6 +233,82 @@ function homeCamera() {
   state.cameraLock = null;
 }
 
+/* =========================== camera modes ===========================
+   'free'  — manual pan/zoom + double-click-to-lock (default, original).
+   'wide'  — static zoomed-out fixed view; shows sandbox + ~20% margin.
+   'track' — auto-frames all moving bodies' AABB with smooth interpolation.
+   Called once per frame from the main loop AFTER cameraLock smooth-follow
+   so the modes take precedence over a stale lock. */
+function applyCameraMode() {
+  const mode = state.cameraMode;
+  if (mode === 'free') return;
+
+  const Wm = cssW / PX_PER_M;
+  const worldHpx = Math.min(cssH - FLOOR_MARGIN_PX, WORLD_H_PX);
+  const sandboxHm = worldHpx / PX_PER_M;
+
+  let targetScale, targetCX, targetCY;
+
+  if (mode === 'wide') {
+    // Fit full sandbox + 12% horizontal margin, then anchor floor to bottom.
+    const sx = (cssW * 0.88) / Wm;
+    const sy = (cssH * 0.92) / sandboxHm;
+    targetScale = Math.min(sx, sy);
+    targetCX = Wm / 2;          // world center to align horizontally
+    targetCY = sandboxHm * 0.55; // anchor floor near bottom
+  } else if (mode === 'track') {
+    // AABB of dynamic bodies (skip statics, walls, anchors).
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, count = 0;
+    for (const b of world.bodies) {
+      if (b.isStatic) continue;
+      if (walls.includes(b)) continue;
+      const r = b.shape === SHAPE.CIRCLE
+        ? b.radius
+        : Math.max(b.width || 0.5, b.height || 0.5) * 0.5;
+      if (b.position.x - r < minX) minX = b.position.x - r;
+      if (b.position.x + r > maxX) maxX = b.position.x + r;
+      if (b.position.y - r < minY) minY = b.position.y - r;
+      if (b.position.y + r > maxY) maxY = b.position.y + r;
+      count++;
+    }
+    if (count === 0) return; // nothing to track — leave camera alone
+    // Minimum AABB so a single body doesn't zoom in to a single pixel.
+    const minSpan = 4; // meters
+    const aabbW = Math.max(maxX - minX, minSpan);
+    const aabbH = Math.max(maxY - minY, minSpan);
+    const sx = (cssW * 0.78) / aabbW;
+    const sy = (cssH * 0.78) / aabbH;
+    targetScale = Math.min(sx, sy, PX_PER_M * 1.5); // cap zoom-in
+    targetCX = (minX + maxX) / 2;
+    targetCY = (minY + maxY) / 2;
+  } else {
+    return;
+  }
+
+  // Lerp scale + position toward target.
+  const k = 0.08;
+  camera.scale += (targetScale - camera.scale) * k;
+  const wantX = cssW / 2 - targetCX * camera.scale;
+  const wantY = cssH / 2 - targetCY * camera.scale;
+  camera.x += (wantX - camera.x) * k;
+  camera.y += (wantY - camera.y) * k;
+}
+
+function setCameraMode(mode) {
+  if (!['free', 'wide', 'track'].includes(mode)) mode = 'free';
+  state.cameraMode = mode;
+  if (mode !== 'free') state.cameraLock = null; // wide/track override manual lock
+  if (mode === 'free') homeCamera();             // free snaps back to home
+  // Sync segment UI if present.
+  const seg = document.getElementById('cameraSegment');
+  if (seg) {
+    for (const b of seg.querySelectorAll('[data-camera]')) {
+      b.classList.toggle('active', b.dataset.camera === mode);
+      b.setAttribute('aria-selected', String(b.dataset.camera === mode));
+    }
+  }
+}
+
 function rebuildBoundaries() {
   for (const w of walls) world.remove(w);
   walls = [];
@@ -473,6 +549,9 @@ const state = {
   panDrag: null,
   // camera lock: body to follow smoothly (null = unlocked)
   cameraLock: null,
+  // camera framing: 'free' (manual pan/zoom + double-click lock), 'wide'
+  // (static zoomed-out fixed view), 'track' (auto-frames all active bodies)
+  cameraMode: 'free',
   // current pointer position in screen coords (for crosshair)
   pointerPos: null,
   };
@@ -714,6 +793,8 @@ canvas.addEventListener('pointerdown', (ev) => {
 
   // Middle-mouse, pan tool, or space+drag → start canvas pan
   if (ev.button === 1 || state.tool === 'pan' || (spaceHeld && ev.button === 0)) {
+    // Manual pan overrides Wide/Track auto-framing — user is taking the wheel.
+    if (state.cameraMode !== 'free') setCameraMode('free');
     state.panDrag = { startX: ev.clientX, startY: ev.clientY, camX0: camera.x, camY0: camera.y };
     canvas.classList.add('panning');
     if (spaceHeld) spacePanned = true;
@@ -1813,6 +1894,14 @@ ui.clearBtn.addEventListener('click', () => {
   world.clear(); rebuildBoundaries(); state.selected = null; state.trails.clear();
   world.gravity = parseFloat(ui.gravity.value);
   world.preSubstep = null;
+});
+
+// Camera mode segment (Free / Wide / Track).
+document.querySelectorAll('#cameraSegment [data-camera]').forEach(el => {
+  el.addEventListener('click', () => {
+    setCameraMode(el.dataset.camera);
+    triggerHaptic('light');
+  });
 });
 
 // tool buttons with haptic feedback
@@ -3329,6 +3418,8 @@ function loop(now) {
   } else if (state.cameraLock && state.cameraLock._destroyed) {
     state.cameraLock = null;
   }
+
+  applyCameraMode();
 
   render();
   updateReadouts();
