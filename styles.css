@@ -1997,7 +1997,10 @@ body {
     pointer-events: auto !important;
   }
 
-  /* Force each panel into the flow as a sized flex item. */
+  /* Force each panel into the flow as a sized flex item.
+     The desktop CSS sets container-type:size on #toolsPanel and
+     #lessonOverlay which COLLAPSES them to 0×0 in a flex auto context —
+     override to inline-size so they expand to content. */
   #toolsPanel,
   #infoOverlay,
   #lessonOverlay {
@@ -2016,6 +2019,7 @@ body {
     height: auto !important;
     max-height: none !important;
     pointer-events: auto !important;
+    container-type: inline-size !important;
     background: rgba(14, 16, 24, 0.94);
     border: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -2023,10 +2027,16 @@ body {
     box-shadow: none;
     z-index: auto;
     overflow: hidden;
+    flex: 0 0 auto;
   }
 
-  /* Canvas takes the remaining space. */
+  /* HTML order is topbar → main → aside. With flex-direction:column the
+     panels (aside) would land BELOW the canvas. Reorder so panels sit
+     directly under the topbar and the canvas fills the rest. */
+  .topbar { order: 0; }
+  aside.panel-host { order: 1; }
   .canvas-host {
+    order: 2;
     flex: 1 1 auto;
     min-height: 0;
     position: relative;
