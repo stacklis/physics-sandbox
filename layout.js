@@ -130,9 +130,21 @@ tabs.forEach(btn => {
   });
 });
 
-// Mobile redesign: all three panels live stacked at the top of the screen
-// as always-visible collapsible cards. Header tap toggles .panel-collapsed.
-['tools', 'readings', 'educator'].forEach(key => {
+// Mobile: three panel chips live in a horizontal strip. Tapping a chip
+// expands it as a fixed-position overlay above the canvas. Radio behavior —
+// expanding one collapses the others. Tap outside to close.
+const PANEL_KEYS = ['tools', 'readings', 'educator'];
+
+function collapseAllPanels() {
+  for (const k of PANEL_KEYS) panels[k]?.classList.add('panel-collapsed');
+}
+
+function expandPanel(key) {
+  collapseAllPanels();
+  panels[key]?.classList.remove('panel-collapsed');
+}
+
+PANEL_KEYS.forEach(key => {
   const panelEl = panels[key];
   if (!panelEl) return;
   const header = panelEl.querySelector('.panel-header');
@@ -140,17 +152,32 @@ tabs.forEach(btn => {
   header.addEventListener('click', e => {
     if (!mobile) return;
     if (e.target.closest('button')) return;
-    panelEl.classList.toggle('panel-collapsed');
+    if (panelEl.classList.contains('panel-collapsed')) expandPanel(key);
+    else panelEl.classList.add('panel-collapsed');
   });
+  // Close button collapses just this panel.
+  const closeBtn = panelEl.querySelector('.panel-close, .overlay-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', e => {
+      if (!mobile) return;
+      e.stopPropagation();
+      panelEl.classList.add('panel-collapsed');
+    });
+  }
 });
 
-// Default mobile state — every panel starts collapsed so the canvas isn't
-// crowded on first load. User taps a header to peek into a panel.
-if (mobile) {
-  for (const key of ['tools', 'readings', 'educator']) {
-    panels[key]?.classList.add('panel-collapsed');
-  }
-}
+// Tap on the canvas (or anywhere outside the panel strip) closes any
+// currently-expanded panel.
+document.addEventListener('pointerdown', e => {
+  if (!mobile) return;
+  if (e.target.closest('.panel-host')) return;
+  if (e.target.closest('.panel:not(.panel-collapsed)')) return;
+  const anyOpen = PANEL_KEYS.some(k => panels[k] && !panels[k].classList.contains('panel-collapsed'));
+  if (anyOpen) collapseAllPanels();
+}, true);
+
+// Default mobile state — every panel starts collapsed.
+if (mobile) collapseAllPanels();
 
 // =============================================================================
 // MOBILE SHEET — continuous drag with nearest-of-{low,mid,high} snap on release.

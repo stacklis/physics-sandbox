@@ -1944,7 +1944,7 @@ body {
 
 /* ===================== MOBILE (<=768px) ===================== */
 @media (max-width: 768px) {
-  /* === Layout: pure flex column, abandon the desktop grid. === */
+  /* === Body: flex column. Three regions stacked. === */
   body {
     display: flex !important;
     flex-direction: column !important;
@@ -1954,106 +1954,57 @@ body {
     height: 100vh;
     height: 100svh;
     height: 100dvh;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+    padding-bottom: env(safe-area-inset-bottom);
     overflow: hidden;
   }
 
-  /* Topbar — wraps to multi-row so all controls stay visible. */
+  /* === Topbar: flex-wrap row, every control visible. === */
   .topbar {
+    order: 0;
     flex: 0 0 auto;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 10px;
-    padding: 8px 12px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-right: 12px;
+    gap: 6px 8px;
+    padding: 6px 10px;
+    padding-top: max(6px, env(safe-area-inset-top));
+    contain: none !important;
   }
-  .topbar .seg { padding: 8px 12px; font-size: 12px; }
-  .topbar .bar-group label { font-size: 12px; }
-  .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
+  .topbar .seg { padding: 6px 10px; font-size: 11px; }
+  .topbar .btn { padding: 7px 12px; font-size: 12px; min-height: 36px; }
   .topbar .bar-group { flex-shrink: 0; flex-wrap: wrap; }
   .topbar .bar-group.btns { margin-left: 0; }
-  .topbar .seg-label { display: none; }
-  .topbar .brand .title { display: none; }
-  /* `contain: layout style paint` from the base rule clipped wrapped topbar
-     rows on mobile — release it so multi-row contents render. */
-  .topbar { contain: none !important; }
+  .topbar .seg-label,
+  .topbar .brand .title,
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
-  .topbar .bar-toggle { display: none; }
+  .topbar .bar-toggle,
   .topbar .btn.pro-btn { display: none; }
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* === Panels: horizontal scrollable strip of chips at the top.
-     Expanded panels become floating overlays over the canvas. === */
+  /* === Panel strip: horizontal scroll of chips. === */
   aside.panel-host {
+    order: 1;
+    flex: 0 0 auto !important;
     display: flex !important;
     flex-direction: row !important;
-    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    gap: 6px;
+    padding: 6px 10px;
     width: 100% !important;
-    gap: 8px;
-    padding: 8px 12px;
-    overflow-x: auto;
-    overflow-y: visible;
-    flex-wrap: nowrap;
-    background: rgba(8, 10, 16, 0.55);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    z-index: 15;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    background: rgba(8, 10, 16, 0.72);
+    border-bottom: 1px solid var(--line);
+    z-index: 20;
     position: relative !important;
-    pointer-events: auto !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
   aside.panel-host::-webkit-scrollbar { display: none; }
 
-  /* Compact chip — collapsed state. */
-  #toolsPanel,
-  #infoOverlay,
-  #lessonOverlay {
-    display: flex !important;
-    flex-direction: column !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    position: relative !important;
-    left: auto !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: auto !important;
-    transform: none !important;
-    transition: none !important;
-    width: auto !important;
-    height: auto !important;
-    max-height: none !important;
-    flex: 0 0 auto !important;
-    pointer-events: auto !important;
-    container-type: inline-size !important;
-    background: rgba(14, 16, 24, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    box-shadow: none;
-    z-index: auto;
-    overflow: visible;
-  }
-
-  /* === Expanded state: float OVER the canvas, don't push it. === */
-  .panel:not(.panel-collapsed) {
-    position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 110px);
-    left: 8px;
-    right: 8px;
-    width: auto !important;
-    max-height: 60vh;
-    z-index: 50;
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    overflow: hidden;
-  }
-
-  /* Reorder so the panel strip sits under the topbar. */
-  .topbar { order: 0; }
-  aside.panel-host { order: 1; }
+  /* === Canvas: takes remaining space, never resized by panels. === */
   .canvas-host {
     order: 2;
     flex: 1 1 auto;
@@ -2061,88 +2012,134 @@ body {
     position: relative;
   }
 
-  /* Compact chip header — tappable to toggle expand. */
+  /* === Each panel: chip in the strip when collapsed. === */
+  #toolsPanel,
+  #infoOverlay,
+  #lessonOverlay {
+    flex: 0 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    transition: none !important;
+    width: auto !important;
+    min-width: 105px;
+    height: auto !important;
+    max-height: none !important;
+    pointer-events: auto !important;
+    container-type: inline-size !important;
+    background: rgba(14, 16, 24, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    box-shadow: none;
+    z-index: auto;
+    overflow: hidden;
+  }
+
+  /* === Expanded panel: fixed-position overlay above canvas. === */
+  .panel:not(.panel-collapsed) {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top) + 110px) !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
+    max-height: 55vh;
+    z-index: 100;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    background: rgba(14, 16, 24, 0.97);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  }
+
+  /* === Headers — chip form by default, panel form when expanded. === */
   .panel-header {
     display: flex !important;
     align-items: center !important;
     gap: 6px;
-    padding: 6px 10px;
-    min-height: 32px;
+    padding: 8px 12px;
+    min-height: 36px;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
     flex-shrink: 0;
+    white-space: nowrap;
     background: transparent;
     border-bottom: 0;
-    white-space: nowrap;
   }
-  /* When expanded, header gets a divider so body separates visually. */
   .panel:not(.panel-collapsed) .panel-header {
+    padding: 12px 14px;
+    min-height: 44px;
     background: rgba(255, 255, 255, 0.04);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 10px 14px;
-    min-height: 42px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
   .panel-title {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.6px;
     color: var(--accent);
-    font-weight: 600;
+    font-weight: 700;
   }
   .panel-header::after {
-    content: '▾';
+    content: '▸';
     margin-left: auto;
-    font-size: 14px;
+    font-size: 11px;
     color: var(--muted);
   }
-  .panel.panel-collapsed .panel-header::after { content: '▸'; }
-  #lessonOverlay .panel-header::after { margin-left: 8px; }
+  .panel:not(.panel-collapsed) .panel-header::after { content: '▾'; }
+  #lessonOverlay .panel-header .level-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-left: auto;
+  }
+  #lessonOverlay .panel-header::after { margin-left: 6px; }
 
-  /* Hide body when panel collapsed; keep header. */
+  /* === Bodies — hidden when collapsed, scrollable when expanded. === */
   .panel.panel-collapsed .panel-body { display: none !important; }
-
-  /* Body — scrolls internally if content overflows. */
-  .panel-body {
+  .panel:not(.panel-collapsed) .panel-body {
+    display: flex !important;
+    flex-direction: column;
     flex: 1 1 auto;
-    max-height: 38vh;
+    padding: 10px 14px 14px;
     overflow-y: auto;
-    padding: 8px 12px 12px;
+    max-height: calc(55vh - 50px);
   }
 
-  /* Hide unused decoration. */
+  /* === Hide decoration we don't need on mobile. === */
   .panel-grabber,
   .panel-pop,
   .panel-collapse,
   .mobile-only-btn,
-  .tabbar {
-    display: none !important;
-  }
+  .tabbar { display: none !important; }
 
-  /* Inline close (×) button — hides the panel via ⋯ menu toggle. */
+  /* === Inline close (×) — only visible on expanded panel. === */
   .panel-close,
   .overlay-close {
-    display: flex;
+    display: none;
+  }
+  .panel:not(.panel-collapsed) .panel-close,
+  .panel:not(.panel-collapsed) .overlay-close {
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     background: transparent;
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 5px;
     color: var(--muted);
-    font-size: 15px;
-    line-height: 1;
-    cursor: pointer;
+    font-size: 13px;
+    margin-left: 4px;
     flex-shrink: 0;
-    margin-left: 0;
-    transition: background 0.12s, color 0.12s;
   }
-  .panel-close:active,
-  .overlay-close:active { background: var(--bg-3); color: var(--text); }
 
-  /* === Tools panel layout === */
-  #toolsPanel .panel-body { gap: 12px; padding: 10px 12px 14px; }
+  /* === Tools panel content === */
+  #toolsPanel .panel-body { gap: 12px; }
   #toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
   #toolsPanel .tool-grid { display: flex; flex-wrap: wrap; gap: 6px; }
   #toolsPanel .tool {
@@ -2161,8 +2158,7 @@ body {
     font-size: 11px;
   }
 
-  /* === Readings panel layout === */
-  #infoOverlay .panel-body { padding: 6px 12px 12px; gap: 4px; }
+  /* === Readings panel content === */
   #infoOverlay .readout-grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
   #infoOverlay .metric { padding: 4px 0; }
   #infoOverlay .metric-label { font-size: 10px; }
