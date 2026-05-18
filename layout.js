@@ -171,12 +171,85 @@ PANEL_KEYS.forEach(key => {
 });
 
 // Tap outside the panels (canvas/topbar) closes any open panel.
+// Skip when tapping the HUD (#infoOverlay) — it's always-on, not collapsible.
 document.addEventListener('pointerdown', e => {
   if (!mobile) return;
   if (e.target.closest('.panel-host')) return;
   if (e.target.closest('.panel.panel-expanded')) return;
+  if (e.target.closest('#infoOverlay')) return;
   collapseAllPanels();
 }, true);
+
+// Mobile drag: HUD + expanded Tools/Educator panels can be dragged by their
+// header. We use a 6px movement threshold to distinguish drag vs tap so the
+// existing collapse handler still works.
+function makeDraggable(panelEl) {
+  if (!panelEl) return;
+  const header = panelEl.querySelector('.panel-header');
+  if (!header) return;
+  const DRAG_THRESHOLD = 6;
+  let startX = 0, startY = 0, originLeft = 0, originTop = 0;
+  let dragging = false, moved = false;
+
+  header.addEventListener('pointerdown', e => {
+    if (!mobile) return;
+    if (e.target.closest('button')) return;
+    // HUD (#infoOverlay) is always position:fixed, so always draggable.
+    // Tools/Educator are only fixed-position when expanded.
+    if (panelEl.id !== 'infoOverlay' && !panelEl.classList.contains('panel-expanded')) return;
+    const rect = panelEl.getBoundingClientRect();
+    originLeft = rect.left;
+    originTop = rect.top;
+    startX = e.clientX;
+    startY = e.clientY;
+    dragging = true;
+    moved = false;
+    try { header.setPointerCapture(e.pointerId); } catch {}
+  });
+
+  header.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    moved = true;
+    panelEl.classList.add('panel-dragging');
+    const w = panelEl.offsetWidth;
+    const h = panelEl.offsetHeight;
+    const left = Math.max(4, Math.min(window.innerWidth - w - 4, originLeft + dx));
+    const top = Math.max(4, Math.min(window.innerHeight - h - 4, originTop + dy));
+    panelEl.style.left = left + 'px';
+    panelEl.style.top = top + 'px';
+    panelEl.style.right = 'auto';
+    panelEl.style.bottom = 'auto';
+  });
+
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    panelEl.classList.remove('panel-dragging');
+    // If we moved past the threshold, swallow the upcoming click so the
+    // collapse-on-tap handler doesn't fire.
+    if (moved) {
+      e.stopPropagation();
+      e.preventDefault();
+      moved = false;
+    }
+  }
+  header.addEventListener('pointerup', endDrag);
+  header.addEventListener('pointercancel', endDrag);
+
+  // Also block click after drag (some browsers fire click after pointerup).
+  header.addEventListener('click', e => {
+    if (moved) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+}
+
+if (mobile) {
+  makeDraggable(panels.readings);
+  makeDraggable(panels.tools);
+  makeDraggable(panels.educator);
+}
 
 // =============================================================================
 // MOBILE SHEET — continuous drag with nearest-of-{low,mid,high} snap on release.

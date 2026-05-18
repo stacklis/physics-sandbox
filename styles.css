@@ -2066,45 +2066,58 @@ body {
     max-width: 100%;
   }
 
-  /* === Expanded panel: fixed-position overlay above canvas. === */
+  /* === Expanded panel: draggable, translucent floating overlay. === */
   #toolsPanel.panel-expanded,
-  #infoOverlay.panel-expanded,
   #lessonOverlay.panel-expanded {
     position: fixed !important;
     top: calc(env(safe-area-inset-top) + 110px) !important;
     left: 8px !important;
-    right: 8px !important;
-    width: calc(100vw - 16px) !important;
+    right: auto !important;
+    width: min(280px, calc(100vw - 16px)) !important;
     min-width: 0 !important;
     height: auto !important;
-    max-height: 60vh !important;
+    max-height: 56vh !important;
     z-index: 100;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 12px;
-    background: rgba(14, 16, 24, 0.97);
-    backdrop-filter: blur(14px) saturate(1.2);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(14, 16, 24, 0.72);
+    backdrop-filter: blur(10px) saturate(1.2);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
   }
+  /* Draggable headers (grab cursor + dragging state). */
+  #toolsPanel.panel-expanded .panel-header,
+  #lessonOverlay.panel-expanded .panel-header {
+    cursor: grab !important;
+    touch-action: none;
+  }
+  .panel.panel-dragging .panel-header { cursor: grabbing !important; }
+  /* Smaller fonts in expanded panels. */
+  #toolsPanel.panel-expanded .panel-title,
+  #lessonOverlay.panel-expanded .panel-title { font-size: 10px !important; }
+  #toolsPanel.panel-expanded .section-title { font-size: 9px !important; }
+  #toolsPanel.panel-expanded .tool span { font-size: 9px !important; }
+  #toolsPanel.panel-expanded .preset,
+  #toolsPanel.panel-expanded .material { font-size: 10px !important; padding: 6px 8px !important; }
+  #toolsPanel.panel-expanded .check { font-size: 10px !important; }
+  #lessonOverlay.panel-expanded .lesson-body { font-size: 11px !important; line-height: 1.45 !important; }
+  #lessonOverlay.panel-expanded .concepts-title { font-size: 9px !important; }
+  #lessonOverlay.panel-expanded .concept-pill { font-size: 9px !important; }
 
   /* ===========================================================
-     LIVE READINGS — always-on HUD pinned to top-right of canvas.
-     Out of the chip strip flow (position:fixed). Translucent + compact
-     so it sits over the canvas like an FPS counter. The existing rAF
-     loop calls updateInfoOverlay() every 4th frame so values stay live
-     without any extra wiring.
-     =========================================================== */
+     LIVE READINGS — always-on, FPS-style HUD pinned to top-LEFT.
+     Tiny fonts, narrow card, draggable header. =========================================================== */
   #infoOverlay {
     position: fixed !important;
     top: calc(env(safe-area-inset-top) + 110px) !important;
-    right: 8px !important;
-    left: auto !important;
+    left: 8px !important;
+    right: auto !important;
     bottom: auto !important;
-    width: 168px !important;
+    width: 142px !important;
     min-width: 0 !important;
-    max-width: calc(100vw - 16px) !important;
+    max-width: 142px !important;
     height: auto !important;
-    max-height: 52vh !important;
+    max-height: 50vh !important;
     z-index: 30;
     pointer-events: auto !important;
     visibility: visible !important;
@@ -2113,83 +2126,93 @@ body {
     transition: none !important;
     display: flex !important;
     flex-direction: column !important;
-    background: rgba(8, 10, 16, 0.38) !important;
-    backdrop-filter: blur(6px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(6px) saturate(1.2) !important;
-    border: 1px solid rgba(0, 229, 160, 0.22) !important;
-    border-radius: 10px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    background: rgba(8, 10, 16, 0.32) !important;
+    backdrop-filter: blur(5px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(5px) saturate(1.2) !important;
+    border: 1px solid rgba(0, 229, 160, 0.18) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
     overflow: hidden;
+    container-type: inline-size !important;
   }
-  /* Compact title strip, non-tappable. */
+  /* Drag handle: title strip with grab cursor. */
   #infoOverlay .panel-header {
-    padding: 4px 10px !important;
-    min-height: 22px !important;
-    background: rgba(0, 229, 160, 0.08) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-    cursor: default !important;
+    padding: 3px 8px !important;
+    min-height: 18px !important;
+    background: rgba(0, 229, 160, 0.07) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    cursor: grab !important;
+    touch-action: none;
   }
+  #infoOverlay.panel-dragging .panel-header { cursor: grabbing !important; }
   #infoOverlay .panel-title {
-    font-size: 9px !important;
-    letter-spacing: 0.8px !important;
+    font-size: 7px !important;
+    letter-spacing: 0.7px !important;
   }
-  /* Body always visible — no toggle. */
+  /* Body always visible, very compact. */
   #infoOverlay .panel-body {
     display: flex !important;
     flex-direction: column !important;
-    padding: 6px 10px 8px !important;
-    gap: 3px;
+    padding: 4px 8px 6px !important;
+    gap: 1px;
     overflow-y: auto;
-    max-height: calc(52vh - 28px);
+    max-height: calc(50vh - 22px);
     background: transparent;
   }
-  /* Tight metric rows, FPS-overlay style. */
+  /* Force a tight metric layout — defeat container queries. */
   #infoOverlay .readout-grid {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    gap: 1px !important;
+    gap: 0 !important;
   }
   #infoOverlay .metric {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 2px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: baseline !important;
+    padding: 1px 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+    gap: 4px;
   }
-  #infoOverlay .metric:last-child { border-bottom: 0; }
+  #infoOverlay .metric:last-child { border-bottom: 0 !important; }
   #infoOverlay .metric-label {
-    font-size: 9px;
+    font-size: 7px !important;
     text-transform: uppercase;
-    color: var(--muted);
-    letter-spacing: 0.4px;
+    color: var(--muted) !important;
+    letter-spacing: 0.3px !important;
+    line-height: 1.2 !important;
   }
   #infoOverlay .metric-val {
-    font-size: 12px;
-    color: var(--text);
-    font-weight: 600;
+    font-size: 9px !important;
+    color: var(--text) !important;
+    font-weight: 600 !important;
     font-feature-settings: "tnum";
     margin: 0 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap;
   }
   #infoOverlay .metric-val .unit {
-    font-size: 9px;
-    color: var(--muted);
-    margin-left: 2px;
+    font-size: 7px !important;
+    color: var(--muted) !important;
+    margin-left: 1px;
   }
   #infoOverlay .totals-mini {
-    font-size: 10px;
-    padding-top: 4px;
-    margin-top: 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 8px !important;
+    padding-top: 3px !important;
+    margin-top: 3px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
     color: var(--muted);
   }
-  #infoOverlay .totals-mini b { color: var(--accent-2); }
+  #infoOverlay .totals-mini b { color: var(--accent-2); font-size: 8px !important; }
   /* No chevron, no close on the HUD. */
   #infoOverlay .panel-header::after { display: none !important; }
   #infoOverlay .panel-close,
   #infoOverlay .overlay-close { display: none !important; }
+  /* Override the (min-width: 380px) container query so big-font rule never fires. */
+  #infoOverlay .metric-val { font-size: 9px !important; }
 
   /* === Headers — chip form by default, panel form when expanded. === */
   .panel-header {
