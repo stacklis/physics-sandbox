@@ -557,7 +557,7 @@ class World {
     this.bodies = [];
     this.constraints = [];
     this.gravity = opts.gravity != null ? opts.gravity : 9.81;
-    this.iterations = opts.iterations ?? 5; // was 8 — 5 is plenty for sandbox quality
+    this.iterations = opts.iterations ?? 8; // 5 was too few for constraint stacks (Newton's cradle resting line jittered into overlap)
     this.contacts = [];
     this.events = [];
     this.eventListeners = [];

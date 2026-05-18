@@ -3129,26 +3129,30 @@ function loadPreset(name) {
       break;
     }
     case 'newton': {
+      // Tiny gap so resting balls don't interpenetrate (2r exactly leaves no
+      // slop for the iterative constraint solver, which jitters into overlap).
       const ay = 1.2;
       const len = 3;
       const radius = 0.5;
-      const spacing = radius * 2;
+      const spacing = radius * 2 + 0.04;
       const cx = Wm * 0.5;
       const N = 5;
       for (let i = 0; i < N; i++) {
         const x = cx + (i - (N - 1) / 2) * spacing;
         const anchor = world.add(makeCircle(x, ay, 0.05, { isStatic: true, color: '#4a5068' }));
         const ball = world.add(makeCircle(x, ay + len, radius, {
-          color: '#8ad0ff', restitution: 0.95, friction: 0.0, density: 5
+          color: '#8ad0ff', restitution: 0.88, friction: 0.0, density: 3,
+          linearDamping: 0.06, angularDamping: 0.4,
         }));
         world.addConstraint(new DistanceConstraint(anchor, ball, new Vec2(0, 0), new Vec2(0, 0), {
           length: len, stiffness: 1.0
         }));
       }
-      // first ball pulled aside
+      // First ball pulled aside ~30° from vertical — gentler swing, less
+      // explosive impact than the previous near-horizontal release.
       const first = world.bodies.find(b => !b.isStatic);
       if (first) {
-        first.position = new Vec2(first.position.x - 2.5, first.position.y - 1.5);
+        first.position = new Vec2(first.position.x - 1.5, first.position.y - 0.4);
       }
       break;
     }

@@ -1401,7 +1401,10 @@ body {
 
 .panel {
   position: relative;
-  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  background:
+    linear-gradient(180deg, rgba(15, 15, 22, 0.62), rgba(10, 10, 15, 0.56));
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  backdrop-filter: blur(18px) saturate(1.35);
   border-left: 0;
   padding: 0;
   overflow: hidden;
@@ -1411,6 +1414,15 @@ body {
   isolation: isolate;
   min-width: 0;
   min-height: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+.panel.floating {
+  box-shadow:
+    0 24px 64px -12px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(0, 229, 160, 0.06);
 }
 
 .panel-grabber {
@@ -2766,4 +2778,135 @@ body[data-mode="3d"] [data-mode-only="2d"] { display: none !important; }
   #levelSegment [data-level="2"]::after { content: "S"; font-size: 11px; font-weight: 600; }
   #levelSegment [data-level="3"]::after { content: "U"; font-size: 11px; font-weight: 600; }
   #levelSegment [data-level="4"]::after { content: "E"; font-size: 11px; font-weight: 600; }
+}
+
+/* =====================================================================
+   POLISH LAYER (2026-05-18) — universal reactivity
+   Springy hover-lift + tap-scale on every interactive control, applied
+   on top of existing per-element rules. Transform/filter only so it never
+   triggers layout. Skips elements actively being dragged.
+   ===================================================================== */
+:root {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.btn,
+.seg,
+.tool,
+.preset,
+.material,
+.tab,
+.tabbar .tab,
+.cta,
+.panel-collapse,
+.panel-pop,
+.panel-close,
+.bar-toggle,
+.topbar-more {
+  transition:
+    transform 160ms var(--spring),
+    background 180ms var(--ease-out-soft),
+    border-color 180ms var(--ease-out-soft),
+    box-shadow 180ms var(--ease-out-soft),
+    color 180ms var(--ease-out-soft),
+    filter 180ms var(--ease-out-soft);
+  will-change: transform;
+}
+
+@media (hover: hover) {
+  .btn:not(:active):hover,
+  .seg:not(.active):not(:active):hover,
+  .tool:not(.active):not(:active):hover,
+  .preset:not(:active):hover,
+  .material:not(.active):not(:active):hover,
+  .cta:not(:active):hover,
+  .panel-collapse:not(:active):hover,
+  .panel-pop:not(:active):hover {
+    transform: translateY(-1.5px) scale(1.015);
+    filter: brightness(1.08);
+  }
+}
+
+.btn:active,
+.seg:active,
+.tool:active,
+.preset:active,
+.material:active,
+.tab:active,
+.tabbar .tab:active,
+.cta:active,
+.panel-collapse:active,
+.panel-pop:active,
+.panel-close:active,
+.bar-toggle:active,
+.topbar-more:active {
+  transform: scale(0.94);
+  filter: brightness(0.92);
+  transition-duration: 90ms;
+}
+
+/* Glassier topbar — match the panel translucency boost. */
+.topbar {
+  background: rgba(10, 10, 15, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+
+/* Glassier dialogs (help + upgrade) — pull canvas through. */
+dialog.help,
+dialog.upgrade-dialog {
+  background:
+    linear-gradient(180deg, rgba(15, 15, 22, 0.78), rgba(10, 10, 15, 0.72));
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+dialog.help::backdrop,
+dialog.upgrade-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* Panel header — slightly more transparent border so canvas reads through. */
+.panel-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+}
+
+/* Springy panel size + position animation. */
+.panel:not(.dragging) {
+  transition:
+    transform 280ms var(--ease-out-soft),
+    height 280ms var(--ease-out-soft),
+    width 280ms var(--ease-out-soft),
+    opacity 200ms var(--ease-out-soft);
+}
+
+/* Metric cards (live readings): subtle pulse on value change handled in JS,
+   but baseline gets a sheen-on-hover. */
+.metric {
+  transition:
+    transform 200ms var(--spring),
+    background 200ms var(--ease-out-soft),
+    border-color 200ms var(--ease-out-soft);
+}
+@media (hover: hover) {
+  .metric:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* Respect motion-reduced users — strip the springs entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .seg, .tool, .preset, .material, .tab, .cta,
+  .panel-collapse, .panel-pop, .panel-close,
+  .bar-toggle, .topbar-more, .metric, .panel {
+    transition-duration: 0ms !important;
+  }
+  .btn:hover, .seg:hover, .tool:hover, .preset:hover, .material:hover,
+  .cta:hover, .metric:hover {
+    transform: none !important;
+  }
 }
