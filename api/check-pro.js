@@ -4,13 +4,19 @@
 // we ask Stripe directly. No backing store, Stripe is the source of truth.
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+let stripe = null;
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  if (!stripe) stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripe;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return res.status(500).json({ ok: false, error: 'stripe_not_configured' });
+  const sk = getStripe();
+  if (!sk) {
+    return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
   }
 
   const raw = req.query.email || (req.body && req.body.email) || '';
@@ -21,13 +27,13 @@ export default async function handler(req, res) {
 
   try {
     // Stripe customers.search: case-insensitive email match.
-    const customers = await stripe.customers.search({
+    const customers = await sk.customers.search({
       query: `email:"${email.replace(/"/g, '\\"')}"`,
       limit: 10,
     });
 
     for (const customer of customers.data) {
-      const charges = await stripe.charges.list({
+      const charges = await sk.charges.list({
         customer: customer.id,
         limit: 20,
       });

@@ -4,13 +4,19 @@
 // email after a Stripe redirect so cross-device verification works later.
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+let stripe = null;
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  if (!stripe) stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  return stripe;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return res.status(500).json({ ok: false, error: 'stripe_not_configured' });
+  const sk = getStripe();
+  if (!sk) {
+    return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
   }
 
   const sessionId = String(req.query.session_id || '').trim();
@@ -19,7 +25,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await sk.checkout.sessions.retrieve(sessionId);
     const email = session.customer_details?.email || session.customer_email || null;
     const paid = session.payment_status === 'paid';
     return res.status(200).json({ ok: true, pro: paid, email });
