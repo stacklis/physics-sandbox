@@ -2113,28 +2113,37 @@ body {
     left: 8px !important;
     right: auto !important;
     bottom: auto !important;
-    width: 142px !important;
+    width: 130px !important;
     min-width: 0 !important;
-    max-width: 142px !important;
+    max-width: 130px !important;
     height: auto !important;
     max-height: 50vh !important;
     z-index: 30;
     pointer-events: auto !important;
     visibility: visible !important;
     opacity: 1 !important;
-    transform: none !important;
     transition: none !important;
     display: flex !important;
     flex-direction: column !important;
-    background: rgba(8, 10, 16, 0.32) !important;
-    backdrop-filter: blur(5px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(5px) saturate(1.2) !important;
-    border: 1px solid rgba(0, 229, 160, 0.18) !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    background: rgba(8, 10, 16, 0.18) !important;
+    backdrop-filter: blur(3px) saturate(1.1) !important;
+    -webkit-backdrop-filter: blur(3px) saturate(1.1) !important;
+    border: 1px solid rgba(0, 229, 160, 0.10) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
     overflow: hidden;
     container-type: inline-size !important;
+    transform-origin: top left;
   }
+  /* Hidden state — toggleable via ⋯ → Readings. */
+  body[data-hud-hidden="true"] #infoOverlay { display: none !important; }
+  /* Fade the HUD when user taps on canvas — so it sits in the background. */
+  #infoOverlay:not(:hover):not(.panel-dragging) {
+    opacity: 0.7;
+    transition: opacity 200ms ease;
+  }
+  #infoOverlay:hover,
+  #infoOverlay.panel-dragging { opacity: 1; transition: none; }
   /* Drag handle: title strip with grab cursor. */
   #infoOverlay .panel-header {
     padding: 3px 8px !important;
@@ -2178,14 +2187,14 @@ body {
   #infoOverlay .metric-label {
     font-size: 7px !important;
     text-transform: uppercase;
-    color: var(--muted) !important;
+    color: rgba(136, 136, 160, 0.7) !important;
     letter-spacing: 0.3px !important;
     line-height: 1.2 !important;
   }
   #infoOverlay .metric-val {
     font-size: 9px !important;
-    color: var(--text) !important;
-    font-weight: 600 !important;
+    color: rgba(240, 240, 248, 0.78) !important;
+    font-weight: 500 !important;
     font-feature-settings: "tnum";
     margin: 0 !important;
     line-height: 1.2 !important;

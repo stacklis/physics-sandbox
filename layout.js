@@ -180,75 +180,127 @@ document.addEventListener('pointerdown', e => {
   collapseAllPanels();
 }, true);
 
-// Mobile drag: HUD + expanded Tools/Educator panels can be dragged by their
-// header. We use a 6px movement threshold to distinguish drag vs tap so the
-// existing collapse handler still works.
-function makeDraggable(panelEl) {
+// Mobile: HUD + expanded Tools/Educator panels are draggable (1 finger on
+// header) and pinch-resizable (2 fingers anywhere). Scale is stored on
+// dataset.scale, position on inline left/top. Drag has a 6px threshold so
+// it doesn't fight the tap-to-collapse handler.
+function makeInteractive(panelEl) {
   if (!panelEl) return;
   const header = panelEl.querySelector('.panel-header');
   if (!header) return;
+  const pointers = new Map();
+  let drag = null;
+  let pinch = null;
   const DRAG_THRESHOLD = 6;
-  let startX = 0, startY = 0, originLeft = 0, originTop = 0;
-  let dragging = false, moved = false;
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 2.5;
 
-  header.addEventListener('pointerdown', e => {
+  function pinchDist() {
+    const a = Array.from(pointers.values());
+    if (a.length < 2) return 0;
+    return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+  }
+  function readScale() { return parseFloat(panelEl.dataset.scale || '1'); }
+
+  panelEl.addEventListener('pointerdown', e => {
     if (!mobile) return;
-    if (e.target.closest('button')) return;
-    // HUD (#infoOverlay) is always position:fixed, so always draggable.
-    // Tools/Educator are only fixed-position when expanded.
+    // HUD is always fixed. Tools/Educator only fixed when expanded.
     if (panelEl.id !== 'infoOverlay' && !panelEl.classList.contains('panel-expanded')) return;
-    const rect = panelEl.getBoundingClientRect();
-    originLeft = rect.left;
-    originTop = rect.top;
-    startX = e.clientX;
-    startY = e.clientY;
-    dragging = true;
-    moved = false;
-    try { header.setPointerCapture(e.pointerId); } catch {}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) {
+      const fromHeader = e.target.closest('.panel-header') && !e.target.closest('button');
+      if (fromHeader) {
+        const rect = panelEl.getBoundingClientRect();
+        drag = {
+          startX: e.clientX, startY: e.clientY,
+          left: rect.left, top: rect.top,
+          moved: false,
+        };
+      }
+    } else if (pointers.size === 2) {
+      drag = null;
+      pinch = { dist: pinchDist(), scale: readScale() };
+      panelEl.classList.add('panel-pinching');
+    }
   });
 
-  header.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    moved = true;
-    panelEl.classList.add('panel-dragging');
-    const w = panelEl.offsetWidth;
-    const h = panelEl.offsetHeight;
-    const left = Math.max(4, Math.min(window.innerWidth - w - 4, originLeft + dx));
-    const top = Math.max(4, Math.min(window.innerHeight - h - 4, originTop + dy));
-    panelEl.style.left = left + 'px';
-    panelEl.style.top = top + 'px';
-    panelEl.style.right = 'auto';
-    panelEl.style.bottom = 'auto';
+  panelEl.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size === 2) {
+      const d = pinchDist();
+      const ratio = d / pinch.dist;
+      const next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, pinch.scale * ratio));
+      panelEl.style.transform = `scale(${next})`;
+      panelEl.style.transformOrigin = 'top left';
+      panelEl.dataset.scale = String(next);
+    } else if (drag) {
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      drag.moved = true;
+      panelEl.classList.add('panel-dragging');
+      const scale = readScale();
+      const w = panelEl.offsetWidth * scale;
+      const h = panelEl.offsetHeight * scale;
+      const left = Math.max(4, Math.min(window.innerWidth - w - 4, drag.left + dx));
+      const top = Math.max(4, Math.min(window.innerHeight - h - 4, drag.top + dy));
+      panelEl.style.left = left + 'px';
+      panelEl.style.top = top + 'px';
+      panelEl.style.right = 'auto';
+      panelEl.style.bottom = 'auto';
+    }
   });
 
-  function endDrag(e) {
-    if (!dragging) return;
-    dragging = false;
-    panelEl.classList.remove('panel-dragging');
-    // If we moved past the threshold, swallow the upcoming click so the
-    // collapse-on-tap handler doesn't fire.
-    if (moved) {
-      e.stopPropagation();
-      e.preventDefault();
-      moved = false;
+  function release(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2 && pinch) {
+      pinch = null;
+      panelEl.classList.remove('panel-pinching');
+    }
+    if (drag && pointers.size === 0) {
+      const moved = drag.moved;
+      drag = null;
+      panelEl.classList.remove('panel-dragging');
+      if (moved && e.target.closest('.panel-header')) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
     }
   }
-  header.addEventListener('pointerup', endDrag);
-  header.addEventListener('pointercancel', endDrag);
+  panelEl.addEventListener('pointerup', release);
+  panelEl.addEventListener('pointercancel', release);
 
-  // Also block click after drag (some browsers fire click after pointerup).
+  // Block click after drag (some browsers fire click after pointerup).
   header.addEventListener('click', e => {
-    if (moved) { e.stopPropagation(); e.preventDefault(); }
+    if (drag && drag.moved) { e.stopPropagation(); e.preventDefault(); }
   }, true);
 }
 
 if (mobile) {
-  makeDraggable(panels.readings);
-  makeDraggable(panels.tools);
-  makeDraggable(panels.educator);
+  makeInteractive(panels.readings);
+  makeInteractive(panels.tools);
+  makeInteractive(panels.educator);
+}
+
+// HUD toggle — clicking ⋯ → Readings on mobile toggles the HUD on/off.
+// State persists in localStorage so refresh respects the user's preference.
+if (mobile) {
+  try {
+    if (localStorage.getItem('ps:hud-hidden') === 'true') {
+      document.body.dataset.hudHidden = 'true';
+    }
+  } catch {}
+  const readingsToggle = document.getElementById('toggleReadingsBtn');
+  if (readingsToggle) {
+    readingsToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const hidden = document.body.dataset.hudHidden === 'true';
+      if (hidden) delete document.body.dataset.hudHidden;
+      else document.body.dataset.hudHidden = 'true';
+      try { localStorage.setItem('ps:hud-hidden', String(!hidden)); } catch {}
+    }, true);
+  }
 }
 
 // =============================================================================
