@@ -1945,26 +1945,23 @@ body {
 
 /* ===================== MOBILE (<=768px) ===================== */
 @media (max-width: 768px) {
+  /* === Layout: pure flex column, abandon the desktop grid. === */
   body {
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "topbar"
-      "main";
-    /* 100dvh = dynamic viewport height (shrinks/grows with browser chrome).
-       Falls back to 100svh then 100vh on older browsers.
-       padding-bottom reserves space for the fixed tabbar + safe area. */
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-rows: none !important;
+    grid-template-columns: none !important;
+    grid-template-areas: none !important;
     height: 100vh;
     height: 100svh;
     height: 100dvh;
-    /* Tabbar is hidden on mobile now — reserve only safe-area + a small gutter. */
     padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+    overflow: hidden;
   }
 
-  /* Topbar wraps onto multiple rows so every control stays visible.
-     Previously this was flex-wrap: nowrap + overflow-x: auto, which scrolled
-     the level/pause buttons off-screen on narrow phones. */
+  /* Topbar — wraps to multi-row so all controls stay visible. */
   .topbar {
+    flex: 0 0 auto;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 10px;
@@ -1972,127 +1969,127 @@ body {
     padding-top: max(8px, env(safe-area-inset-top));
     padding-right: 12px;
   }
-  /* Touch-friendly hit areas. */
   .topbar .seg { padding: 8px 12px; font-size: 12px; }
   .topbar .bar-group label { font-size: 12px; }
   .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
   .topbar .bar-group { flex-shrink: 0; flex-wrap: wrap; }
   .topbar .bar-group.btns { margin-left: 0; }
   .topbar .seg-label { display: none; }
-  /* Hide the brand wordmark on mobile — the logo alone is enough. Saves
-     ~110px of horizontal space so the level segment + pause fit row-1. */
   .topbar .brand .title { display: none; }
-  /* On mobile, hide gravity/time sliders, mode switch, and collapse toggle —
-     only keep brand, level, pause, and ⋯. */
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
   .topbar .bar-toggle { display: none; }
-  /* Hide topbar Pro link — upgrade dialog triggered by locked feature clicks. */
   .topbar .btn.pro-btn { display: none; }
-  /* Reorder strip: brand → level → tools/pause → ⋯. */
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* New mobile layout: topbar → panels → canvas, three grid rows.
-     All panels live at the TOP, collapsible by tap. Nothing at the bottom. */
-  body {
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "topbar"
-      "panels"
-      "main";
-  }
-  .canvas-host { grid-area: main; min-height: 0; }
-
-  .panel-host {
-    grid-area: panels;
+  /* === Panels — stacked, always visible, collapsible. === */
+  /* IDs win specificity over generic .panel-host display:contents. */
+  aside.panel-host {
     display: flex !important;
-    flex-direction: column;
-    gap: 1px;
-    align-self: stretch;
-    width: 100%;
-    z-index: 15;
+    flex-direction: column !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
     background: rgba(8, 10, 16, 0.55);
-    border-bottom: 1px solid var(--line);
+    z-index: 15;
+    position: relative !important;
+    pointer-events: auto !important;
   }
 
-  /* Each panel becomes a full-width collapsible card stacked above the canvas.
-     Always visible — tap the header to collapse / expand the body. */
-  .panel {
+  /* Force each panel into the flow as a sized flex item. */
+  #toolsPanel,
+  #infoOverlay,
+  #lessonOverlay {
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     position: relative !important;
     left: auto !important;
     right: auto !important;
     top: auto !important;
     bottom: auto !important;
+    transform: none !important;
+    transition: none !important;
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
-    transform: none !important;
-    transition: none !important;
-    visibility: visible !important;
-    opacity: 1 !important;
     pointer-events: auto !important;
     background: rgba(14, 16, 24, 0.94);
-    backdrop-filter: blur(12px) saturate(1.2);
-    -webkit-backdrop-filter: blur(12px) saturate(1.2);
-    border-top: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 0;
     box-shadow: none;
     z-index: auto;
+    overflow: hidden;
   }
 
-  /* Header — tap target for collapse / expand. */
+  /* Canvas takes the remaining space. */
+  .canvas-host {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* Header — tappable to toggle collapse. */
   .panel-header {
-    padding: 8px 14px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px;
+    padding: 10px 14px;
+    min-height: 42px;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
-    align-items: center;
-    gap: 8px;
-    min-height: 38px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   }
-  .panel-title { font-size: 13px; font-weight: 600; letter-spacing: 0.2px; }
-
-  /* Chevron after the title flips on collapsed state. */
+  .panel-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    font-weight: 600;
+  }
   .panel-header::after {
     content: '▾';
     margin-left: auto;
-    font-size: 12px;
+    font-size: 14px;
     color: var(--muted);
-    transition: transform 180ms ease;
   }
-  .panel.panel-collapsed .panel-header::after { transform: rotate(-90deg); }
-  /* Educator header already has level-badge with margin-left:auto.
-     Force the chevron to sit AFTER the badge by overriding its push. */
+  .panel.panel-collapsed .panel-header::after { content: '▸'; }
   #lessonOverlay .panel-header::after { margin-left: 8px; }
 
-  /* Hide body when collapsed. */
+  /* Hide body when panel collapsed; keep header. */
   .panel.panel-collapsed .panel-body { display: none !important; }
 
-  /* Body styling — internal scroll if content exceeds height cap. */
+  /* Body — scrolls internally if content overflows. */
   .panel-body {
-    max-height: 42vh;
+    flex: 1 1 auto;
+    max-height: 38vh;
     overflow-y: auto;
-    padding: 6px 12px 10px;
+    padding: 8px 12px 12px;
   }
 
-  /* No drag handle, no pop button on mobile. */
-  .panel-grabber { display: none !important; }
-  .panel-pop { display: none !important; }
-  /* The desktop-only inline collapse arrow lives next to the title; we use the
-     header chevron instead, so hide the button. */
-  .panel-collapse { display: none !important; }
-  /* Close (×) buttons live in the ⋯ menu via Readings/Lesson toggles; keep
-     them inline though so user can hide a panel without opening ⋯. */
+  /* Hide unused decoration. */
+  .panel-grabber,
+  .panel-pop,
+  .panel-collapse,
+  .mobile-only-btn,
+  .tabbar {
+    display: none !important;
+  }
+
+  /* Inline close (×) button — hides the panel via ⋯ menu toggle. */
   .panel-close,
   .overlay-close {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     background: transparent;
     border: 1px solid var(--line);
     border-radius: 6px;
@@ -2101,14 +2098,14 @@ body {
     line-height: 1;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.12s, color 0.12s;
     margin-left: 0;
+    transition: background 0.12s, color 0.12s;
   }
   .panel-close:active,
   .overlay-close:active { background: var(--bg-3); color: var(--text); }
 
-  /* Tools — compact grid layout when expanded. */
-  #toolsPanel .panel-body { gap: 12px; padding: 8px 12px 14px; }
+  /* === Tools panel layout === */
+  #toolsPanel .panel-body { gap: 12px; padding: 10px 12px 14px; }
   #toolsPanel .tool-section { display: flex; flex-direction: column; gap: 6px; margin: 0; }
   #toolsPanel .tool-grid { display: flex; flex-wrap: wrap; gap: 6px; }
   #toolsPanel .tool {
@@ -2120,51 +2117,51 @@ body {
   }
   #toolsPanel .tool svg { width: 20px; height: 20px; }
   #toolsPanel .tool span { font-size: 10px; }
-  #toolsPanel .preset, #toolsPanel .material {
+  #toolsPanel .preset,
+  #toolsPanel .material {
     flex: 1 1 calc(50% - 6px);
     padding: 8px 10px;
     font-size: 11px;
   }
 
-  /* Readings — single-column metric stack when expanded. */
-  #infoOverlay .panel-body { padding: 4px 12px 10px; gap: 4px; }
+  /* === Readings panel layout === */
+  #infoOverlay .panel-body { padding: 6px 12px 12px; gap: 4px; }
   #infoOverlay .readout-grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
   #infoOverlay .metric { padding: 4px 0; }
   #infoOverlay .metric-label { font-size: 10px; }
   #infoOverlay .metric-val { font-size: 13px; margin-top: 1px; }
   #infoOverlay .metric-val .unit { font-size: 10px; }
   #infoOverlay .totals-mini {
-    font-size: 10px; padding-top: 6px; gap: 12px;
-    flex-direction: row; align-items: center;
+    font-size: 11px;
+    padding-top: 6px;
+    gap: 14px;
+    flex-direction: row;
+    align-items: center;
   }
 
-  /* Educator — lesson body collapsed-aware. */
+  /* === Educator panel layout === */
   #lessonOverlay .panel-body {
-    padding: 4px 12px 10px;
+    padding: 6px 12px 12px;
     flex-direction: column;
     max-height: 32vh;
     overflow-y: auto;
   }
-  #lessonOverlay .lesson-body { max-width: none; font-size: 13px; line-height: 1.55; }
+  #lessonOverlay .lesson-body {
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.55;
+  }
   #lessonOverlay .formula { font-size: 11px; }
   #lessonOverlay .concepts-touched { min-width: 0; }
 
-  /* Mobile tabbar is retired (see ⋯ menu). */
-  .tabbar { display: none; }
-
-  /* Hint sits at the canvas bottom-left, nothing to clear. */
+  /* Hint pinned at canvas bottom-left. */
   .canvas-host .hint {
     left: 12px;
     bottom: calc(env(safe-area-inset-bottom) + 16px);
     max-width: calc(100% - 24px);
   }
-  /* Show touch-friendly hint copy, hide mouse/keyboard instructions. */
   .hint-touch { display: inline; }
   .hint-mouse { display: none; }
-
-  /* No more Tools toggle button in the topbar — the Tools panel header IS the
-     toggle now. Hide it on mobile too. */
-  .mobile-only-btn { display: none !important; }
 }
 
 /* ======================= EMBED MODE (preserved) =======================
