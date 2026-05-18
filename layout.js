@@ -133,7 +133,9 @@ tabs.forEach(btn => {
 // Mobile: chips in a horizontal strip. Tapping a chip toggles
 // .panel-expanded (radio — expanding one collapses the others).
 // Default state is collapsed (CSS handles it without needing JS init).
-const PANEL_KEYS = ['tools', 'readings', 'educator'];
+// Readings is OMITTED — it renders as an always-on HUD overlay (see
+// styles.css mobile @media block), not a togglable chip.
+const PANEL_KEYS = ['tools', 'educator'];
 
 function collapseAllPanels() {
   for (const k of PANEL_KEYS) panels[k]?.classList.remove('panel-expanded');

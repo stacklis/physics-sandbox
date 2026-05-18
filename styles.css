@@ -2087,29 +2087,109 @@ body {
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
   }
 
-  /* Live Readings expands as a COMPACT TRANSPARENT corner overlay so the
-     canvas behind stays visible. Glanceable while interacting with shapes. */
-  #infoOverlay.panel-expanded {
-    left: auto !important;
+  /* ===========================================================
+     LIVE READINGS — always-on HUD pinned to top-right of canvas.
+     Out of the chip strip flow (position:fixed). Translucent + compact
+     so it sits over the canvas like an FPS counter. The existing rAF
+     loop calls updateInfoOverlay() every 4th frame so values stay live
+     without any extra wiring.
+     =========================================================== */
+  #infoOverlay {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top) + 110px) !important;
     right: 8px !important;
-    width: min(210px, calc(100vw - 16px)) !important;
-    max-height: 56vh !important;
-    background: rgba(14, 16, 24, 0.42) !important;
-    border-color: rgba(0, 229, 160, 0.22) !important;
-    box-shadow:
-      0 12px 28px rgba(0, 0, 0, 0.45),
-      0 0 0 1px rgba(0, 229, 160, 0.08) inset;
-    backdrop-filter: blur(8px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(1.2) !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: 168px !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    height: auto !important;
+    max-height: 52vh !important;
+    z-index: 30;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(8, 10, 16, 0.38) !important;
+    backdrop-filter: blur(6px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(6px) saturate(1.2) !important;
+    border: 1px solid rgba(0, 229, 160, 0.22) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
   }
-  #infoOverlay.panel-expanded .panel-header {
-    background: rgba(0, 229, 160, 0.06) !important;
+  /* Compact title strip, non-tappable. */
+  #infoOverlay .panel-header {
+    padding: 4px 10px !important;
+    min-height: 22px !important;
+    background: rgba(0, 229, 160, 0.08) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    cursor: default !important;
   }
-  #infoOverlay.panel-expanded .panel-body {
+  #infoOverlay .panel-title {
+    font-size: 9px !important;
+    letter-spacing: 0.8px !important;
+  }
+  /* Body always visible — no toggle. */
+  #infoOverlay .panel-body {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 6px 10px 8px !important;
+    gap: 3px;
+    overflow-y: auto;
+    max-height: calc(52vh - 28px);
     background: transparent;
-    padding: 8px 12px 12px;
   }
+  /* Tight metric rows, FPS-overlay style. */
+  #infoOverlay .readout-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 1px !important;
+  }
+  #infoOverlay .metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+  #infoOverlay .metric:last-child { border-bottom: 0; }
+  #infoOverlay .metric-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+  }
+  #infoOverlay .metric-val {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 600;
+    font-feature-settings: "tnum";
+    margin: 0 !important;
+  }
+  #infoOverlay .metric-val .unit {
+    font-size: 9px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+  #infoOverlay .totals-mini {
+    font-size: 10px;
+    padding-top: 4px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    color: var(--muted);
+  }
+  #infoOverlay .totals-mini b { color: var(--accent-2); }
+  /* No chevron, no close on the HUD. */
+  #infoOverlay .panel-header::after { display: none !important; }
+  #infoOverlay .panel-close,
+  #infoOverlay .overlay-close { display: none !important; }
 
   /* === Headers — chip form by default, panel form when expanded. === */
   .panel-header {
