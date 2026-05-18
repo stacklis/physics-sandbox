@@ -130,8 +130,9 @@ tabs.forEach(btn => {
   });
 });
 
-// Overlay panel headers are also tappable to collapse / expand on mobile.
-['readings', 'educator'].forEach(key => {
+// Mobile redesign: all three panels live stacked at the top of the screen
+// as always-visible collapsible cards. Header tap toggles .panel-collapsed.
+['tools', 'readings', 'educator'].forEach(key => {
   const panelEl = panels[key];
   if (!panelEl) return;
   const header = panelEl.querySelector('.panel-header');
@@ -142,6 +143,14 @@ tabs.forEach(btn => {
     panelEl.classList.toggle('panel-collapsed');
   });
 });
+
+// Default mobile state — every panel starts collapsed so the canvas isn't
+// crowded on first load. User taps a header to peek into a panel.
+if (mobile) {
+  for (const key of ['tools', 'readings', 'educator']) {
+    panels[key]?.classList.add('panel-collapsed');
+  }
+}
 
 // =============================================================================
 // MOBILE SHEET — continuous drag with nearest-of-{low,mid,high} snap on release.
