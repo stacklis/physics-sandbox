@@ -1990,9 +1990,11 @@ body {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
+    align-items: center !important;
     gap: 6px;
     padding: 6px 10px;
     width: 100% !important;
+    height: 48px;
     overflow-x: auto !important;
     overflow-y: visible !important;
     background: rgba(8, 10, 16, 0.72);
@@ -2012,7 +2014,7 @@ body {
     position: relative;
   }
 
-  /* === Each panel: chip in the strip when collapsed. === */
+  /* === Each panel: chip in the strip by default. === */
   #toolsPanel,
   #infoOverlay,
   #lessonOverlay {
@@ -2027,8 +2029,8 @@ body {
     transition: none !important;
     width: auto !important;
     min-width: 105px;
-    height: auto !important;
-    max-height: none !important;
+    height: 36px !important;
+    max-height: 36px !important;
     pointer-events: auto !important;
     container-type: inline-size !important;
     background: rgba(14, 16, 24, 0.94);
@@ -2040,14 +2042,17 @@ body {
   }
 
   /* === Expanded panel: fixed-position overlay above canvas. === */
-  .panel:not(.panel-collapsed) {
+  #toolsPanel.panel-expanded,
+  #infoOverlay.panel-expanded,
+  #lessonOverlay.panel-expanded {
     position: fixed !important;
     top: calc(env(safe-area-inset-top) + 110px) !important;
     left: 8px !important;
     right: 8px !important;
     width: calc(100vw - 16px) !important;
     min-width: 0 !important;
-    max-height: 55vh;
+    height: auto !important;
+    max-height: 60vh !important;
     z-index: 100;
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72);
     border: 1px solid rgba(255, 255, 255, 0.16);
@@ -2072,7 +2077,7 @@ body {
     background: transparent;
     border-bottom: 0;
   }
-  .panel:not(.panel-collapsed) .panel-header {
+  .panel.panel-expanded .panel-header {
     padding: 12px 14px;
     min-height: 44px;
     background: rgba(255, 255, 255, 0.04);
@@ -2091,7 +2096,7 @@ body {
     font-size: 11px;
     color: var(--muted);
   }
-  .panel:not(.panel-collapsed) .panel-header::after { content: '▾'; }
+  .panel.panel-expanded .panel-header::after { content: '▾'; }
   #lessonOverlay .panel-header .level-badge {
     font-size: 10px;
     padding: 2px 8px;
@@ -2100,14 +2105,14 @@ body {
   #lessonOverlay .panel-header::after { margin-left: 6px; }
 
   /* === Bodies — hidden when collapsed, scrollable when expanded. === */
-  .panel.panel-collapsed .panel-body { display: none !important; }
-  .panel:not(.panel-collapsed) .panel-body {
+  .panel .panel-body { display: none !important; }
+  .panel.panel-expanded .panel-body {
     display: flex !important;
     flex-direction: column;
     flex: 1 1 auto;
     padding: 10px 14px 14px;
     overflow-y: auto;
-    max-height: calc(55vh - 50px);
+    max-height: calc(60vh - 50px);
   }
 
   /* === Hide decoration we don't need on mobile. === */
@@ -2122,8 +2127,8 @@ body {
   .overlay-close {
     display: none;
   }
-  .panel:not(.panel-collapsed) .panel-close,
-  .panel:not(.panel-collapsed) .overlay-close {
+  .panel.panel-expanded .panel-close,
+  .panel.panel-expanded .overlay-close {
     display: flex !important;
     align-items: center;
     justify-content: center;
