@@ -127,14 +127,13 @@ input, button { font: inherit; }
   place-items: center;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   border-radius: 10px;
-  font-size: 18px;
   color: var(--bg);
-  font-weight: 700;
-  box-shadow: 
+  box-shadow:
     0 0 0 1px rgba(255,255,255,0.1),
     0 4px 20px var(--accent-glow),
     inset 0 1px 0 rgba(255,255,255,0.2);
 }
+.logo svg { width: 24px; height: 24px; }
 
 .title {
   font-weight: 600;
@@ -1976,6 +1975,9 @@ body {
   .topbar .bar-group.btns { margin-left: 0; }
   .topbar .seg-label { display: none; }
   .topbar .brand .title { display: none; }
+  /* `contain: layout style paint` from the base rule clipped wrapped topbar
+     rows on mobile — release it so multi-row contents render. */
+  .topbar { contain: none !important; }
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
@@ -1984,23 +1986,29 @@ body {
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* === Panels — stacked, always visible, collapsible. === */
-  /* IDs win specificity over generic .panel-host display:contents. */
+  /* === Panels: horizontal scrollable strip of chips at the top.
+     Expanded panels become floating overlays over the canvas. === */
   aside.panel-host {
     display: flex !important;
-    flex-direction: column !important;
+    flex-direction: row !important;
     flex: 0 0 auto !important;
     width: 100% !important;
+    gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: visible;
+    flex-wrap: nowrap;
     background: rgba(8, 10, 16, 0.55);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     z-index: 15;
     position: relative !important;
     pointer-events: auto !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
+  aside.panel-host::-webkit-scrollbar { display: none; }
 
-  /* Force each panel into the flow as a sized flex item.
-     The desktop CSS sets container-type:size on #toolsPanel and
-     #lessonOverlay which COLLAPSES them to 0×0 in a flex auto context —
-     override to inline-size so they expand to content. */
+  /* Compact chip — collapsed state. */
   #toolsPanel,
   #infoOverlay,
   #lessonOverlay {
@@ -2015,24 +2023,35 @@ body {
     bottom: auto !important;
     transform: none !important;
     transition: none !important;
-    width: 100% !important;
+    width: auto !important;
     height: auto !important;
     max-height: none !important;
+    flex: 0 0 auto !important;
     pointer-events: auto !important;
     container-type: inline-size !important;
     background: rgba(14, 16, 24, 0.94);
-    border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     box-shadow: none;
     z-index: auto;
-    overflow: hidden;
-    flex: 0 0 auto;
+    overflow: visible;
   }
 
-  /* HTML order is topbar → main → aside. With flex-direction:column the
-     panels (aside) would land BELOW the canvas. Reorder so panels sit
-     directly under the topbar and the canvas fills the rest. */
+  /* === Expanded state: float OVER the canvas, don't push it. === */
+  .panel:not(.panel-collapsed) {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top) + 110px);
+    left: 8px;
+    right: 8px;
+    width: auto !important;
+    max-height: 60vh;
+    z-index: 50;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+
+  /* Reorder so the panel strip sits under the topbar. */
   .topbar { order: 0; }
   aside.panel-host { order: 1; }
   .canvas-host {
@@ -2042,19 +2061,27 @@ body {
     position: relative;
   }
 
-  /* Header — tappable to toggle collapse. */
+  /* Compact chip header — tappable to toggle expand. */
   .panel-header {
     display: flex !important;
     align-items: center !important;
-    gap: 8px;
-    padding: 10px 14px;
-    min-height: 42px;
+    gap: 6px;
+    padding: 6px 10px;
+    min-height: 32px;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: transparent;
+    border-bottom: 0;
+    white-space: nowrap;
+  }
+  /* When expanded, header gets a divider so body separates visually. */
+  .panel:not(.panel-collapsed) .panel-header {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 10px 14px;
+    min-height: 42px;
   }
   .panel-title {
     font-size: 12px;

@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=93" />
+<link rel="stylesheet" href="../styles.css?v=94" />
 <script type="importmap">
 {
   "imports": {
@@ -39,7 +39,14 @@
 <body data-active-tab="tools" data-sheet-open="false">
 <header class="topbar">
   <div class="brand">
-    <span class="logo" aria-hidden="true">PS</span>
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.2"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.2" transform="rotate(60 12 12)"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.2" transform="rotate(-60 12 12)"/>
+      </svg>
+    </span>
     <span class="title">Physics Sandbox</span>
   </div>
   <div class="bar-group">
