@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=89" />
+<link rel="stylesheet" href="../styles.css?v=90" />
 <script type="importmap">
 {
   "imports": {
@@ -67,12 +67,13 @@
     <input id="timeScale" type="range" min="0" max="2" step="0.05" value="1" />
   </div>
   <div class="bar-group btns">
-    <button id="toggleReadingsBtn" class="btn ghost panel-vis-btn" data-vis-panel="readings" title="Toggle live readings (R)">Readings</button>
-    <button id="toggleEducatorBtn" class="btn ghost panel-vis-btn" data-vis-panel="educator" title="Toggle lesson panel (E)">Lesson</button>
+    <button id="toggleToolsBtn" class="btn ghost mobile-only-btn" title="Toggle tools (T)">Tools</button>
     <button id="pauseBtn" class="btn ghost" title="Pause / Play (space)">⏸</button>
     <input id="loadFileInput" type="file" accept="application/json,.json" hidden />
   </div>
   <div class="topbar-overflow" id="topbarOverflow">
+    <button id="toggleReadingsBtn" class="btn ghost panel-vis-btn" data-vis-panel="readings" title="Toggle live readings (R)">Readings</button>
+    <button id="toggleEducatorBtn" class="btn ghost panel-vis-btn" data-vis-panel="educator" title="Toggle lesson panel (E)">Lesson</button>
     <button id="saveBtn" class="btn ghost locked" title="Save scene to a file (Pro)">Save</button>
     <button id="loadBtn" class="btn ghost" title="Load scene from a file">Load</button>
     <button id="shareBtn" class="btn ghost" title="Copy a shareable URL to the clipboard">Share</button>
@@ -389,6 +390,6 @@
 <script src="../education.js?v=74"></script>
 <script src="../lib/stacklisPro.js?v=1"></script>
 <script src="../app.js?v=86"></script>
-<script type="module" src="../layout.js?v=79"></script>
+<script type="module" src="../layout.js?v=80"></script>
 </body>
 </html>

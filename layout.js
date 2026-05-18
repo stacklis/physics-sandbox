@@ -853,19 +853,42 @@ function toggleOverlayPanel(key) {
 function updateOverlayVisBtn(key) {
   const btn = OVERLAY_VIS_BTNS[key];
   if (!btn) return;
-  const hidden = panels[key]?.classList.contains('panel-overlay-hidden');
-  btn.classList.toggle('active', !hidden);
+  const on = mobile
+    ? overlayOpen[key] === true
+    : !panels[key]?.classList.contains('panel-overlay-hidden');
+  btn.classList.toggle('active', on);
 }
 
 function setupOverlayToggleBtn(key) {
   const btn = document.querySelector(`[data-vis-panel="${key}"]`);
   if (!btn) return;
   OVERLAY_VIS_BTNS[key] = btn;
-  btn.addEventListener('click', () => { if (!mobile) toggleOverlayPanel(key); });
+  btn.addEventListener('click', () => {
+    if (mobile) {
+      // Mobile uses the overlayOpen map (same logic as the retired tabbar).
+      overlayOpen[key] = !overlayOpen[key];
+      if (overlayOpen[key]) panels[key]?.classList.remove('panel-collapsed');
+      syncPanelVisibility();
+      updateOverlayVisBtn(key);
+    } else {
+      toggleOverlayPanel(key);
+    }
+  });
   updateOverlayVisBtn(key);
 }
 
 for (const key of FLOAT_KEYS) setupOverlayToggleBtn(key);
+
+// Tools toggle (mobile-only button in the ⋯ menu). Mirrors the retired
+// tabbar "Tools" tab — opens / closes the bottom sheet.
+const toolsToggleBtn = document.getElementById('toggleToolsBtn');
+if (toolsToggleBtn) {
+  toolsToggleBtn.addEventListener('click', () => {
+    if (!mobile) return;
+    if (sheetOpen && activeTab === 'tools') closeSheet();
+    else setActiveTab('tools', { openSheet: true });
+  });
+}
 
 function restoreFloatStates() {
   if (mobile) return;
@@ -1147,7 +1170,7 @@ function positionFabMenu() {
 (function initFabDrag() {
   if (!topbarMoreBtn) return;
   const LS = 'ps_fab_pos';
-  const SZ = 44, THRESH = 6, R = 16, B = 72;
+  const SZ = 44, THRESH = 6, R = 16, B = 16;
 
   function isMob() { return window.innerWidth <= 768; }
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }

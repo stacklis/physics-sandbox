@@ -1504,7 +1504,12 @@ body {
 
 .panel.flash { box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--accent-glow); }
 
-/* ======================= TABBAR (mobile only) ======================= */
+/* ⋯-menu "Tools" toggle is mobile-only — Tools is always docked on desktop. */
+.mobile-only-btn { display: none; }
+
+/* ======================= TABBAR (retired — see ⋯ menu) =======================
+   Tools/Readings/Lesson now live inside the .topbar-overflow dropdown. Tabbar
+   rules kept (display:none base) so the design can be revived later. */
 .tabbar {
   display: none;
   position: fixed;
@@ -1952,48 +1957,42 @@ body {
     height: 100vh;
     height: 100svh;
     height: 100dvh;
-    /* 60px tabbar + safe-area + 16px breathing room so shapes near the floor
-       never sit flush against the tabbar edge. */
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    /* Tabbar is hidden on mobile now — reserve only safe-area + a small gutter. */
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
 
-  /* Topbar becomes scrollable strip so the action bar always fits. */
+  /* Topbar wraps onto multiple rows so every control stays visible.
+     Previously this was flex-wrap: nowrap + overflow-x: auto, which scrolled
+     the level/pause buttons off-screen on narrow phones. */
   .topbar {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 14px;
-    padding: 10px 14px;
-    padding-top: max(10px, env(safe-area-inset-top));
-    /* 52px clears the sticky ⋯ button. */
-    padding-right: 52px;
+    gap: 8px 10px;
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: 12px;
   }
   /* Touch-friendly hit areas. */
   .topbar .seg { padding: 8px 12px; font-size: 12px; }
   .topbar .bar-group label { font-size: 12px; }
   .topbar .btn { padding: 9px 14px; font-size: 13px; min-height: 38px; }
-  .topbar::-webkit-scrollbar { display: none; }
-  .topbar .bar-group { flex-shrink: 0; flex-wrap: nowrap; }
+  .topbar .bar-group { flex-shrink: 0; flex-wrap: wrap; }
   .topbar .bar-group.btns { margin-left: 0; }
   .topbar .seg-label { display: none; }
+  /* Hide the brand wordmark on mobile — the logo alone is enough. Saves
+     ~110px of horizontal space so the level segment + pause fit row-1. */
+  .topbar .brand .title { display: none; }
   /* On mobile, hide gravity/time sliders, mode switch, and collapse toggle —
      only keep brand, level, pause, and ⋯. */
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
   .topbar .bar-toggle { display: none; }
-  /* Readings + Lesson topbar toggles are no-ops on mobile (tab bar handles
-     overlay visibility). Hide them so they don't litter the scrollable topbar. */
-  #toggleReadingsBtn, #toggleEducatorBtn { display: none; }
   /* Hide topbar Pro link — upgrade dialog triggered by locked feature clicks. */
   .topbar .btn.pro-btn { display: none; }
-  /* Reorder strip: brand → level → ⋯ → pause. */
+  /* Reorder strip: brand → level → tools/pause → ⋯. */
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
-  /* No more right-side padding reservation needed with fewer items. */
 
   .canvas-host { grid-area: main; }
 
@@ -2002,7 +2001,8 @@ body {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(60px + env(safe-area-inset-bottom));
+    /* Tabbar removed on mobile — sheet anchors to the safe-area now. */
+    bottom: env(safe-area-inset-bottom);
     height: var(--sheet-height, 42vh);
     max-height: 90vh;
     background: rgba(12, 14, 20, 0.96);
@@ -2158,10 +2158,10 @@ body {
     flex-direction: column; align-items: flex-start;
   }
 
-  /* Educator: slim overlay anchored above the tabbar, full width */
+  /* Educator: slim overlay near the bottom; no tabbar to clear anymore. */
   #lessonOverlay {
     position: fixed;
-    bottom: calc(60px + env(safe-area-inset-bottom) + 6px);
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
     left: 8px;
     right: 8px;
     max-height: 32vh;
@@ -2198,18 +2198,14 @@ body {
   }
   .panel-close:active { background: var(--bg-3); color: var(--text); }
 
-  .tabbar {
-    display: flex;
-    gap: 4px;
-    /* Expand to absorb safe-area-inset-bottom so tab content isn't squashed. */
-    height: calc(60px + env(safe-area-inset-bottom));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-  }
+  /* Mobile tabbar replaced by the ⋯ menu (Tools/Readings/Lesson live inside
+     the overflow dropdown). Keep the selector in place so the rule can be
+     re-enabled if we ever bring it back. */
+  .tabbar { display: none; }
 
   .canvas-host .hint {
     left: 12px;
-    /* Stay above tabbar + safe area so it never overlaps the nav bar. */
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
     max-width: calc(100% - 24px);
   }
   /* Show touch-friendly hint copy, hide mouse/keyboard instructions. */
@@ -2559,10 +2555,11 @@ canvas.panning { cursor: grabbing !important; }
     cursor: pointer;
     flex-shrink: 0;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
-    /* FAB — floats above the tabbar, user can drag it anywhere on screen. */
+    /* FAB — floats near bottom-right, user can drag it anywhere on screen.
+       No tabbar below it anymore, so sit just above the safe-area. */
     position: fixed;
     right: 16px;
-    bottom: calc(72px + env(safe-area-inset-bottom));
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
     top: auto;
     transform: none;
     z-index: 200;
@@ -2676,36 +2673,10 @@ canvas.panning { cursor: grabbing !important; }
     font-size: 16px;
   }
 
-  /* Tabbar — vertical strip on the right edge. */
-  .tabbar {
-    flex-direction: column;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: auto;
-    width: 40px;
-    height: auto;
-    padding: max(6px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) 4px;
-    border-top: 0;
-    border-left: 1px solid var(--line);
-    gap: 6px;
-  }
-  .tabbar .tab {
-    flex: 0 0 auto;
-    width: 100%;
-    min-height: 56px;
-    padding: 4px;
-    font-size: 10px;
-    gap: 2px;
-  }
-  .tabbar .tab svg { width: 20px; height: 20px; }
-  .tabbar .tab span {
-    /* Stay readable but compress so they fit a 40px column. */
-    font-size: 9px;
-    letter-spacing: 0.2px;
-  }
+  /* Tabbar retired — landscape-mobile uses the ⋯ menu like portrait. */
+  .tabbar { display: none; }
 
-  /* Hint pinned bottom-left, but clear the right-side tabbar. */
+  /* Hint pinned bottom-left; no right-side tabbar to clear. */
   .canvas-host .hint {
     left: 12px;
     bottom: 12px;
