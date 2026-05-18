@@ -2535,6 +2535,7 @@ const FREE_MODE = (() => {
 })();
 const Pro = (() => {
   const KEY = 'ps.pro';
+  const EMAIL_KEY = 'ps.pro_email';
   // SHA-256 digests of personal/friend distribution codes — plaintext never stored here.
   const REDEEM_HASHES = new Set([
     'cdc61265ac4009c31b89163b6c74054eeb9fe674e5fa1cf995a11f2dcb4c42da',
@@ -2542,17 +2543,25 @@ const Pro = (() => {
   ]);
   function isActive() {
     if (FREE_MODE) return false;
-    // Stacklis Pro entitlement: if the global module verified this user, grant Pro.
     if (window.stacklisPro && window.stacklisPro.isActive()) return true;
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
   }
-  function activate() {
-    try { localStorage.setItem(KEY, '1'); } catch (e) {}
+  function activate(email) {
+    try {
+      localStorage.setItem(KEY, '1');
+      if (email) localStorage.setItem(EMAIL_KEY, String(email).toLowerCase().trim());
+    } catch (e) {}
     updateUI();
   }
   function deactivate() {
-    try { localStorage.setItem(KEY, '0'); } catch (e) {}
+    try {
+      localStorage.setItem(KEY, '0');
+      localStorage.removeItem(EMAIL_KEY);
+    } catch (e) {}
     updateUI();
+  }
+  function getEmail() {
+    try { return localStorage.getItem(EMAIL_KEY) || ''; } catch (e) { return ''; }
   }
   async function redeem(code) {
     const trimmed = String(code || '').trim().toUpperCase();
@@ -2561,6 +2570,36 @@ const Pro = (() => {
     if (REDEEM_HASHES.has(hex)) { activate(); return true; }
     return false;
   }
+  // Email-based unlock — works on any device. Server queries Stripe.
+  async function verifyEmail(email) {
+    const trimmed = String(email || '').toLowerCase().trim();
+    if (!trimmed.includes('@')) return false;
+    try {
+      const res = await fetch('/api/check-pro?email=' + encodeURIComponent(trimmed), { cache: 'no-store' });
+      const data = await res.json();
+      if (data && data.ok && data.pro) { activate(trimmed); return true; }
+    } catch (e) {}
+    return false;
+  }
+  // After a Stripe redirect, look up the session by ID and store the email
+  // so subsequent devices can recover Pro by entering the same email.
+  async function consumeSessionId() {
+    try {
+      const url = new URL(window.location.href);
+      const sid = url.searchParams.get('session_id');
+      if (!sid) return false;
+      url.searchParams.delete('session_id');
+      url.searchParams.delete('pro');
+      url.searchParams.delete('src');
+      window.history.replaceState(null, '', url.toString());
+      const res = await fetch('/api/session-email?session_id=' + encodeURIComponent(sid), { cache: 'no-store' });
+      const data = await res.json();
+      if (data && data.ok && data.pro) { activate(data.email || undefined); return true; }
+    } catch (e) {}
+    return false;
+  }
+  // Legacy honor-system path: ?pro=1&src=stripe. Kept as a fallback if Stripe
+  // strips session_id or the success URL hasn't been updated yet.
   function checkUrlParam() {
     try {
       const url = new URL(window.location.href);
@@ -2572,12 +2611,32 @@ const Pro = (() => {
       }
     } catch (e) {}
   }
+  // On each page load, re-verify the stored email so a refund / chargeback
+  // takes Pro away automatically. Network-quiet: failures don't deactivate.
+  async function reverifyOnLoad() {
+    if (FREE_MODE) return;
+    const email = getEmail();
+    if (!email) return;
+    try {
+      const res = await fetch('/api/check-pro?email=' + encodeURIComponent(email), { cache: 'no-store' });
+      const data = await res.json();
+      if (data && data.ok) {
+        if (data.pro) activate(email);
+        else deactivate();
+      }
+    } catch (e) { /* network down; trust localStorage */ }
+  }
   function updateUI() {
     document.body.classList.toggle('pro', isActive());
   }
-  return { isActive, activate, deactivate, redeem, checkUrlParam, updateUI };
+  return {
+    isActive, activate, deactivate, getEmail,
+    redeem, verifyEmail, consumeSessionId, checkUrlParam, reverifyOnLoad, updateUI,
+  };
 })();
 Pro.checkUrlParam();
+Pro.consumeSessionId();
+Pro.reverifyOnLoad();
 Pro.updateUI();
 if (FREE_MODE) document.body.classList.add('free-mode');
 window.PSandboxPro = Pro;
@@ -2599,11 +2658,16 @@ const upgradeLaterBtn = document.getElementById('upgradeLater');
 const redeemInputEl = document.getElementById('redeemInput');
 const redeemBtnEl = document.getElementById('redeemBtn');
 const redeemMsgEl = document.getElementById('redeemMsg');
+const emailInputEl = document.getElementById('emailInput');
+const emailBtnEl = document.getElementById('emailBtn');
+const emailMsgEl = document.getElementById('emailMsg');
 
 function openUpgradeModal() {
   if (!upgradeDialog) return;
   if (redeemMsgEl) { redeemMsgEl.textContent = ''; redeemMsgEl.className = 'redeem-msg'; }
   if (redeemInputEl) redeemInputEl.value = '';
+  if (emailMsgEl) { emailMsgEl.textContent = ''; emailMsgEl.className = 'redeem-msg'; }
+  if (emailInputEl) emailInputEl.value = Pro.getEmail() || '';
   upgradeDialog.showModal();
 }
 function closeUpgradeModal() { upgradeDialog?.close(); }
@@ -2632,6 +2696,30 @@ if (redeemBtnEl) redeemBtnEl.addEventListener('click', async () => {
 });
 if (redeemInputEl) redeemInputEl.addEventListener('keydown', (ev) => {
   if (ev.key === 'Enter') { ev.preventDefault(); redeemBtnEl?.click(); }
+});
+// Email unlock — verify a Stripe-paid email against the server.
+if (emailBtnEl) emailBtnEl.addEventListener('click', async () => {
+  if (!emailMsgEl || !emailInputEl) return;
+  const email = emailInputEl.value;
+  emailMsgEl.textContent = 'Checking with Stripe…';
+  emailMsgEl.className = 'redeem-msg';
+  emailBtnEl.disabled = true;
+  try {
+    const ok = await Pro.verifyEmail(email);
+    if (ok) {
+      emailMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
+      emailMsgEl.className = 'redeem-msg ok';
+      setTimeout(closeUpgradeModal, 1200);
+    } else {
+      emailMsgEl.textContent = 'No paid Pro purchase found for that email.';
+      emailMsgEl.className = 'redeem-msg err';
+    }
+  } finally {
+    emailBtnEl.disabled = false;
+  }
+});
+if (emailInputEl) emailInputEl.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') { ev.preventDefault(); emailBtnEl?.click(); }
 });
 // Close on backdrop click (event target is the dialog itself, not the inner box).
 if (upgradeDialog) upgradeDialog.addEventListener('click', (ev) => {
