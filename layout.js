@@ -290,6 +290,18 @@ if (mobile) {
   if (topbarEl && panelHostEl && panelHostEl.parentNode !== topbarEl) {
     topbarEl.appendChild(panelHostEl);
   }
+  // Defensive: clear any inline position/scale on the HUD on every page load
+  // so the CSS bottom-anchor wins, even if a previous session left stale
+  // inline styles from a drag or pinch interaction.
+  const hudEl = document.getElementById('infoOverlay');
+  if (hudEl) {
+    hudEl.style.removeProperty('left');
+    hudEl.style.removeProperty('top');
+    hudEl.style.removeProperty('right');
+    hudEl.style.removeProperty('bottom');
+    hudEl.style.removeProperty('transform');
+    delete hudEl.dataset.scale;
+  }
   // HUD uses a dedicated drag-handle (the ● button) since the HUD body has
   // pointer-events: none so canvas interactions pass through.
   makeInteractive(panels.tools);

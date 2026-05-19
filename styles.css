@@ -2218,6 +2218,7 @@ body {
     max-width: 128px !important;
     height: auto !important;
     max-height: 40vh !important;
+    transform: none;
     z-index: 8;
     /* HUD sits in the background — canvas interactions pass straight through
        it so the user can tap/drag shapes that visually overlap the HUD area.
