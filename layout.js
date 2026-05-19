@@ -282,6 +282,14 @@ function makeInteractive(panelEl) {
 }
 
 if (mobile) {
+  // On mobile, append the panel-host into the topbar so the Tools / Educator
+  // chips flow inline with the atom logo + Pro button. Avoids the previous
+  // "empty middle row in the topbar, chips on row 2" layout.
+  const topbarEl = document.querySelector('.topbar');
+  const panelHostEl = document.querySelector('.panel-host');
+  if (topbarEl && panelHostEl && panelHostEl.parentNode !== topbarEl) {
+    topbarEl.appendChild(panelHostEl);
+  }
   makeInteractive(panels.readings);
   makeInteractive(panels.tools);
   makeInteractive(panels.educator);

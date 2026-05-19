@@ -2018,7 +2018,22 @@ body {
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
+  .topbar .bar-group:has(#levelSegment),
   .topbar .bar-toggle { display: none; }
+  /* Keep pause button visible but compact; level segment hidden (use Educator
+     chip's level-badge to track current level instead). */
+  .topbar .bar-group.btns {
+    display: flex;
+    flex: 0 0 auto;
+    padding: 0;
+    gap: 4px;
+    margin-left: 4px;
+  }
+  .topbar #pauseBtn {
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 14px;
+  }
   /* Pro button stays visible on mobile so a paid customer has a clear way
      to open "Already paid? Enter your email". Hide in free/embed since
      those modes intentionally render the app as a non-paid surface. */
@@ -2032,30 +2047,29 @@ body {
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* === Panel strip: a slim transparent row directly under the topbar.
-     Earlier this was a `position: fixed` overlay on top of the topbar,
-     but that hid the level segment + pause button behind a higher z-index
-     pointer-events-auto layer. Back to in-flow row beneath the topbar. === */
+  /* === Panel strip: layout.js appends panel-host into the topbar on mobile,
+     so chips flow inline with the atom logo and the Pro button. No more
+     second row taking up vertical space. === */
   aside.panel-host {
-    order: 1;
-    flex: 0 0 auto !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
     gap: 6px;
-    padding: 4px 10px;
-    width: 100% !important;
-    height: 40px;
+    padding: 0 6px;
+    height: auto;
     overflow-x: auto !important;
     overflow-y: visible !important;
-    background: transparent;
-    border-bottom: 0;
-    z-index: 11;
+    background: transparent !important;
+    border: 0 !important;
+    z-index: auto;
     position: relative !important;
     pointer-events: auto !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    order: 1;
   }
   aside.panel-host::-webkit-scrollbar { display: none; }
 
