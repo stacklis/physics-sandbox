@@ -2209,13 +2209,13 @@ body {
      Tiny fonts, narrow card, draggable header. =========================================================== */
   #infoOverlay {
     position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 100px) !important;
-    left: 6px !important;
+    top: calc(env(safe-area-inset-top) + 120px) !important;
+    left: 12px !important;
     right: auto !important;
     bottom: auto !important;
-    width: 124px !important;
+    width: 128px !important;
     min-width: 0 !important;
-    max-width: 124px !important;
+    max-width: 128px !important;
     height: auto !important;
     max-height: 50vh !important;
     z-index: 8;
@@ -2250,11 +2250,12 @@ body {
   #infoOverlay.panel-dragging { opacity: 1; transition: none; }
   /* Hide the header entirely — user wants only letters/nums/symbols. */
   #infoOverlay .panel-header { display: none !important; }
-  /* Body always visible — naked text only, no chrome. */
+  /* Body always visible — naked text only, no chrome. Small left padding
+     so labels don't crowd the viewport edge. */
   #infoOverlay .panel-body {
     display: flex !important;
     flex-direction: column !important;
-    padding: 0 !important;
+    padding: 0 2px 0 0 !important;
     gap: 0;
     overflow-y: auto;
     max-height: 50vh;
@@ -2283,16 +2284,16 @@ body {
   #infoOverlay .metric-label {
     font-size: 8px !important;
     text-transform: uppercase;
-    color: rgba(180, 180, 200, 0.55) !important;
+    color: rgba(180, 180, 200, 0.42) !important;
     letter-spacing: 0.3px !important;
     line-height: 1.25 !important;
     background: transparent !important;
     border: 0 !important;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7), 0 0 1px rgba(0, 0, 0, 0.7);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 1px rgba(0, 0, 0, 0.9);
   }
   #infoOverlay .metric-val {
     font-size: 10px !important;
-    color: rgba(255, 255, 255, 0.65) !important;
+    color: rgba(255, 255, 255, 0.52) !important;
     font-weight: 600 !important;
     font-feature-settings: "tnum";
     margin: 0 !important;
@@ -2300,7 +2301,7 @@ body {
     white-space: nowrap;
     background: transparent !important;
     border: 0 !important;
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.7), 0 0 1px rgba(0, 0, 0, 0.7);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 1px rgba(0, 0, 0, 0.9);
   }
   #infoOverlay .metric-val .unit {
     font-size: 8px !important;
