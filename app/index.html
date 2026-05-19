@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=106" />
+<link rel="stylesheet" href="../styles.css?v=107" />
 <script type="importmap">
 {
   "imports": {
@@ -358,6 +358,11 @@
 
 <dialog id="upgradeDialog" class="upgrade-dialog">
   <h2>Physics Sandbox <span class="pro-badge inline">PRO</span></h2>
+  <div id="proStatusBanner" class="pro-status-banner" hidden>
+    <span class="pro-status-check">✓</span>
+    <span>Pro active as <b id="proStatusEmail">—</b></span>
+    <button type="button" id="proSignOutBtn" class="pro-status-signout" title="Sign out and clear Pro on this device">Sign out</button>
+  </div>
   <p class="upgrade-sub">Unlock the artifacts you build.</p>
   <ul class="upgrade-features">
     <li><strong>Save scenes</strong> to a file and reload them later.</li>
@@ -387,6 +392,25 @@
   <p class="upgrade-foot">Secure checkout via Stripe. Pro unlocks on any device by entering your email. <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>
 </dialog>
 
+<!-- Long-press context menu — appears near the touched body. -->
+<div id="ctxMenu" class="ctx-menu" hidden role="menu" aria-label="Object actions">
+  <button type="button" class="ctx-item" data-ctx-action="pin">📌 Pin / Unpin</button>
+  <button type="button" class="ctx-item ctx-danger" data-ctx-action="delete">🗑 Delete</button>
+  <details class="ctx-mats">
+    <summary>Material…</summary>
+    <div class="ctx-mat-grid">
+      <button type="button" data-ctx-mat="default">Default</button>
+      <button type="button" data-ctx-mat="rubber">Rubber</button>
+      <button type="button" data-ctx-mat="ice">Ice</button>
+      <button type="button" data-ctx-mat="metal">Metal</button>
+      <button type="button" data-ctx-mat="wood">Wood</button>
+      <button type="button" data-ctx-mat="bouncy">Bouncy</button>
+      <button type="button" data-ctx-mat="heavy">Heavy</button>
+      <button type="button" data-ctx-mat="light">Light</button>
+    </div>
+  </details>
+</div>
+
 <dialog id="helpDialog" class="help">
   <h2>Keyboard</h2>
   <ul data-mode-only="2d">
@@ -412,7 +436,7 @@
 <script src="../engine.js?v=75"></script>
 <script src="../education.js?v=74"></script>
 <script src="../lib/stacklisPro.js?v=1"></script>
-<script src="../app.js?v=91"></script>
+<script src="../app.js?v=92"></script>
 <script type="module" src="../layout.js?v=90"></script>
 </body>
 </html>

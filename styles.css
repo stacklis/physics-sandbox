@@ -733,6 +733,34 @@ body.pro .locked::before { content: none; }
   box-shadow: var(--shadow);
 }
 .upgrade-dialog::backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+/* Status banner shown when Pro is already active for the user — tells them
+   which email is bound and offers a sign-out (deactivate on this device). */
+.pro-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  background: rgba(0, 229, 160, 0.08);
+  border: 1px solid rgba(0, 229, 160, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.pro-status-banner[hidden] { display: none; }
+.pro-status-check { color: var(--accent); font-weight: 700; font-size: 16px; }
+.pro-status-banner b { color: var(--accent-2); font-weight: 600; }
+.pro-status-signout {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pro-status-signout:hover { color: var(--text); border-color: var(--accent); }
 .upgrade-dialog h2 {
   margin: 0 0 6px;
   font-size: 18px;
@@ -2417,6 +2445,81 @@ body.embed-mode .brand .title { font-size: 13px; opacity: 0.9; }
    is `.floating` (see desktop @media). */
 .resize-corner,
 .resize-edge { display: none; }
+
+/* ======================= LONG-PRESS CONTEXT MENU ======================= */
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  background: rgba(14, 16, 24, 0.97);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid rgba(0, 229, 160, 0.3);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.65);
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-item {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ctx-item:hover,
+.ctx-item:active { background: rgba(255, 255, 255, 0.07); }
+.ctx-item.ctx-danger { color: #ff7799; }
+.ctx-item.ctx-danger:hover { background: rgba(255, 95, 130, 0.12); }
+.ctx-mats { padding: 0; }
+.ctx-mats summary {
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.ctx-mats summary::-webkit-details-marker { display: none; }
+.ctx-mats summary::after {
+  content: '▸';
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ctx-mats[open] summary::after { content: '▾'; }
+.ctx-mat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 4px 4px 6px;
+}
+.ctx-mat-grid button {
+  font-size: 11px;
+  padding: 7px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ctx-mat-grid button:hover,
+.ctx-mat-grid button:active {
+  border-color: var(--accent);
+  background: rgba(0, 229, 160, 0.06);
+}
 
 /* =====================================================================
    CONTAINER QUERIES — internal fluidity for resized + floating panels.

@@ -994,6 +994,98 @@ canvas.addEventListener('pointercancel', () => {
   state.slicePath = null;
 });
 
+/* =========================== Long-press context menu ===========================
+ * Press-and-hold a body on the canvas for ~480ms → open a context menu near the
+ * touch point with Pin / Delete / Material actions. Works on both touch and
+ * mouse; cancels if the pointer moves >8px or releases before the timer fires.
+ * Released the active grab once the menu opens so the body doesn't continue to
+ * follow the finger behind the menu.
+ */
+(function () {
+  const LONG_PRESS_MS = 480;
+  const LONG_PRESS_TOL = 8;
+  const ctxMenu = document.getElementById('ctxMenu');
+  if (!ctxMenu) return;
+  let lpTimer = null;
+  let lpStart = null;
+  let lpBody = null;
+  let ctxBody = null;
+
+  function cancelLP() {
+    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+    lpStart = null;
+    lpBody = null;
+  }
+  function openCtxMenu(x, y, body) {
+    ctxBody = body;
+    ctxMenu.hidden = false;
+    const r = ctxMenu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(window.innerWidth - r.width - 8, x));
+    const top = Math.max(8, Math.min(window.innerHeight - r.height - 8, y));
+    ctxMenu.style.left = left + 'px';
+    ctxMenu.style.top = top + 'px';
+    if (typeof triggerHaptic === 'function') triggerHaptic('medium');
+  }
+  function closeCtxMenu() {
+    ctxMenu.hidden = true;
+    ctxBody = null;
+    const det = ctxMenu.querySelector('details');
+    if (det) det.open = false;
+  }
+
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0 && ev.button !== undefined) return;
+    const cp = canvasPos(ev);
+    const wp = screenToWorld(cp.x, cp.y);
+    const body = world.bodyAt(wp);
+    if (!body || body.isStatic || walls.includes(body)) return;
+    cancelLP();
+    lpStart = { x: ev.clientX, y: ev.clientY };
+    lpBody = body;
+    lpTimer = setTimeout(() => {
+      if (!lpBody || !lpStart) return;
+      if (state.grabConstraint) endGrab();
+      openCtxMenu(lpStart.x, lpStart.y, lpBody);
+      lpTimer = null;
+    }, LONG_PRESS_MS);
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!lpStart) return;
+    if (Math.hypot(ev.clientX - lpStart.x, ev.clientY - lpStart.y) > LONG_PRESS_TOL) cancelLP();
+  });
+  canvas.addEventListener('pointerup', cancelLP);
+  canvas.addEventListener('pointercancel', cancelLP);
+
+  document.addEventListener('pointerdown', (ev) => {
+    if (ctxMenu.hidden) return;
+    if (ev.target.closest('#ctxMenu')) return;
+    closeCtxMenu();
+  }, true);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !ctxMenu.hidden) { ev.preventDefault(); closeCtxMenu(); }
+  });
+
+  ctxMenu.addEventListener('click', (ev) => {
+    const action = ev.target.closest('[data-ctx-action]');
+    const mat = ev.target.closest('[data-ctx-mat]');
+    if (action) {
+      if (!ctxBody) { closeCtxMenu(); return; }
+      const a = action.dataset.ctxAction;
+      if (a === 'pin' && typeof togglePin === 'function') togglePin(ctxBody);
+      else if (a === 'delete') {
+        world.remove(ctxBody);
+        if (state.selected === ctxBody) state.selected = null;
+      }
+      closeCtxMenu();
+    } else if (mat) {
+      if (ctxBody && typeof applyMaterialToBody === 'function') {
+        applyMaterialToBody(ctxBody, mat.dataset.ctxMat);
+      }
+      closeCtxMenu();
+    }
+  });
+})();
+
 // Prevent accidental page scroll over the canvas; zoom is disabled.
 canvas.addEventListener('wheel', (ev) => { ev.preventDefault(); }, { passive: false });
 
@@ -2675,8 +2767,28 @@ function openUpgradeModal() {
   if (redeemInputEl) redeemInputEl.value = '';
   if (emailMsgEl) { emailMsgEl.textContent = ''; emailMsgEl.className = 'redeem-msg'; }
   if (emailInputEl) emailInputEl.value = Pro.getEmail() || '';
+  // Show the Pro status banner when this device is already activated, so the
+  // user can see which email is bound and sign out / switch accounts.
+  const banner = document.getElementById('proStatusBanner');
+  const statusEmailEl = document.getElementById('proStatusEmail');
+  if (banner && statusEmailEl) {
+    if (Pro.isActive()) {
+      const e = Pro.getEmail() || 'this device';
+      statusEmailEl.textContent = e;
+      banner.hidden = false;
+    } else {
+      banner.hidden = true;
+    }
+  }
   upgradeDialog.showModal();
 }
+// Sign out button — deactivates Pro on this device + reloads.
+const proSignOutBtn = document.getElementById('proSignOutBtn');
+if (proSignOutBtn) proSignOutBtn.addEventListener('click', () => {
+  if (!confirm('Sign out of Pro on this device? Your purchase is preserved — you can re-verify by entering your email again.')) return;
+  Pro.deactivate();
+  setTimeout(() => { try { location.reload(); } catch (e) {} }, 200);
+});
 function closeUpgradeModal() { upgradeDialog?.close(); }
 
 const proCtaBtn = document.getElementById('proCtaBtn');
