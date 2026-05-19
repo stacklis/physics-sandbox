@@ -1979,7 +1979,7 @@ ui.timeScale.addEventListener('input', () => {
 });
 ui.pauseBtn.addEventListener('click', () => {
   state.paused = !state.paused;
-  ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
+  ui.pauseBtn.textContent = state.paused ? '▶' : '❚❚';
 });
 ui.resetBtn.addEventListener('click', () => loadPreset('default'));
 ui.clearBtn.addEventListener('click', () => {
@@ -3164,7 +3164,7 @@ function deserializeScene(json) {
   }
   // Default to paused unless the file explicitly says otherwise.
   state.paused = (s.paused !== false);
-  ui.pauseBtn.textContent = state.paused ? '▶' : '⏸';
+  ui.pauseBtn.textContent = state.paused ? '▶' : '❚❚';
 
   // View block (optional). All keys validated; unknown fields ignored.
   const v = json.view || {};

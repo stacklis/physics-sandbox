@@ -2054,20 +2054,29 @@ body {
   /* Lock topbar to a single row so Pro can't wrap on a narrow viewport. */
   .topbar { flex-wrap: nowrap !important; }
 
-  /* Educator chip — collapsed shows static "LESSON" prefix instead of the
-     dynamic lesson title (which overflows the chip). When expanded, the
-     real title reappears. */
-  #lessonOverlay:not(.panel-expanded) .panel-title {
-    font-size: 0 !important;
-    line-height: 1 !important;
+  /* Educator chip — collapsed shows static "LESSON" instead of the dynamic
+     lesson title + level badge (which together overflow the chip width).
+     Both reappear when the chip is expanded into an overlay. */
+  #lessonOverlay:not(.panel-expanded) .panel-title,
+  #lessonOverlay:not(.panel-expanded) .level-badge {
+    display: none !important;
   }
-  #lessonOverlay:not(.panel-expanded) .panel-title::before {
+  #lessonOverlay:not(.panel-expanded) .panel-header::before {
     content: "LESSON";
     font-size: 11px;
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.6px;
     font-weight: 700;
+  }
+  /* Ghost-button pause glyph — force the pause/play character to inherit
+     the button's text color instead of rendering as the default colored
+     emoji. font-variant-emoji is the proper solution on Chrome 120+. */
+  .topbar #pauseBtn {
+    font-family: inherit;
+    color: var(--text);
+    font-variant-emoji: text;
+    letter-spacing: -1px;
   }
   /* Pro button stays visible on mobile so a paid customer has a clear way
      to open "Already paid? Enter your email". Hide in free/embed since
