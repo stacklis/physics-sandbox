@@ -2021,19 +2021,23 @@ body {
   .topbar .bar-group:has(#levelSegment),
   .topbar .bar-toggle { display: none; }
   /* Keep pause button visible but compact; level segment hidden (use Educator
-     chip's level-badge to track current level instead). */
+     chip's level-badge to track current level instead). Order it AFTER the
+     chip strip so the row reads [atom] [chips] [pause] [Pro]. */
   .topbar .bar-group.btns {
     display: flex;
     flex: 0 0 auto;
     padding: 0;
     gap: 4px;
     margin-left: 4px;
+    order: 50;
   }
   .topbar #pauseBtn {
     min-height: 32px;
     padding: 4px 10px;
     font-size: 14px;
   }
+  /* Lock topbar to a single row so Pro can't wrap on a narrow viewport. */
+  .topbar { flex-wrap: nowrap !important; }
   /* Pro button stays visible on mobile so a paid customer has a clear way
      to open "Already paid? Enter your email". Hide in free/embed since
      those modes intentionally render the app as a non-paid surface. */
