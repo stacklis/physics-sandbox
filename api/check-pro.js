@@ -1,8 +1,36 @@
-// Vercel serverless function. Given an email, asks Stripe if that email has
-// a paid, non-refunded Charge for this account. Used to unlock Pro on any
-// device — the user paid once on device A, enters their email on device B,
-// we ask Stripe directly. No backing store, Stripe is the source of truth.
+// Vercel serverless function. Given an email, decides whether the user has
+// Pro access by checking, in order:
+//   1. Stacklis lifetime entitlement (stacklis.com/api/entitlement) — one $29
+//      Lifetime purchase on the parent site unlocks every Stacklis app.
+//   2. Stripe charges paid directly to this app's Stripe account — covers the
+//      older Payment Link flow used before /access fulfillment existed.
+// Either source counts as Pro. No backing store; both are sources of truth.
 import Stripe from 'stripe';
+
+const STACKLIS_ENTITLEMENT_URL =
+  process.env.STACKLIS_ENTITLEMENT_URL || 'https://stacklis.com/api/entitlement';
+
+async function hasStacklisEntitlement(email) {
+  try {
+    const url = `${STACKLIS_ENTITLEMENT_URL}?email=${encodeURIComponent(email)}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    // active flag is what /api/entitlement returns; productId tells us which
+    // product. Lifetime unlocks Pro across every Stacklis app.
+    return Boolean(
+      data &&
+        data.active === true &&
+        (data.productId === 'stacklis-pro-lifetime' ||
+          data.productId === 'stacklis-pro-monthly'),
+    );
+  } catch (err) {
+    // Network/JSON errors should not block the user — fall through to the
+    // Stripe-charge scan so legacy Payment-Link customers still unlock.
+    console.warn('[check-pro] stacklis entitlement check failed:', err.message);
+    return false;
+  }
+}
 
 let stripe = null;
 function getStripe() {
@@ -14,15 +42,23 @@ function getStripe() {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  const sk = getStripe();
-  if (!sk) {
-    return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
-  }
-
   const raw = req.query.email || (req.body && req.body.email) || '';
   const email = String(raw).toLowerCase().trim();
   if (!email || !email.includes('@') || email.length > 200) {
     return res.status(400).json({ ok: false, error: 'invalid_email' });
+  }
+
+  // Stacklis-wide entitlement short-circuit — a Lifetime purchase on
+  // stacklis.com/access unlocks this app immediately.
+  if (await hasStacklisEntitlement(email)) {
+    return res.status(200).json({ ok: true, pro: true, source: 'stacklis' });
+  }
+
+  const sk = getStripe();
+  if (!sk) {
+    // Without a local Stripe key we can only rely on Stacklis entitlement.
+    // Since that already returned false, the user is not Pro here.
+    return res.status(200).json({ ok: true, pro: false, source: 'stacklis' });
   }
 
   try {
