@@ -2033,20 +2033,42 @@ body {
      chip's level-badge to track current level instead). Order it AFTER the
      chip strip so the row reads [atom] [chips] [pause] [Pro]. */
   .topbar .bar-group.btns {
-    display: flex;
+    display: flex !important;
     flex: 0 0 auto;
     padding: 0;
     gap: 4px;
     margin-left: 4px;
     order: 50;
+    align-items: center;
   }
+  /* Explicit visibility — defensive against any cascade that might hide it. */
   .topbar #pauseBtn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
     min-height: 32px;
     padding: 4px 10px;
     font-size: 14px;
   }
   /* Lock topbar to a single row so Pro can't wrap on a narrow viewport. */
   .topbar { flex-wrap: nowrap !important; }
+
+  /* Educator chip — collapsed shows static "LESSON" prefix instead of the
+     dynamic lesson title (which overflows the chip). When expanded, the
+     real title reappears. */
+  #lessonOverlay:not(.panel-expanded) .panel-title {
+    font-size: 0 !important;
+    line-height: 1 !important;
+  }
+  #lessonOverlay:not(.panel-expanded) .panel-title::before {
+    content: "LESSON";
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 700;
+  }
   /* Pro button stays visible on mobile so a paid customer has a clear way
      to open "Already paid? Enter your email". Hide in free/embed since
      those modes intentionally render the app as a non-paid surface. */
@@ -2108,7 +2130,7 @@ body {
     transform: none !important;
     transition: none !important;
     width: auto !important;
-    min-width: 72px !important;
+    min-width: 96px !important;
     flex-basis: auto !important;
     flex-shrink: 0 !important;
     height: 36px !important;
