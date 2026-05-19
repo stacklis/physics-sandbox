@@ -209,7 +209,11 @@ function makeInteractive(panelEl) {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1) {
       const fromHeader = e.target.closest('.panel-header') && !e.target.closest('button');
-      if (fromHeader) {
+      // HUD has no header (chrome stripped per UX) — let drag start anywhere
+      // on the HUD body that isn't a button.
+      const isHud = panelEl.id === 'infoOverlay';
+      const hudAnywhere = isHud && !e.target.closest('button');
+      if (fromHeader || hudAnywhere) {
         const rect = panelEl.getBoundingClientRect();
         drag = {
           startX: e.clientX, startY: e.clientY,

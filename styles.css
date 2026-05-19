@@ -2001,24 +2001,27 @@ body {
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* === Panel strip: horizontal scroll of chips. === */
+  /* === Panel strip: chips overlay the empty middle of the topbar (between
+     the logo and the Pro button) so we don't waste a whole row. === */
   aside.panel-host {
-    order: 1;
-    flex: 0 0 auto !important;
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top) + 8px) !important;
+    left: 60px !important;
+    right: 72px !important;
+    height: 38px !important;
+    width: auto !important;
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
     gap: 6px;
-    padding: 6px 10px;
-    width: 100% !important;
-    height: 48px;
+    padding: 0 4px;
     overflow-x: auto !important;
     overflow-y: visible !important;
-    background: rgba(8, 10, 16, 0.72);
-    border-bottom: 1px solid var(--line);
-    z-index: 20;
-    position: relative !important;
+    background: transparent !important;
+    border: 0 !important;
+    z-index: 25;
+    pointer-events: auto !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -2115,13 +2118,13 @@ body {
      Tiny fonts, narrow card, draggable header. =========================================================== */
   #infoOverlay {
     position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 110px) !important;
-    left: 8px !important;
+    top: calc(env(safe-area-inset-top) + 64px) !important;
+    left: 6px !important;
     right: auto !important;
     bottom: auto !important;
-    width: 130px !important;
+    width: 124px !important;
     min-width: 0 !important;
-    max-width: 130px !important;
+    max-width: 124px !important;
     height: auto !important;
     max-height: 50vh !important;
     z-index: 30;
@@ -2131,97 +2134,102 @@ body {
     transition: none !important;
     display: flex !important;
     flex-direction: column !important;
-    background: rgba(8, 10, 16, 0.18) !important;
-    backdrop-filter: blur(3px) saturate(1.1) !important;
-    -webkit-backdrop-filter: blur(3px) saturate(1.1) !important;
-    border: 1px solid rgba(0, 229, 160, 0.10) !important;
-    border-radius: 6px !important;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     overflow: hidden;
     container-type: inline-size !important;
     transform-origin: top left;
   }
   /* Hidden state — toggleable via ⋯ → Readings. */
   body[data-hud-hidden="true"] #infoOverlay { display: none !important; }
-  /* Fade the HUD when user taps on canvas — so it sits in the background. */
-  #infoOverlay:not(:hover):not(.panel-dragging) {
-    opacity: 0.7;
+  /* Idle fade so the HUD truly stays in the background. */
+  #infoOverlay:not(.panel-dragging) {
+    opacity: 0.55;
     transition: opacity 200ms ease;
   }
-  #infoOverlay:hover,
   #infoOverlay.panel-dragging { opacity: 1; transition: none; }
-  /* Drag handle: title strip with grab cursor. */
-  #infoOverlay .panel-header {
-    padding: 3px 8px !important;
-    min-height: 18px !important;
-    background: rgba(0, 229, 160, 0.07) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-    cursor: grab !important;
-    touch-action: none;
-  }
-  #infoOverlay.panel-dragging .panel-header { cursor: grabbing !important; }
-  #infoOverlay .panel-title {
-    font-size: 7px !important;
-    letter-spacing: 0.7px !important;
-  }
-  /* Body always visible, very compact. */
+  /* Hide the header entirely — user wants only letters/nums/symbols. */
+  #infoOverlay .panel-header { display: none !important; }
+  /* Body always visible — naked text only, no chrome. */
   #infoOverlay .panel-body {
     display: flex !important;
     flex-direction: column !important;
-    padding: 4px 8px 6px !important;
-    gap: 1px;
+    padding: 0 !important;
+    gap: 0;
     overflow-y: auto;
-    max-height: calc(50vh - 22px);
-    background: transparent;
+    max-height: 50vh;
+    background: transparent !important;
+    border: 0 !important;
   }
-  /* Force a tight metric layout — defeat container queries. */
   #infoOverlay .readout-grid {
     display: grid !important;
     grid-template-columns: 1fr !important;
     gap: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
   }
   #infoOverlay .metric {
     display: flex !important;
     flex-direction: row !important;
     justify-content: space-between !important;
     align-items: baseline !important;
-    padding: 1px 0 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
     gap: 4px;
   }
-  #infoOverlay .metric:last-child { border-bottom: 0 !important; }
+  #infoOverlay .metric:hover { background: transparent !important; }
   #infoOverlay .metric-label {
-    font-size: 7px !important;
+    font-size: 8px !important;
     text-transform: uppercase;
-    color: rgba(136, 136, 160, 0.7) !important;
+    color: rgba(180, 180, 200, 0.85) !important;
     letter-spacing: 0.3px !important;
-    line-height: 1.2 !important;
+    line-height: 1.25 !important;
+    background: transparent !important;
+    border: 0 !important;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
   }
   #infoOverlay .metric-val {
-    font-size: 9px !important;
-    color: rgba(240, 240, 248, 0.78) !important;
-    font-weight: 500 !important;
+    font-size: 10px !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+    font-weight: 600 !important;
     font-feature-settings: "tnum";
     margin: 0 !important;
-    line-height: 1.2 !important;
+    line-height: 1.25 !important;
     white-space: nowrap;
+    background: transparent !important;
+    border: 0 !important;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
   }
   #infoOverlay .metric-val .unit {
-    font-size: 7px !important;
-    color: var(--muted) !important;
+    font-size: 8px !important;
+    color: rgba(180, 180, 200, 0.7) !important;
     margin-left: 1px;
+    background: transparent !important;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
   }
   #infoOverlay .totals-mini {
-    font-size: 8px !important;
-    padding-top: 3px !important;
-    margin-top: 3px !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    font-size: 9px !important;
+    padding: 2px 0 0 !important;
+    margin: 2px 0 0 !important;
+    border: 0 !important;
     display: flex;
     flex-direction: row;
     gap: 8px;
-    color: var(--muted);
+    color: rgba(180, 180, 200, 0.85);
+    background: transparent !important;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.85);
   }
-  #infoOverlay .totals-mini b { color: var(--accent-2); font-size: 8px !important; }
+  #infoOverlay .totals-mini b {
+    color: rgba(0, 229, 160, 0.95);
+    font-size: 9px !important;
+    background: transparent !important;
+  }
   /* No chevron, no close on the HUD. */
   #infoOverlay .panel-header::after { display: none !important; }
   #infoOverlay .panel-close,
