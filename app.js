@@ -2504,7 +2504,13 @@ const ovConceptList = document.getElementById('ov-conceptList');
 // Update info overlay readings
 function updateInfoOverlay() {
   const infoEl = document.getElementById('infoOverlay');
-  if (!infoEl || !infoEl.classList.contains('visible')) return;
+  if (!infoEl) return;
+  // The legacy `.visible` gate only made sense when the overlay was a
+  // toggled sheet. On mobile it's now an always-on HUD; on desktop it's
+  // a floating panel that uses `panel-overlay-hidden` (display:none) when
+  // hidden. Updating always is cheap (a few DOM text writes) and ensures
+  // the HUD numbers reflect real-time physics.
+  if (infoEl.classList.contains('panel-overlay-hidden')) return;
   
   const b = state.selected;
   const dynamicBodies = world.bodies.filter(x => !x.isStatic && !walls.includes(x));
