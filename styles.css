@@ -2325,8 +2325,22 @@ body {
      8-metric grid. */
   #infoOverlay[data-hud-mode="minimal"] .readout-grid { display: none !important; }
 
-  /* Hidden mode handled by body[data-hud-hidden="true"] already; sync it. */
-  #infoOverlay[data-hud-mode="hidden"] { display: none !important; }
+  /* Hidden mode — collapse the readings content but keep the ● toggle
+     visible at the same spot so the user can re-expand. */
+  #infoOverlay[data-hud-mode="hidden"] .panel-body { display: none !important; }
+  #infoOverlay[data-hud-mode="hidden"] .panel-header { display: none !important; }
+  /* Reserve the toggle's 30×30 footprint so it doesn't jump when the body
+     collapses to zero. */
+  #infoOverlay[data-hud-mode="hidden"] {
+    width: 30px !important;
+    max-width: 30px !important;
+    height: 30px !important;
+    max-height: 30px !important;
+  }
+  /* Legacy body[data-hud-hidden] rule is intentionally NOT used anymore — it
+     hid the entire HUD including the toggle. Override here so any leftover
+     attribute doesn't kill the toggle. */
+  body[data-hud-hidden="true"] #infoOverlay { display: flex !important; }
   /* No chevron, no close on the HUD. */
   #infoOverlay .panel-header::after { display: none !important; }
   #infoOverlay .panel-close,

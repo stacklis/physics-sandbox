@@ -320,8 +320,9 @@ if (mobile) {
     if (!HUD) return;
     if (!MODES.includes(mode)) mode = 'full';
     HUD.dataset.hudMode = mode;
-    if (mode === 'hidden') document.body.dataset.hudHidden = 'true';
-    else delete document.body.dataset.hudHidden;
+    // No longer set body.dataset.hudHidden — the ● toggle must stay visible
+    // in 'hidden' mode so the user can re-expand. The hudMode attribute on
+    // #infoOverlay drives all CSS now.
     try { localStorage.setItem(HUD_MODE_KEY, mode); } catch {}
   }
   let savedMode = 'full';
