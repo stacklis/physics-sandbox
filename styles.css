@@ -2187,8 +2187,11 @@ body {
     max-width: 124px !important;
     height: auto !important;
     max-height: 50vh !important;
-    z-index: 30;
-    pointer-events: auto !important;
+    z-index: 8;
+    /* HUD sits in the background — canvas interactions pass straight through
+       it so the user can tap/drag shapes that visually overlap the HUD area.
+       The ● drag handle below is the one exception (pointer-events: auto). */
+    pointer-events: none !important;
     visibility: visible !important;
     opacity: 1 !important;
     transition: none !important;
@@ -2204,6 +2207,8 @@ body {
     container-type: inline-size !important;
     transform-origin: top left;
   }
+  /* All HUD children inherit pointer-events: none. */
+  #infoOverlay > * { pointer-events: none; }
   /* Hidden state — toggleable via ⋯ → Readings. */
   body[data-hud-hidden="true"] #infoOverlay { display: none !important; }
   /* Idle fade so the HUD truly stays in the background. */
@@ -2291,23 +2296,30 @@ body {
     background: transparent !important;
   }
 
-  /* View-mode toggle: tiny dot in the corner cycles full → minimal → hidden. */
+  /* The ● is both the mode-cycler (tap) AND the drag handle for the HUD
+     (press-and-drag). It's the only HUD element with pointer-events: auto so
+     the canvas can be interacted with everywhere else. */
   .hud-view-toggle {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 22px;
-    height: 22px;
-    background: transparent;
-    border: 0;
-    color: rgba(0, 229, 160, 0.45);
-    font-size: 10px;
-    cursor: pointer;
-    z-index: 2;
+    top: -2px;
+    right: -2px;
+    width: 30px;
+    height: 30px;
+    background: rgba(0, 229, 160, 0.12);
+    border: 1px solid rgba(0, 229, 160, 0.35);
+    border-radius: 50%;
+    color: rgba(0, 229, 160, 0.85);
+    font-size: 13px;
+    cursor: grab;
+    z-index: 3;
     line-height: 1;
     padding: 0;
+    pointer-events: auto !important;
+    touch-action: none;
   }
-  .hud-view-toggle:hover { color: rgba(0, 229, 160, 0.9); }
+  .hud-view-toggle:hover,
+  .hud-view-toggle:active { background: rgba(0, 229, 160, 0.25); color: rgba(0, 229, 160, 1); }
+  #infoOverlay.panel-dragging .hud-view-toggle { cursor: grabbing; }
 
   /* Minimal mode — only show the totals row + bodies count, hide the
      8-metric grid. */

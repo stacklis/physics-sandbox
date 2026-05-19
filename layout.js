@@ -290,7 +290,8 @@ if (mobile) {
   if (topbarEl && panelHostEl && panelHostEl.parentNode !== topbarEl) {
     topbarEl.appendChild(panelHostEl);
   }
-  makeInteractive(panels.readings);
+  // HUD uses a dedicated drag-handle (the ● button) since the HUD body has
+  // pointer-events: none so canvas interactions pass through.
   makeInteractive(panels.tools);
   makeInteractive(panels.educator);
   // Auto-collapse Tools after picking a tool, preset or material — gets the
@@ -328,15 +329,55 @@ if (mobile) {
   applyHudMode(savedMode);
 
   const hudToggle = document.getElementById('hudViewToggle');
-  if (hudToggle) {
-    hudToggle.addEventListener('click', e => {
+  if (hudToggle && HUD) {
+    // The ● serves DOUBLE-DUTY: tap = cycle modes, drag = move the HUD.
+    // makeDragHandle disambiguates via a 6px movement threshold.
+    let dragHandle = null;
+    const THRESHOLD = 6;
+    hudToggle.addEventListener('pointerdown', e => {
       e.stopPropagation();
-      const cur = HUD?.dataset.hudMode || 'full';
-      const next = MODES[(MODES.indexOf(cur) + 1) % MODES.length];
-      applyHudMode(next);
+      const rect = HUD.getBoundingClientRect();
+      dragHandle = {
+        startX: e.clientX, startY: e.clientY,
+        left: rect.left, top: rect.top,
+        moved: false,
+        pointerId: e.pointerId,
+      };
+      try { hudToggle.setPointerCapture(e.pointerId); } catch {}
     });
-    // Don't let the toggle button start a drag.
-    hudToggle.addEventListener('pointerdown', e => e.stopPropagation());
+    hudToggle.addEventListener('pointermove', e => {
+      if (!dragHandle || e.pointerId !== dragHandle.pointerId) return;
+      const dx = e.clientX - dragHandle.startX;
+      const dy = e.clientY - dragHandle.startY;
+      if (!dragHandle.moved && Math.hypot(dx, dy) < THRESHOLD) return;
+      dragHandle.moved = true;
+      HUD.classList.add('panel-dragging');
+      const w = HUD.offsetWidth;
+      const h = HUD.offsetHeight;
+      const left = Math.max(4, Math.min(window.innerWidth - w - 4, dragHandle.left + dx));
+      const top = Math.max(4, Math.min(window.innerHeight - h - 4, dragHandle.top + dy));
+      HUD.style.left = left + 'px';
+      HUD.style.top = top + 'px';
+      HUD.style.right = 'auto';
+      HUD.style.bottom = 'auto';
+    });
+    function endHudDrag(e) {
+      if (!dragHandle || e.pointerId !== dragHandle.pointerId) return;
+      const moved = dragHandle.moved;
+      dragHandle = null;
+      HUD.classList.remove('panel-dragging');
+      if (moved) {
+        e.stopPropagation();
+        e.preventDefault();
+      } else {
+        // Tap (no drag) → cycle modes.
+        const cur = HUD.dataset.hudMode || 'full';
+        const next = MODES[(MODES.indexOf(cur) + 1) % MODES.length];
+        applyHudMode(next);
+      }
+    }
+    hudToggle.addEventListener('pointerup', endHudDrag);
+    hudToggle.addEventListener('pointercancel', endHudDrag);
   }
 
   const readingsToggle = document.getElementById('toggleReadingsBtn');
