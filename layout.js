@@ -308,22 +308,43 @@ if (mobile) {
   }, true);
 }
 
-// HUD toggle — clicking ⋯ → Readings on mobile toggles the HUD on/off.
-// State persists in localStorage so refresh respects the user's preference.
+// HUD view modes — full → minimal → hidden, cycled via tiny ● in the HUD
+// corner. Also reachable from ⋯ → Readings (which toggles hidden/full).
+// Mode persists in localStorage.
 if (mobile) {
-  try {
-    if (localStorage.getItem('ps:hud-hidden') === 'true') {
-      document.body.dataset.hudHidden = 'true';
-    }
-  } catch {}
+  const HUD = document.getElementById('infoOverlay');
+  const HUD_MODE_KEY = 'ps:hud-mode';
+  const MODES = ['full', 'minimal', 'hidden'];
+  function applyHudMode(mode) {
+    if (!HUD) return;
+    if (!MODES.includes(mode)) mode = 'full';
+    HUD.dataset.hudMode = mode;
+    if (mode === 'hidden') document.body.dataset.hudHidden = 'true';
+    else delete document.body.dataset.hudHidden;
+    try { localStorage.setItem(HUD_MODE_KEY, mode); } catch {}
+  }
+  let savedMode = 'full';
+  try { savedMode = localStorage.getItem(HUD_MODE_KEY) || 'full'; } catch {}
+  applyHudMode(savedMode);
+
+  const hudToggle = document.getElementById('hudViewToggle');
+  if (hudToggle) {
+    hudToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const cur = HUD?.dataset.hudMode || 'full';
+      const next = MODES[(MODES.indexOf(cur) + 1) % MODES.length];
+      applyHudMode(next);
+    });
+    // Don't let the toggle button start a drag.
+    hudToggle.addEventListener('pointerdown', e => e.stopPropagation());
+  }
+
   const readingsToggle = document.getElementById('toggleReadingsBtn');
   if (readingsToggle) {
     readingsToggle.addEventListener('click', e => {
       e.stopPropagation();
-      const hidden = document.body.dataset.hudHidden === 'true';
-      if (hidden) delete document.body.dataset.hudHidden;
-      else document.body.dataset.hudHidden = 'true';
-      try { localStorage.setItem('ps:hud-hidden', String(!hidden)); } catch {}
+      const cur = HUD?.dataset.hudMode || 'full';
+      applyHudMode(cur === 'hidden' ? 'full' : 'hidden');
     }, true);
   }
 }

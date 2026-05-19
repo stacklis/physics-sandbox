@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=111" />
+<link rel="stylesheet" href="../styles.css?v=112" />
 <script type="importmap">
 {
   "imports": {
@@ -286,7 +286,8 @@
   </section>
 
   <!-- READINGS panel — desktop right sidebar; mobile sheet tab -->
-  <section class="panel" data-panel="readings" id="infoOverlay" aria-label="Live readings">
+  <section class="panel" data-panel="readings" id="infoOverlay" aria-label="Live readings" data-hud-mode="full">
+    <button type="button" id="hudViewToggle" class="hud-view-toggle" title="Cycle readings view (full → minimal → hidden)" aria-label="Cycle view">●</button>
     <div class="panel-grabber" aria-hidden="true"></div>
     <div class="panel-header">
       <span class="panel-title">Live Readings</span>
@@ -437,6 +438,6 @@
 <script src="../education.js?v=74"></script>
 <script src="../lib/stacklisPro.js?v=1"></script>
 <script src="../app.js?v=93"></script>
-<script type="module" src="../layout.js?v=91"></script>
+<script type="module" src="../layout.js?v=92"></script>
 </body>
 </html>
