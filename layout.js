@@ -292,7 +292,9 @@ if (mobile) {
   }
   // Defensive: clear any inline position/scale on the HUD on every page load
   // so the CSS bottom-anchor wins, even if a previous session left stale
-  // inline styles from a drag or pinch interaction.
+  // inline styles from a drag or pinch interaction. Belt-and-suspenders:
+  // also write the desired bottom-anchor inline so a cached old stylesheet
+  // can't keep the HUD at top.
   const hudEl = document.getElementById('infoOverlay');
   if (hudEl) {
     hudEl.style.removeProperty('left');
@@ -301,6 +303,11 @@ if (mobile) {
     hudEl.style.removeProperty('bottom');
     hudEl.style.removeProperty('transform');
     delete hudEl.dataset.scale;
+    hudEl.style.setProperty('position', 'fixed', 'important');
+    hudEl.style.setProperty('top', 'auto', 'important');
+    hudEl.style.setProperty('bottom', 'calc(env(safe-area-inset-bottom) + 12px)', 'important');
+    hudEl.style.setProperty('left', '12px', 'important');
+    hudEl.style.setProperty('right', 'auto', 'important');
   }
   // HUD uses a dedicated drag-handle (the ● button) since the HUD body has
   // pointer-events: none so canvas interactions pass through.
