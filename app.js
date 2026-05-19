@@ -2571,15 +2571,21 @@ const Pro = (() => {
     return false;
   }
   // Email-based unlock — works on any device. Server queries Stripe.
+  // Returns 'pro' on success, 'not_found' if email isn't in Stripe, 'error' on
+  // network / server failure so the UI can show a useful message.
   async function verifyEmail(email) {
     const trimmed = String(email || '').toLowerCase().trim();
-    if (!trimmed.includes('@')) return false;
+    if (!trimmed.includes('@')) return 'not_found';
     try {
       const res = await fetch('/api/check-pro?email=' + encodeURIComponent(trimmed), { cache: 'no-store' });
+      if (!res.ok) return 'error';
       const data = await res.json();
-      if (data && data.ok && data.pro) { activate(trimmed); return true; }
-    } catch (e) {}
-    return false;
+      if (!data || !data.ok) return 'error';
+      if (data.pro) { activate(trimmed); return 'pro'; }
+      return 'not_found';
+    } catch (e) {
+      return 'error';
+    }
   }
   // After a Stripe redirect, look up the session by ID and store the email
   // so subsequent devices can recover Pro by entering the same email.
@@ -2607,6 +2613,7 @@ const Pro = (() => {
         activate();
         url.searchParams.delete('pro');
         url.searchParams.delete('src');
+        url.searchParams.delete('session_id');
         window.history.replaceState(null, '', url.toString());
       }
     } catch (e) {}
@@ -2707,12 +2714,14 @@ if (emailBtnEl) emailBtnEl.addEventListener('click', async () => {
   emailMsgEl.className = 'redeem-msg';
   emailBtnEl.disabled = true;
   try {
-    const ok = await Pro.verifyEmail(email);
-    if (ok) {
+    const result = await Pro.verifyEmail(email);
+    if (result === 'pro') {
       emailMsgEl.textContent = '✓ Pro unlocked. Reloading…';
       emailMsgEl.className = 'redeem-msg ok';
-      // Full reload guarantees every locked feature picks up the new Pro state.
       setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
+    } else if (result === 'error') {
+      emailMsgEl.textContent = 'Server unavailable — try again in a minute.';
+      emailMsgEl.className = 'redeem-msg err';
     } else {
       emailMsgEl.textContent = 'No paid Pro purchase found for that email.';
       emailMsgEl.className = 'redeem-msg err';

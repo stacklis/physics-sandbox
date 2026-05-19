@@ -1992,35 +1992,39 @@ body {
   .topbar .bar-group:has(#timeScale),
   .topbar .bar-toggle { display: none; }
   /* Pro button stays visible on mobile so a paid customer has a clear way
-     to open "Already paid? Enter your email". */
+     to open "Already paid? Enter your email". Hide in free/embed since
+     those modes intentionally render the app as a non-paid surface. */
   .topbar .btn.pro-btn {
     display: inline-flex;
     order: 99;
     margin-left: auto;
   }
+  body.free-mode .topbar .btn.pro-btn,
+  body.embed-mode .topbar .btn.pro-btn { display: none !important; }
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 
-  /* === Panel strip: chips overlay the empty middle of the topbar (between
-     the logo and the Pro button) so we don't waste a whole row. === */
+  /* === Panel strip: a slim transparent row directly under the topbar.
+     Earlier this was a `position: fixed` overlay on top of the topbar,
+     but that hid the level segment + pause button behind a higher z-index
+     pointer-events-auto layer. Back to in-flow row beneath the topbar. === */
   aside.panel-host {
-    position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 8px) !important;
-    left: 60px !important;
-    right: 72px !important;
-    height: 38px !important;
-    width: auto !important;
+    order: 1;
+    flex: 0 0 auto !important;
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
     gap: 6px;
-    padding: 0 4px;
+    padding: 4px 10px;
+    width: 100% !important;
+    height: 40px;
     overflow-x: auto !important;
     overflow-y: visible !important;
-    background: transparent !important;
-    border: 0 !important;
-    z-index: 25;
+    background: transparent;
+    border-bottom: 0;
+    z-index: 11;
+    position: relative !important;
     pointer-events: auto !important;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -2118,7 +2122,7 @@ body {
      Tiny fonts, narrow card, draggable header. =========================================================== */
   #infoOverlay {
     position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 64px) !important;
+    top: calc(env(safe-area-inset-top) + 100px) !important;
     left: 6px !important;
     right: auto !important;
     bottom: auto !important;

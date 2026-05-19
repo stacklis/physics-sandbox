@@ -291,6 +291,12 @@ if (mobile) {
   panels.tools?.addEventListener('click', e => {
     if (!e.target.closest(COLLAPSE_AFTER)) return;
     panels.tools.classList.remove('panel-expanded');
+    // Clear any stale drag inline style so the panel snaps back to its
+    // chip position cleanly when re-expanded next time.
+    panels.tools.style.left = '';
+    panels.tools.style.top = '';
+    panels.tools.style.right = '';
+    panels.tools.style.bottom = '';
   }, true);
 }
 
