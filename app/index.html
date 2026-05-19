@@ -25,7 +25,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="../styles.css?v=103" />
+<link rel="stylesheet" href="../styles.css?v=104" />
 <script type="importmap">
 {
   "imports": {
@@ -90,7 +90,7 @@
     <button id="clearBtn" class="btn danger" title="Clear all">Clear</button>
   </div>
   <button id="topbarMore" class="topbar-more" type="button" aria-label="More actions" aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
-  <a href="https://buy.stripe.com/28E8wPdCQ2gs7DdamB0Jq01" target="_blank" rel="noopener noreferrer" class="btn pro-btn" title="Upgrade to Pro — $9 one-time">Pro</a>
+  <button type="button" id="proCtaBtn" class="btn pro-btn" title="Upgrade or unlock Pro">Pro</button>
   <button id="topbarToggle" class="bar-toggle" aria-label="Collapse top bar" title="Collapse / expand top bar"></button>
 </header>
 
@@ -98,7 +98,7 @@
   <canvas id="canvas"></canvas>
   <canvas id="canvas3d" style="display:none;position:absolute;inset:0;width:100%;height:100%;"></canvas>
   <div id="hint" class="hint">
-    <span class="hint-touch">Tap &amp; drag to spawn. Tap an object to inspect. Use tabs below for tools.</span>
+    <span class="hint-touch">Tap a chip at the top (Tools / Lesson) to open it. Drag on canvas to spawn objects, tap an object to inspect.</span>
     <span class="hint-mouse">Drag to spawn · Right-drag/scroll to pan/zoom · Click an object to inspect. <kbd>?</kbd> for keys.</span>
     <button id="hintClose" class="hint-close" aria-label="Dismiss tip" title="Dismiss">×</button>
   </div>
@@ -412,7 +412,7 @@
 <script src="../engine.js?v=75"></script>
 <script src="../education.js?v=74"></script>
 <script src="../lib/stacklisPro.js?v=1"></script>
-<script src="../app.js?v=89"></script>
-<script type="module" src="../layout.js?v=87"></script>
+<script src="../app.js?v=90"></script>
+<script type="module" src="../layout.js?v=88"></script>
 </body>
 </html>

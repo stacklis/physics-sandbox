@@ -281,6 +281,13 @@ if (mobile) {
   makeInteractive(panels.readings);
   makeInteractive(panels.tools);
   makeInteractive(panels.educator);
+  // Auto-collapse Tools after picking a tool, preset or material — gets the
+  // panel out of the way so the user can immediately interact with the canvas.
+  const COLLAPSE_AFTER = '.tool[data-tool], .tool[data-tool3d], .preset, .material';
+  panels.tools?.addEventListener('click', e => {
+    if (!e.target.closest(COLLAPSE_AFTER)) return;
+    panels.tools.classList.remove('panel-expanded');
+  }, true);
 }
 
 // HUD toggle — clicking ⋯ → Readings on mobile toggles the HUD on/off.

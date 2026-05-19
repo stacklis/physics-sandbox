@@ -1990,8 +1990,14 @@ body {
   .topbar .bar-group:has(#modeSegment),
   .topbar .bar-group:has(#gravity),
   .topbar .bar-group:has(#timeScale),
-  .topbar .bar-toggle,
-  .topbar .btn.pro-btn { display: none; }
+  .topbar .bar-toggle { display: none; }
+  /* Pro button stays visible on mobile so a paid customer has a clear way
+     to open "Already paid? Enter your email". */
+  .topbar .btn.pro-btn {
+    display: inline-flex;
+    order: 99;
+    margin-left: auto;
+  }
   .topbar .brand { order: -2; }
   .topbar .bar-group:has(#levelSegment) { order: -1; }
 

@@ -2672,6 +2672,8 @@ function openUpgradeModal() {
 }
 function closeUpgradeModal() { upgradeDialog?.close(); }
 
+const proCtaBtn = document.getElementById('proCtaBtn');
+if (proCtaBtn) proCtaBtn.addEventListener('click', () => openUpgradeModal());
 if (upgradeCtaBtn) upgradeCtaBtn.addEventListener('click', () => {
   if (STRIPE_CHECKOUT_URL && !STRIPE_CHECKOUT_URL.includes('REPLACE_WITH_REAL_LINK')) {
     window.open(STRIPE_CHECKOUT_URL, '_blank');
@@ -2686,9 +2688,9 @@ if (redeemBtnEl) redeemBtnEl.addEventListener('click', async () => {
   if (!redeemMsgEl) return;
   const ok = await Pro.redeem(redeemInputEl?.value);
   if (ok) {
-    redeemMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
+    redeemMsgEl.textContent = '✓ Pro unlocked. Reloading…';
     redeemMsgEl.className = 'redeem-msg ok';
-    setTimeout(closeUpgradeModal, 1200);
+    setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
   } else {
     redeemMsgEl.textContent = 'Code not recognized.';
     redeemMsgEl.className = 'redeem-msg err';
@@ -2707,9 +2709,10 @@ if (emailBtnEl) emailBtnEl.addEventListener('click', async () => {
   try {
     const ok = await Pro.verifyEmail(email);
     if (ok) {
-      emailMsgEl.textContent = '✓ Pro unlocked. Enjoy.';
+      emailMsgEl.textContent = '✓ Pro unlocked. Reloading…';
       emailMsgEl.className = 'redeem-msg ok';
-      setTimeout(closeUpgradeModal, 1200);
+      // Full reload guarantees every locked feature picks up the new Pro state.
+      setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
     } else {
       emailMsgEl.textContent = 'No paid Pro purchase found for that email.';
       emailMsgEl.className = 'redeem-msg err';
