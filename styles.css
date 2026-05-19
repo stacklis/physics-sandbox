@@ -2209,15 +2209,15 @@ body {
      Tiny fonts, narrow card, draggable header. =========================================================== */
   #infoOverlay {
     position: fixed !important;
-    top: calc(env(safe-area-inset-top) + 120px) !important;
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom) + 12px) !important;
     left: 12px !important;
     right: auto !important;
-    bottom: auto !important;
     width: 128px !important;
     min-width: 0 !important;
     max-width: 128px !important;
     height: auto !important;
-    max-height: 50vh !important;
+    max-height: 40vh !important;
     z-index: 8;
     /* HUD sits in the background — canvas interactions pass straight through
        it so the user can tap/drag shapes that visually overlap the HUD area.

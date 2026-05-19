@@ -3436,11 +3436,14 @@ function loadPreset(name) {
       break;
     }
     case 'newton': {
+      // Scale anchor + string-length to the actual canvas height so portrait
+      // viewports (tall + narrow) don't leave 70% of the screen empty below.
+      // Target: anchor 15% from top, ball-at-rest near vertical center.
+      const ay = Math.max(0.8, Hm * 0.15);
+      const len = Math.max(2.5, Hm * 0.40);
       // Tiny gap so resting balls don't interpenetrate (2r exactly leaves no
       // slop for the iterative constraint solver, which jitters into overlap).
-      const ay = 1.2;
-      const len = 3;
-      const radius = 0.5;
+      const radius = Math.max(0.4, Math.min(0.65, Wm * 0.06));
       const spacing = radius * 2 + 0.04;
       const cx = Wm * 0.5;
       const N = 5;
@@ -3459,7 +3462,9 @@ function loadPreset(name) {
       // explosive impact than the previous near-horizontal release.
       const first = world.bodies.find(b => !b.isStatic);
       if (first) {
-        first.position = new Vec2(first.position.x - 1.5, first.position.y - 0.4);
+        const swing = len * 0.5;
+        first.position = new Vec2(first.position.x - swing * Math.sin(Math.PI / 6),
+                                  first.position.y - swing * (1 - Math.cos(Math.PI / 6)));
       }
       break;
     }
