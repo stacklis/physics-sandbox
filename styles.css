@@ -2108,7 +2108,9 @@ body {
     transform: none !important;
     transition: none !important;
     width: auto !important;
-    min-width: 0;
+    min-width: 72px !important;
+    flex-basis: auto !important;
+    flex-shrink: 0 !important;
     height: 36px !important;
     max-height: 36px !important;
     pointer-events: auto !important;
